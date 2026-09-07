@@ -16,8 +16,23 @@ export default function useActiveStayChange(groupId, onApplied) {
       return null;
     } finally { setBusy(false); }
   };
-  const previewChange = async periods => { const data = await run("previewActiveMultiPeriodStayChange", periods); if (data) setPreview(data); };
-  const applyChange = async periods => { const data = await run("applyActiveMultiPeriodStayChange", periods, { confirmed: true }); if (data?.success) onApplied?.(data); };
+  const previewChange = async periods => {
+    const data = await run("previewActiveMultiPeriodStayChange", periods);
+    if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
+  };
+  const applyChange = async periods => {
+    if (!preview?.request_id || !preview?.base_version) {
+      setError("יש לבצע תצוגה מקדימה חדשה לפני האישור");
+      return;
+    }
+    const data = await run("applyActiveMultiPeriodStayChange", periods, {
+      confirmed: true,
+      request_id: preview.request_id,
+      base_version: preview.base_version,
+      actions: {},
+    });
+    if (data?.success) onApplied?.(data);
+  };
   const resetPreview = () => setPreview(null);
   return { preview, busy, error, previewChange, applyChange, resetPreview };
 }
