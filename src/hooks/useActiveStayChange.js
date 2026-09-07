@@ -18,6 +18,8 @@ export default function useActiveStayChange(groupId, onApplied) {
   };
   const previewChange = async periods => {
     const data = await run("previewActiveMultiPeriodStayChange", periods);
+    const blocker = data?.blocking_errors?.find(item => item.code === "STARTED_PERIOD_CANNOT_BE_REMOVED_OR_REWRITTEN");
+    if (blocker) console.warn("Active stay started-period blocker diagnostic", blocker);
     if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
   };
   const applyChange = async periods => {
