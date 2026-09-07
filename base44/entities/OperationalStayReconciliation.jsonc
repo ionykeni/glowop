@@ -1,0 +1,98 @@
+{
+  "name": "OperationalStayReconciliation",
+  "type": "object",
+  "properties": {
+    "group_id": {
+      "type": "string"
+    },
+    "change_id": {
+      "type": "string"
+    },
+    "stable_key": {
+      "type": "string"
+    },
+    "module": {
+      "type": "string",
+      "enum": [
+        "MEALS",
+        "SLEEPING",
+        "NEIGHBORHOOD",
+        "CAPACITY",
+        "ACTIVITIES",
+        "COFFEE",
+        "PRISA",
+        "SYSTEM"
+      ]
+    },
+    "impact_type": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "RESOLVED"
+      ],
+      "default": "OPEN"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolution": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "group_id",
+    "change_id",
+    "stable_key",
+    "module",
+    "impact_type",
+    "date",
+    "summary",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

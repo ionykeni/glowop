@@ -1,0 +1,62 @@
+{
+  "name": "OperationalStayChange",
+  "type": "object",
+  "properties": {
+    "group_id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "plan_uri": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "PREPARED",
+        "APPLYING",
+        "APPLIED",
+        "PENDING",
+        "DONE"
+      ]
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "applied_at": {
+      "type": "string"
+    },
+    "last_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "group_id",
+    "request_id",
+    "plan_uri",
+    "state"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

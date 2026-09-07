@@ -8,6 +8,10 @@ import {
 } from './groupStayPeriods.js';
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from './logicalSleepingSeries.js';
 import { isGroupOperationallyEnabled } from './groupOperationalIsolation.js';
+import { fingerprint, periodShape, readAll, todayIL } from './stayReconciliationCore.js';
+import { planStaySleeping } from './staySleepingPlan.js';
+import { serviceImpacts } from './stayServiceImpacts.js';
+import { sleepingCoverage } from './staySleepingCoverage.js';
 
 const ACTIVE_GROUP_STATUSES = new Set(['CONFIRMED', 'COMPLETED']);
 const ACTIVE_ALLOCATION_STATUSES = new Set(['DRAFT', 'CONFIRMED']);
@@ -55,25 +59,23 @@ export async function authorizeActiveStayAdmin(base44, user) {
   const rows = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email }, '-created_date', 1);
   const internal = rows[0];
   const role = internal?.role || user.role;
-  return !!internal?.active && ['SUPER_ADMIN', 'ADMIN'].includes(role);
+  return user.role === 'admin' && !!internal?.active && ['SUPER_ADMIN', 'ADMIN'].includes(role);
 }
 
-export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawProposedPeriods, today = new Date().toISOString().slice(0, 10)) {
-  const [groups, profiles, currentPeriods, allGroups, allProfiles, allPeriods, allAllocations, allReservations, settingsRows, holds, meals, scheduleItems, coffeeRequests, prisaRequests] = await Promise.all([
-    base44.asServiceRole.entities.Group.filter({ id: groupId }),
-    base44.asServiceRole.entities.OperationalGroupProfile.filter({ group_id: groupId }),
-    base44.asServiceRole.entities.GroupStayPeriod.filter({ group_id: groupId, status: 'ACTIVE' }, 'start_date', 100),
-    base44.asServiceRole.entities.Group.list('-arrival_date', 1000),
-    base44.asServiceRole.entities.OperationalGroupProfile.list(),
-    base44.asServiceRole.entities.GroupStayPeriod.filter({ status: 'ACTIVE' }),
-    base44.asServiceRole.entities.SleepingAllocation.filter({ status: { $in: ['DRAFT', 'CONFIRMED'] } }),
-    base44.asServiceRole.entities.NeighborhoodReservation.filter({ status: 'ACTIVE' }),
-    base44.asServiceRole.entities.SiteSettings.list(),
-    base44.asServiceRole.entities.OperationalHold.filter({ status: 'ACTIVE' }),
-    base44.asServiceRole.entities.MealReservation.filter({ group_id: groupId, status: 'ACTIVE' }),
-    base44.asServiceRole.entities.GroupScheduleItem.filter({ group_id: groupId, status: 'ACTIVE' }),
-    base44.asServiceRole.entities.CoffeeCornerRequest.filter({ group_id: groupId, status: 'ACTIVE' }),
-    base44.asServiceRole.entities.PrisaRequest.filter({ group_id: groupId, status: 'ACTIVE' }),
+export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawProposedPeriods, today = todayIL()) {
+  const db = base44.asServiceRole.entities;
+  const [groups, profiles, currentPeriods, allGroups, allProfiles, allPeriods, allAllocations, allReservations, settingsRows, holds, meals, scheduleItems, coffeeRequests, prisaRequests, tents] = await Promise.all([
+    readAll(db.Group, { id: groupId }), readAll(db.OperationalGroupProfile, { group_id: groupId }),
+    readAll(db.GroupStayPeriod, { group_id: groupId, status: 'ACTIVE' }),
+    readAll(db.Group, { group_type: 'LODGING', status: { $in: ['CONFIRMED','COMPLETED'] } }),
+    readAll(db.OperationalGroupProfile), readAll(db.GroupStayPeriod, { status: 'ACTIVE' }),
+    readAll(db.SleepingAllocation, { status: { $in: ['DRAFT','CONFIRMED'] } }),
+    readAll(db.NeighborhoodReservation, { status: 'ACTIVE' }), readAll(db.SiteSettings),
+    readAll(db.OperationalHold, { status: 'ACTIVE' }),
+    readAll(db.MealReservation, { group_id: groupId, status: 'ACTIVE' }),
+    readAll(db.GroupScheduleItem, { group_id: groupId, status: 'ACTIVE' }),
+    readAll(db.CoffeeCornerRequest, { group_id: groupId, status: 'ACTIVE' }),
+    readAll(db.PrisaRequest, { group_id: groupId, status: 'ACTIVE' }), readAll(db.Tent),
   ]);
 
   const group = groups[0];
@@ -93,7 +95,7 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   const proposed = normalizeStayPeriods(proposedWithKeys).map(publicPeriod);
   const validation = validateStayPeriods(proposed);
   validation.errors.forEach(item => blockingErrors.push(item));
-  if (proposed.length < 2) blockingErrors.push(error('MIN_TWO_ACTIVE_PERIODS'));
+  if (proposed.length < 1) blockingErrors.push(error('ACTIVE_PERIODS_REQUIRED'));
   proposed.forEach((period, index) => {
     if (period.start_date >= period.end_date) blockingErrors.push(error('PERIOD_MUST_INCLUDE_SLEEPING_NIGHT', { index, period_key: period.period_key }));
   });
@@ -113,11 +115,16 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   for (const item of [...removedPeriods.map(current => ({ current, proposed: null })), ...changedPeriods]) {
     const current = item.current;
     if (current.end_date <= today) blockingErrors.push(error('HISTORICAL_PERIOD_IMMUTABLE', { period_id: current.id, start_date: current.start_date, end_date: current.end_date }));
-    else if (current.start_date < today && (!item.proposed || item.proposed.start_date !== current.start_date || item.proposed.end_date < current.end_date)) {
+    else if (current.start_date < today && (!item.proposed || item.proposed.start_date !== current.start_date || item.proposed.end_date < today || (item.proposed.arrival_time || '') !== (current.arrival_time || ''))) {
       blockingErrors.push(error('STARTED_PERIOD_CANNOT_BE_REMOVED_OR_REWRITTEN', { period_id: current.id, start_date: current.start_date, end_date: current.end_date }));
     }
   }
   addedPeriods.filter(period => period.start_date < today).forEach(period => blockingErrors.push(error('NEW_PERIOD_CANNOT_START_IN_PAST', { period_key: period.period_key })));
+  changedPeriods.filter(item => item.current.start_date >= today && item.proposed.start_date < today).forEach(item => blockingErrors.push(error('NEW_PERIOD_CANNOT_START_IN_PAST', { period_id: item.current.id })));
+  if (new Set(proposed.map(p => p.period_key)).size !== proposed.length) blockingErrors.push(error('DUPLICATE_PERIOD_IDS'));
+  if (group && group.group_type !== 'LODGING') blockingErrors.push(error('NOT_LODGING'));
+  const base_version = await fingerprint(periodShape(currentPeriods));
+  if (blockingErrors.length) return { result: { success: true, allowed: false, blocking_errors: blockingErrors, warnings: [], base_version }, plan: null };
 
   const currentNights = sleepingNights(currentPeriods);
   const proposedNights = sleepingNights(proposed);
@@ -131,65 +138,18 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   const myAllocations = allAllocations.filter(row => row.group_id === groupId && ACTIVE_ALLOCATION_STATUSES.has(row.status));
   const unlinkedAllocations = myAllocations.filter(row => !row.stay_period_id || !row.allocation_series_id);
   if (unlinkedAllocations.length) blockingErrors.push(error('LEGACY_SLEEPING_LINKAGE_REQUIRED', { allocation_ids: unlinkedAllocations.map(row => row.id) }));
-  const seriesValidation = validateLinkedSeriesCompleteness(myAllocations, currentPeriods, groupId);
-  if (!seriesValidation.valid) blockingErrors.push(error('INCOMPLETE_SLEEPING_SERIES', { details: seriesValidation.errors }));
-  const logical = groupLogicalSleepingAssignments(myAllocations).logical_assignments;
-  const allocationUpdates = [];
-  const allocationCreates = [];
-  const allocationCancels = [];
-  const exactTentConflicts = [];
-  for (const series of logical) {
-    if (series.inconsistent || !series.linked) continue;
-    const rowByPeriod = new Map(series.period_rows.map(row => [row.stay_period_id, row]));
-    for (const period of proposed) {
-      const existing = period.id ? rowByPeriod.get(period.id) : null;
-      const baseRow = series.period_rows[0];
-      const conflicting = allAllocations.filter(row => row.group_id !== groupId && ACTIVE_ALLOCATION_STATUSES.has(row.status) && row.tent_id === series.tent_id && overlap(period.start_date, period.end_date, row.arrival_date, row.departure_date));
-      conflicting.forEach(row => exactTentConflicts.push({ allocation_series_id: series.allocation_series_id, tent_id: series.tent_id, period_key: period.period_key, proposed_start_date: period.start_date, proposed_end_date: period.end_date, conflicting_group_id: row.group_id, conflicting_allocation_id: row.id, conflicting_start_date: row.arrival_date, conflicting_end_date: row.departure_date }));
-      if (existing) {
-        if (existing.arrival_date !== period.start_date || existing.departure_date !== period.end_date) allocationUpdates.push({ id: existing.id, period_key: period.period_key, arrival_date: period.start_date, departure_date: period.end_date });
-      } else allocationCreates.push({ period_key: period.period_key, template: { operational_group_profile_id: baseRow.operational_group_profile_id, group_id: groupId, tent_id: baseRow.tent_id, neighborhood_id: baseRow.neighborhood_id, allocated_pax: Number(baseRow.allocated_pax), allocation_type: baseRow.allocation_type, gender_group: baseRow.gender_group, notes: baseRow.notes || '', status: series.all_confirmed ? 'CONFIRMED' : 'DRAFT', housekeeping_status: 'PENDING', allocation_series_id: series.allocation_series_id, arrival_date: period.start_date, departure_date: period.end_date } });
-    }
-    const proposedIds = new Set(suppliedIds);
-    series.period_rows.filter(row => !proposedIds.has(row.stay_period_id)).forEach(row => allocationCancels.push({ id: row.id, stay_period_id: row.stay_period_id }));
-  }
-  if (exactTentConflicts.length) blockingErrors.push(error('SAME_TENT_CONFLICT', { conflicts: exactTentConflicts }));
-
-  const myReservations = allReservations.filter(row => row.group_id === groupId && row.status === 'ACTIVE');
-  const unlinkedReservations = myReservations.filter(row => !row.stay_period_id);
-  if (unlinkedReservations.length) blockingErrors.push(error('LEGACY_NEIGHBORHOOD_LINKAGE_REQUIRED', { reservation_ids: unlinkedReservations.map(row => row.id) }));
-  const desiredReservations = [];
-  for (const period of proposed) {
-    const byNeighborhood = new Map();
-    logical.filter(series => series.allocation_type === 'STUDENT').forEach(series => {
-      const item = byNeighborhood.get(series.neighborhood_id) || { tentIds: new Set(), genders: new Set() };
-      item.tentIds.add(series.tent_id); item.genders.add(series.gender_group); byNeighborhood.set(series.neighborhood_id, item);
-    });
-    for (const [neighborhoodId, item] of byNeighborhood.entries()) desiredReservations.push({ period_key: period.period_key, period_id: period.id || null, start_date: period.start_date, end_date: period.end_date, neighborhood_id: neighborhoodId, gender_group: item.genders.size === 1 ? [...item.genders][0] : 'MIXED', planned_tents: item.tentIds.size });
-  }
-  if (myReservations.length && !logical.some(series => series.allocation_type === 'STUDENT')) blockingErrors.push(error('NEIGHBORHOOD_WITHOUT_STUDENT_SERIES'));
-  const reservationUpdates = [];
-  const reservationCreates = [];
-  const matchedReservationIds = new Set();
-  const neighborhoodConflicts = [];
-  const overrideByNeighborhood = new Map();
-  myReservations.filter(row => row.shared_neighborhood_allowed === true).forEach(row => overrideByNeighborhood.set(row.neighborhood_id, row));
-  for (const desired of desiredReservations) {
-    const existing = desired.period_id ? myReservations.find(row => row.stay_period_id === desired.period_id && row.neighborhood_id === desired.neighborhood_id) : null;
-    if (existing) {
-      matchedReservationIds.add(existing.id);
-      if (existing.arrival_date !== desired.start_date || existing.departure_date !== desired.end_date || existing.gender_group !== desired.gender_group || Number(existing.planned_tents) !== desired.planned_tents) reservationUpdates.push({ id: existing.id, period_key: desired.period_key, arrival_date: desired.start_date, departure_date: desired.end_date, gender_group: desired.gender_group, planned_tents: desired.planned_tents });
-    } else {
-      const override = overrideByNeighborhood.get(desired.neighborhood_id);
-      reservationCreates.push({ period_key: desired.period_key, template: { group_id: groupId, operational_group_profile_id: profiles[0]?.id, neighborhood_id: desired.neighborhood_id, arrival_date: desired.start_date, departure_date: desired.end_date, gender_group: desired.gender_group, planned_tents: desired.planned_tents, status: 'ACTIVE', source: 'allocation', shared_neighborhood_allowed: override?.shared_neighborhood_allowed === true, shared_neighborhood_reason: override?.shared_neighborhood_reason || null, shared_neighborhood_approved_by: override?.shared_neighborhood_approved_by || null, shared_neighborhood_approved_at: override?.shared_neighborhood_approved_at || null } });
-    }
-    const override = overrideByNeighborhood.get(desired.neighborhood_id);
-    allReservations.filter(row => row.group_id !== groupId && row.status === 'ACTIVE' && row.neighborhood_id === desired.neighborhood_id && overlap(desired.start_date, desired.end_date, row.arrival_date, row.departure_date)).forEach(row => neighborhoodConflicts.push({ period_key: desired.period_key, neighborhood_id: desired.neighborhood_id, conflicting_group_id: row.group_id, conflicting_reservation_id: row.id, conflicting_start_date: row.arrival_date, conflicting_end_date: row.departure_date, shared_neighborhood_allowed: override?.shared_neighborhood_allowed === true, blocked: override?.shared_neighborhood_allowed !== true }));
-  }
-  const reservationCancels = myReservations.filter(row => !matchedReservationIds.has(row.id) && !desiredReservations.some(desired => desired.period_id === row.stay_period_id && desired.neighborhood_id === row.neighborhood_id)).map(row => ({ id: row.id, stay_period_id: row.stay_period_id }));
-  const blockedNeighborhoods = neighborhoodConflicts.filter(item => item.blocked);
-  if (blockedNeighborhoods.length) blockingErrors.push(error('NEIGHBORHOOD_CONFLICT', { conflicts: blockedNeighborhoods }));
-  neighborhoodConflicts.filter(item => !item.blocked).forEach(item => warnings.push({ code: 'SHARED_NEIGHBORHOOD_OVERRIDE_USED', ...item }));
+  const logicalData = groupLogicalSleepingAssignments(myAllocations);
+  const logical = logicalData.logical_assignments;
+  // Missing coverage and segmented rows are valid. Identity/linkage corruption is not.
+  if (logicalData.inconsistent_series.length) blockingErrors.push(error('INCOMPLETE_SLEEPING_SERIES'));
+  if (myAllocations.some(row => row.departure_date > today && !currentById.has(row.stay_period_id))) blockingErrors.push(error('INVALID_SLEEPING_PERIOD_LINK'));
+  const myReservations = allReservations.filter(row => row.group_id === groupId);
+  if (myReservations.some(row => !row.stay_period_id)) blockingErrors.push(error('LEGACY_NEIGHBORHOOD_LINKAGE_REQUIRED'));
+  const sleepingPlan = planStaySleeping({ groupId, current: currentPeriods, proposed, allocations: allAllocations, reservations: allReservations, logical, tents, today });
+  const { allocationUpdates, allocationCreates, allocationCancels, reservationUpdates, reservationCreates, reservationCancels, exactTentConflicts } = sleepingPlan;
+  const neighborhoodConflicts = sleepingPlan.neighborhoodImpacts;
+  if (exactTentConflicts.length) warnings.push(error('SAME_TENT_CONFLICT', { conflicts: exactTentConflicts }));
+  if (neighborhoodConflicts.length) warnings.push(error('NEIGHBORHOOD_CONFLICT'));
 
   const periodsByGroup = {};
   allPeriods.forEach(period => { (periodsByGroup[period.group_id] ||= []).push(period); });
@@ -217,15 +177,15 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
     const total = existingPax + requestedPax;
     const blocked = maxSleepingPax > 0 && total > maxSleepingPax;
     capacityNights.push({ night, existing_pax: existingPax, group_pax: requestedPax, total, capacity: maxSleepingPax, blocked, sources });
-    if (blocked) blockingErrors.push(error('SITE_SLEEPING_CAPACITY_EXCEEDED', { night, existing_pax: existingPax, group_pax: requestedPax, total, capacity: maxSleepingPax }));
+    if (blocked) warnings.push(error('SITE_SLEEPING_CAPACITY_EXCEEDED', { night, existing_pax: existingPax, group_pax: requestedPax, total, capacity: maxSleepingPax }));
   }
   if (addedNights.length && maxSleepingPax === 0) warnings.push({ code: 'SITE_SLEEPING_CAPACITY_UNCONFIGURED' });
 
   const currentStayDates = getOperationalStayDates(currentPeriods);
   const proposedStayDates = getOperationalStayDates(proposed);
-  const mealCancellations = meals.filter(meal => !isDateInsideStayPeriods(meal.date, proposed));
+  const mealCancellations = meals.filter(meal => meal.date >= today && !isDateInsideStayPeriods(meal.date, proposed));
   const newlyEligibleDates = difference(proposedStayDates, currentStayDates);
-  const outside = rows => rows.filter(row => !isDateInsideStayPeriods(row.date, proposed)).map(row => ({ id: row.id, date: row.date }));
+  const outside = rows => rows.filter(row => row.date >= today && !isDateInsideStayPeriods(row.date, proposed)).map(row => ({ id: row.id, date: row.date }));
   const activityWarnings = outside(scheduleItems);
   const coffeeWarnings = outside(coffeeRequests);
   const prisaWarnings = outside(prisaRequests);
@@ -234,7 +194,18 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   if (prisaWarnings.length) warnings.push({ code: 'PRISA_REQUESTS_IN_PROPOSED_GAP', count: prisaWarnings.length });
 
   const envelope = deriveStayEnvelope(proposed);
+  const impacts = serviceImpacts({ current: currentPeriods, proposed, meals, scheduleItems, coffeeRequests, prisaRequests, today });
+  impacts.push(...neighborhoodConflicts);
+  capacityNights.filter(n => n.blocked).forEach(n => impacts.push({ module: 'CAPACITY', impact_type: 'EXCEEDED', date: n.night, summary: `חריגה מקיבולת האתר: ${n.total} מתוך ${n.capacity} מקומות`, metadata: n }));
+  const uniqueImpacts = [...new Map(impacts.map(item => [`${item.module}:${item.impact_type}:${item.date}:${item.metadata?.record_id || item.metadata?.neighborhood_id || ''}`, item])).entries()].map(([key,item]) => ({ ...item, key }));
+  const projected = allAllocations.filter(r => !allocationCancels.some(c => c.id === r.id)).map(r => ({ ...r, ...allocationUpdates.find(u => u.id === r.id) }));
+  const coverageWithoutExtension = sleepingCoverage(group, profiles[0], proposed, projected, tents, null, today);
+  const coverageWithExtension = sleepingCoverage(group, profiles[0], proposed, [...projected, ...allocationCreates.map((c,i) => ({ ...c.template, id: `planned:${i}` }))], tents, null, today);
   const result = {
+    base_version,
+    impacts: uniqueImpacts,
+    sleeping_missing: coverageWithExtension,
+    sleeping_missing_if_deferred: coverageWithoutExtension,
     success: true,
     allowed: blockingErrors.length === 0,
     blocking_errors: blockingErrors,
@@ -250,6 +221,6 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
     derived_envelope: envelope,
     historical_policy: { today, completed_periods_immutable: true, started_period_start_immutable: true },
   };
-  const plan = { group, profile: profiles[0], currentPeriods, proposed, envelope, periodUpdates: changedPeriods.map(item => ({ id: item.current.id, period: item.proposed })), periodCreates: addedPeriods, periodCancels: removedPeriods, allocationUpdates, allocationCreates, allocationCancels, reservationUpdates, reservationCreates, reservationCancels, mealCancellations, allAllocations, allReservations };
+  const plan = { group, profile: profiles[0], currentPeriods, proposed, envelope, periodUpdates: changedPeriods.map(item => ({ id: item.current.id, period: item.proposed })), periodCreates: addedPeriods, periodCancels: removedPeriods, allocationUpdates, allocationCreates, allocationCancels, reservationUpdates, reservationCreates, reservationCancels, mealCancellations, allAllocations, allReservations, today, impacts: uniqueImpacts, base_version };
   return { result, plan };
 }
