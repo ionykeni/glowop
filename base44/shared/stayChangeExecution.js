@@ -22,7 +22,7 @@ export async function executeStayChange(base44, change, plan, actions, email) {
       let row = period.id ? periods.find(p => p.id === period.id) : periods.find(p => p.stay_change_key === `${change.id}:${period.period_key}`);
       if (row && same(row,payload)) { idByKey.set(period.period_key,row.id); continue; }
       const today = todayIL();
-      if (!row && period.start_date < today || row && row.end_date <= today || row && row.start_date < today && (period.start_date !== row.start_date || period.end_date < today || (period.arrival_time || '') !== (row.arrival_time || ''))) throw new Error('הזמן התקדם מאז האישור; תאריכים היסטוריים לא שונו');
+      if (!row && period.start_date < today || row && row.end_date <= today || row && row.start_date < today && (period.start_date !== row.start_date || period.end_date < today)) throw new Error('הזמן התקדם מאז האישור; תאריכים היסטוריים לא שונו');
       row = row ? await db.GroupStayPeriod.update(row.id,payload) : await db.GroupStayPeriod.create({...payload,group_id:change.group_id,stay_change_key:`${change.id}:${period.period_key}`});
       idByKey.set(period.period_key,row.id);
     }

@@ -115,7 +115,7 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   for (const item of [...removedPeriods.map(current => ({ current, proposed: null })), ...changedPeriods]) {
     const current = item.current;
     if (current.end_date <= today) blockingErrors.push(error('HISTORICAL_PERIOD_IMMUTABLE', { period_id: current.id, start_date: current.start_date, end_date: current.end_date }));
-    else if (current.start_date < today && (!item.proposed || item.proposed.start_date !== current.start_date || item.proposed.end_date < today || (item.proposed.arrival_time || '') !== (current.arrival_time || ''))) {
+    else if (current.start_date < today && (!item.proposed || item.proposed.start_date !== current.start_date || item.proposed.end_date < today)) {
       blockingErrors.push(error('STARTED_PERIOD_CANNOT_BE_REMOVED_OR_REWRITTEN', { period_id: current.id, start_date: current.start_date, end_date: current.end_date }));
     }
   }
