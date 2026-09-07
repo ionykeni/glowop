@@ -1,0 +1,39 @@
+{
+  "name": "Sync Common Spaces to Google Calendar",
+  "description": "When a GroupScheduleItem is created, updated, or deleted with an activity_space_id, syncs the reservation to Google Calendar (create/update/delete event)",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"activity_space_id\") != null) or (.trigger.changed_fields | index(\"status\") != null) or (.trigger.changed_fields | index(\"date\") != null) or (.trigger.changed_fields | index(\"start_time\") != null) or (.trigger.changed_fields | index(\"end_time\") != null) or (.trigger.changed_fields | index(\"activity_name\") != null) or (.trigger.changed_fields | index(\"pax\") != null)) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "entity_name": "GroupScheduleItem"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_common_spaces_to_google_calendar",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncCommonSpaceToCalendar",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "syncCommonSpaceToCalendar"
+  }
+}
