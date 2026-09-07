@@ -32,6 +32,10 @@
     },
     "notes": {
       "type": "string"
+    },
+    "stay_change_key": {
+      "type": "string",
+      "description": "Stable creation identity for retrying an explicitly confirmed stay change"
     }
   },
   "required": [
