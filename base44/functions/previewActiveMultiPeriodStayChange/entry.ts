@@ -9,8 +9,9 @@ export default async function(req) {
     if (!await authorizeActiveStayAdmin(base44, user)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
     const { group_id, periods } = await req.json().catch(() => ({}));
     if (!group_id || !Array.isArray(periods)) return Response.json({ success: false, error: 'GROUP_ID_AND_PERIODS_REQUIRED' }, { status: 400 });
+    // Rebuild marker: bundle the current shared started-period diagnostics.
     const { result } = await analyzeActiveMultiPeriodStayChange(base44, group_id, periods);
-    return Response.json(result);
+    return Response.json({ ...result, diagnostic_version: 'started-period-v2' });
   } catch (error) {
     return Response.json({ success: false, error: 'PREVIEW_FAILED', message: error.message }, { status: 500 });
   }
