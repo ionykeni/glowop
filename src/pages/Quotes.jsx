@@ -113,6 +113,16 @@ export default function Quotes() {
     refresh(confirmedGroup?.id); setActiveTab("approved"); toast.success("הצעת המחיר אושרה"); return true;
   };
   const sections = [{ key: "open", label: "פתוחות / בתהליך", rows: sortedQuotes.filter(isQuoteOpen) }, { key: "approved", label: "מאושרות", rows: currentApprovedQuotes }, { key: "history", label: "נדחו / היסטוריה", rows: [...sortedQuotes.filter(isQuoteRejected), ...completedApprovedQuotes].sort(compareDepartureDesc) }];
+  const changeStatus = async (quote, status) => {
+    try {
+      const updated = await base44.entities.Quote.update(quote.id, { status });
+      updateQuotePreparationCache(qc, { quote: updated, group: groupMap[quote.group_id], profile: profileMap[quote.group_id] });
+      setActiveTab(tabForStatus(status));
+      toast.success(status === "SENT" ? "ההצעה סומנה כנשלחה" : "ההצעה סומנה כפגת תוקף");
+    } catch {
+      toast.error("עדכון סטטוס ההצעה נכשל");
+    }
+  };
   const handleDeleted = (quoteId, groupId) => {
     qc.setQueryData(["quoteCenter"], rows => (rows || []).filter(row => row.id !== quoteId));
     qc.setQueryData(["quoteCenterOptions"], rows => (rows || []).filter(row => row.quote_id !== quoteId));
@@ -125,5 +135,5 @@ export default function Quotes() {
     refresh(savedQuote.group_id); navigate("/quotes");
   };
 
-  return <div className="max-w-5xl mx-auto px-4 py-6 space-y-5" dir="rtl"><div className="flex justify-between"><div><h1 className="text-xl font-bold flex gap-2"><FileText className="w-5 h-5" />הצעות מחיר</h1><p className="text-sm text-muted-foreground">מרכז מסחרי והיסטוריית הצעות</p></div>{canCreate && <Button onClick={() => setCreating(true)}><Plus className="w-4 h-4" />הצעה חדשה</Button>}</div><Tabs value={activeTab} onValueChange={setActiveTab}><TabsList>{sections.map(section => <TabsTrigger key={section.key} value={section.key}>{section.label} ({section.rows.length})</TabsTrigger>)}</TabsList>{sections.map(section => <TabsContent key={section.key} value={section.key}><div className="space-y-3">{section.rows.map(quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => setEditing(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} />)}{!section.rows.length && <p className="text-center py-12 text-muted-foreground">אין הצעות בקטגוריה זו</p>}</div></TabsContent>)}</Tabs>{(creating || editing) && <QuoteFormModal quote={editing} group={editing ? groupMap[editing.group_id] : undefined} returnToQuotes onClose={() => { setCreating(false); setEditing(null); }} onSaved={handleSaved} />}</div>;
+  return <div className="max-w-5xl mx-auto px-4 py-6 space-y-5" dir="rtl"><div className="flex justify-between"><div><h1 className="text-xl font-bold flex gap-2"><FileText className="w-5 h-5" />הצעות מחיר</h1><p className="text-sm text-muted-foreground">מרכז מסחרי והיסטוריית הצעות</p></div>{canCreate && <Button onClick={() => setCreating(true)}><Plus className="w-4 h-4" />הצעה חדשה</Button>}</div><Tabs value={activeTab} onValueChange={setActiveTab}><TabsList>{sections.map(section => <TabsTrigger key={section.key} value={section.key}>{section.label} ({section.rows.length})</TabsTrigger>)}</TabsList>{sections.map(section => <TabsContent key={section.key} value={section.key}><div className="space-y-3">{section.rows.map(quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => setEditing(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} onUpdated={() => refresh(quote.group_id)} onStatusChange={status => changeStatus(quote, status)} />)}{!section.rows.length && <p className="text-center py-12 text-muted-foreground">אין הצעות בקטגוריה זו</p>}</div></TabsContent>)}</Tabs>{(creating || editing) && <QuoteFormModal quote={editing} group={editing ? groupMap[editing.group_id] : undefined} returnToQuotes onClose={() => { setCreating(false); setEditing(null); }} onSaved={handleSaved} />}</div>;
 }

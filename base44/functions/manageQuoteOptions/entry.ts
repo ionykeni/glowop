@@ -21,7 +21,7 @@ Deno.serve(async req => {
     const body = await req.json();
     const { action, quote_id } = body;
     if (!quote_id) return Response.json({ success: false, error: 'MISSING_QUOTE_ID' }, { status: 400 });
-    const quote = await base44.asServiceRole.entities.Quote.get(quote_id);
+    const quote = await base44.asServiceRole.entities.Quote.get(quote_id).catch(() => null);
     if (!quote) return Response.json({ success: false, error: 'QUOTE_NOT_FOUND' }, { status: 404 });
 
     if (action === 'materialize') {

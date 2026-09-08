@@ -128,9 +128,8 @@ export function canAccessRoute(role, pathname) {
   if (!role) return false;
   const allowed = ROLE_ALLOWED_ROUTES[role];
   if (allowed === "*") return true;
+  if (pathname === "/") return allowed.includes("dashboard") || allowed.includes("quotes");
   // Extract route key from pathname (strip leading /)
   const key = pathname.replace(/^\//, "").split("/")[0] || "dashboard";
-  // root "/" redirects role-specific landing pages before rendering a module
-  if (key === "") return allowed.includes("dashboard") || allowed.includes("quotes");
   return allowed.includes(key);
 }

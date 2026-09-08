@@ -16,8 +16,7 @@ export default async function(req) {
 
     const { quote_id } = await req.json().catch(() => ({}));
     if (!quote_id || typeof quote_id !== 'string') return Response.json({ success: false, error: 'QUOTE_ID_REQUIRED' }, { status: 400 });
-    const quotes = await base44.asServiceRole.entities.Quote.filter({ id: quote_id });
-    const quote = quotes[0];
+    const quote = await base44.asServiceRole.entities.Quote.get(quote_id).catch(() => null);
     if (!quote) return Response.json({ success: true, status: 'already_deleted', quote_id });
     if (quote.status === 'APPROVED') {
       return Response.json({ success: false, error: 'BUSINESS_INTEGRITY_BLOCK', message: 'לא ניתן למחוק הצעת מחיר מאושרת לצמיתות.', quote_id, group_id: quote.group_id || null }, { status: 409 });
