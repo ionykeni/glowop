@@ -23,7 +23,7 @@ export default function useActiveStayChange(groupId, onApplied) {
     } finally { setBusy(false); }
   };
   const previewChange = async periods => {
-    const data = await run("previewActiveMultiPeriodStayChange", periods);
+    const data = await run("previewActiveMultiPeriodStayChangeV2", periods);
     if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
   };
   const applyChange = async periods => {
