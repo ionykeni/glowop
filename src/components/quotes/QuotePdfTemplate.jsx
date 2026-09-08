@@ -16,6 +16,16 @@ const fmtDate = (d) => {
   if (!d) return "—";
   try { return new Date(d).toLocaleDateString("he-IL"); } catch { return d; }
 };
+const fmtCreatedDate = (d) => {
+  if (!d) return "";
+  try {
+    const date = new Date(d);
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  } catch { return ""; }
+};
 const parse = (str, fb = []) => { try { const r = JSON.parse(str); return Array.isArray(r) ? r : fb; } catch { return fb; } };
 
 // New catalog inline (PDF is self-contained)
@@ -228,6 +238,7 @@ export function resolveQuotePdfData(quote, group) {
     validUntil:   quote?.valid_until || "",
     clientNotes:  quote?.client_notes || "",
     optionNotes:  quote?.option_notes || "",
+    createdDate:  fmtCreatedDate(quote?.created_date),
   };
 }
 
@@ -264,21 +275,28 @@ function LegalFooter() {
   );
 }
 
-function CoverHeader({ quoteNumber, logoUrl }) {
+function CoverHeader({ quoteNumber, logoUrl, createdDate }) {
   return (
-    <div style={{ textAlign: "center", marginBottom: 16, direction: "ltr" }}>
-      <img
-        src={logoUrl || LOGO_URL_FALLBACK}
-        alt="בית הדור הבא"
-        style={{ height: 110, width: "auto", display: "block", margin: "0 auto 14px auto" }}
-        onError={e => { e.target.style.display = "none"; }}
-      />
-      <div style={{ fontSize: 24, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 4, direction: "rtl", letterSpacing: "-0.5px" }}>
-        בית הדור הבא – חוות אהרונסון
-      </div>
-      {quoteNumber && (
-        <div style={{ fontSize: 11, color: "#666", marginTop: 2, direction: "rtl", fontFamily: BODY_FONT }}>מס׳ הצעה: {quoteNumber}</div>
+    <div style={{ marginBottom: 16, direction: "ltr" }}>
+      {createdDate && (
+        <div style={{ fontSize: 10, color: "#888", fontFamily: BODY_FONT, direction: "rtl", textAlign: "left", marginBottom: 10 }}>
+          תאריך הצעה: {createdDate}
+        </div>
       )}
+      <div style={{ textAlign: "center" }}>
+        <img
+          src={logoUrl || LOGO_URL_FALLBACK}
+          alt="בית הדור הבא"
+          style={{ height: 110, width: "auto", display: "block", margin: "0 auto 14px auto" }}
+          onError={e => { e.target.style.display = "none"; }}
+        />
+        <div style={{ fontSize: 24, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 4, direction: "rtl", letterSpacing: "-0.5px" }}>
+          בית הדור הבא – חוות אהרונסון
+        </div>
+        {quoteNumber && (
+          <div style={{ fontSize: 11, color: "#666", marginTop: 2, direction: "rtl", fontFamily: BODY_FONT }}>מס׳ הצעה: {quoteNumber}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -330,7 +348,7 @@ export function QuotePricingPage({ d, logoUrl, optionLabel, showShared = true })
   return (
     <div style={{ ...pageStyle, pageBreakAfter: "always" }}>
       {showShared ? <>
-        <CoverHeader quoteNumber={d.quoteNumber} logoUrl={logoUrl} />
+        <CoverHeader quoteNumber={d.quoteNumber} logoUrl={logoUrl} createdDate={d.createdDate} />
         <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE }}>{d.audience.subtitle}</div>
         <p style={{ fontSize: 11.5, fontFamily: BODY_FONT, lineHeight: 1.7, textAlign: "center" }}>{d.audience.intro}</p>
         <div style={{ display: "flex", gap: 16 }}>
