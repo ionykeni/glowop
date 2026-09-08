@@ -182,6 +182,11 @@
     "balance_payment": {
       "type": "number"
     },
+    "requires_advance_payment": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this quote requires the fixed 30% advance payment"
+    },
     "payment_terms": {
       "type": "string"
     },

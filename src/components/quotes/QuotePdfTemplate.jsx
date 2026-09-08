@@ -220,6 +220,7 @@ export function resolveQuotePdfData(quote, group) {
     totalPrice,
     advance,
     balance,
+    requiresAdvancePayment: quote?.requires_advance_payment !== false,
     paymentTerms: quote?.payment_terms || "",
     quoteNumber:  quote?.quote_number || "",
     version:      quote?.version ?? 1,
@@ -344,7 +345,7 @@ export function QuotePricingPage({ d, logoUrl, optionLabel, showShared = true })
         {d.discountAmt > 0 && <><tr><td colSpan={3} style={tdBase}>סה״כ לפני הנחה</td><td style={{ ...tdBase, textAlign: "left" }}>₪{fmt(d.subtotal)}</td></tr><tr><td colSpan={3} style={{ ...tdBase, color: "#c00" }}>הנחה {d.discountPct}%</td><td style={{ ...tdBase, textAlign: "left", color: "#c00" }}>-₪{fmt(d.discountAmt)}</td></tr></>}
         <tr style={{ background: "#e8f0fc" }}><td colSpan={3} style={{ ...tdBase, fontWeight: 800, color: BLUE }}>סה״כ לתשלום</td><td style={{ ...tdBase, textAlign: "left", fontWeight: 800, color: BLUE }}>₪{fmt(d.totalPrice)}</td></tr>
       </tbody></table>
-      <div style={{ marginTop: 12, fontSize: 11.5, fontFamily: BODY_FONT }}><strong style={{ color: BLUE }}>תנאי תשלום: </strong>מקדמה: <strong>₪{fmt(deposit)}</strong> | יתרה: <strong>₪{fmt(balance)}</strong>{d.paymentTerms && <span> | {d.paymentTerms}</span>}</div>
+      {(d.requiresAdvancePayment || d.paymentTerms) && <div style={{ marginTop: 12, fontSize: 11.5, fontFamily: BODY_FONT }}><strong style={{ color: BLUE }}>תנאי תשלום: </strong>{d.requiresAdvancePayment && <>מקדמה: <strong>₪{fmt(deposit)}</strong> | יתרה: <strong>₪{fmt(balance)}</strong></>}{d.requiresAdvancePayment && d.paymentTerms && <span> | </span>}{d.paymentTerms && <span>{d.paymentTerms}</span>}</div>}
       <div style={{ marginTop: 8, fontSize: 10.5, color: "#555" }}><strong>ח.פ:</strong> קרן שמש הדור הבא (ע״ר) — 580786812 | <strong>בנק הפועלים:</strong> סניף 170 חשבון 368365 | גרסה: {d.version} | סטטוס: {d.status}</div>
       {showShared && d.clientNotes && <><SectionHeading>הערות כלליות ללקוח</SectionHeading><div style={{ whiteSpace: "pre-wrap" }}>{d.clientNotes}</div></>}
       {d.optionNotes && <><SectionHeading>הערות לאפשרות</SectionHeading><div style={{ whiteSpace: "pre-wrap" }}>{d.optionNotes}</div></>}
@@ -376,7 +377,7 @@ function SigLine({ label, wide }) {
   );
 }
 
-export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl }) {
+export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl, requiresAdvancePayment = true }) {
   return (
     <div style={{ ...pageStyle }}>
       <CompactHeader quoteNumber={quoteNumber} logoUrl={logoUrl} />
@@ -387,9 +388,9 @@ export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl }) {
           "הצעת המחיר תקפה למשך 14 יום מיום שליחתה בכתב.",
           "רק שליחה חזרה של מסמך זה חתום משמעה סגירת ההזמנה.",
         ]} />
-        <TermBlock title="תשלום" bullets={[
+        {requiresAdvancePayment && <TermBlock title="תשלום" bullets={[
           "תשלום מקדמה - בסך 30% מערך העסקה - ישולם חודש לפני הגעה | שאר התשלום - 70% מערך העסקה - ישולם ביום ההגעה.",
-        ]} />
+        ]} />}
         <TermBlock title="ביטול עסקה" bullets={[
           "עד 7 ימים לפני ההגעה - ייגבו דמי ביטול בסך 5% או 100 ש״ח - הנמוך מביניהם",
           "פחות מ-7 ימים לפני ההגעה - ייגבו דמי ביטול בסך של 25% מערך ההזמנה",
@@ -570,7 +571,7 @@ export default function QuotePdfTemplate({ quote, group, logoUrl, footerUrl }) {
   return (
     <div id="quote-pdf-root" style={{ background: "#fff" }}>
       <QuotePricingPage d={d} logoUrl={logoUrl} />
-      <QuoteTermsPage logoUrl={logoUrl} quoteNumber={d.quoteNumber} footerUrl={footerUrl} />
+      <QuoteTermsPage logoUrl={logoUrl} quoteNumber={d.quoteNumber} footerUrl={footerUrl} requiresAdvancePayment={d.requiresAdvancePayment} />
       <QuoteContentCatalogPage logoUrl={logoUrl} quoteNumber={d.quoteNumber} />
     </div>
   );

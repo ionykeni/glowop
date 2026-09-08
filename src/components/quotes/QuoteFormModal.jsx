@@ -418,7 +418,7 @@ function SummaryCard({ groupName, activityType, totalPax, staffCount, participan
   );
 }
 
-function PricingCard({ subtotal, discountAmount, discountPct, totalPrice, advance, balance }) {
+function PricingCard({ subtotal, discountAmount, discountPct, totalPrice, advance, balance, requiresAdvancePayment }) {
   const hasDiscount = discountAmount > 0;
   return (
     <div className={`${CARD} p-4 border-primary/20`}>
@@ -449,16 +449,18 @@ function PricingCard({ subtotal, discountAmount, discountPct, totalPrice, advanc
           <span className="text-white font-bold text-lg">{fmtMoney(totalPrice)}</span>
         </div>
 
-        <div className="border-t border-slate-100 pt-2 space-y-1.5">
-          <div className="flex justify-between text-slate-500 text-xs">
-            <span>מקדמה 30%</span>
-            <span className="font-medium text-slate-700">{fmtMoney(advance)}</span>
+        {requiresAdvancePayment && (
+          <div className="border-t border-slate-100 pt-2 space-y-1.5">
+            <div className="flex justify-between text-slate-500 text-xs">
+              <span>מקדמה 30%</span>
+              <span className="font-medium text-slate-700">{fmtMoney(advance)}</span>
+            </div>
+            <div className="flex justify-between text-slate-500 text-xs">
+              <span>יתרה 70%</span>
+              <span className="font-medium text-slate-700">{fmtMoney(balance)}</span>
+            </div>
           </div>
-          <div className="flex justify-between text-slate-500 text-xs">
-            <span>יתרה 70%</span>
-            <span className="font-medium text-slate-700">{fmtMoney(balance)}</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -514,6 +516,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     estimated_pax:   quote?.estimated_pax   ?? group?.total_pax     ?? "",
     staff_count:     quote?.staff_count     ?? group?.staff_count   ?? "",
     discount_percent: quote?.discount_percent ?? 0,
+    requires_advance_payment: quote?.requires_advance_payment !== false,
     payment_terms:   quote?.payment_terms   || "",
     valid_until:     quote?.valid_until     || "",
     internal_notes:  quote?.internal_notes  || "",
@@ -1227,6 +1230,10 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
                     <Input value={form.payment_terms} onChange={e => set("payment_terms", e.target.value)} />
                   </div>
                 </div>
+                <label className="mt-3 flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={form.requires_advance_payment} onChange={e => set("requires_advance_payment", e.target.checked)} className="w-4 h-4 accent-primary" />
+                  <span className="text-sm">דרישת מקדמה של 30%</span>
+                </label>
               </div>
 
               {multiOptionFeatureEnabled && hasOptionB && <div className={`${CARD} px-5 py-4`}><Label className="text-xs text-slate-500 mb-1 block">הערות לאפשרות {activeOptionKey === "A" ? "א׳" : "ב׳"}</Label><Textarea rows={2} value={optionNotes} onChange={e => setOptionNotes(e.target.value)} className="text-sm" /></div>}
@@ -1274,6 +1281,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               totalPrice={total_price}
               advance={advance}
               balance={balance}
+              requiresAdvancePayment={form.requires_advance_payment}
             />
 
             {/* Breakdown mini */}
