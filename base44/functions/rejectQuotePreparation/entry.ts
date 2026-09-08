@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     const internal = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email });
     const role = internal[0]?.role || user.role;
-    if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
+    if (!['SUPER_ADMIN', 'ADMIN', 'QUOTES_MANAGER'].includes(role)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
     const { quote_id, rejection_reason } = await req.json();
     if (!quote_id || !String(rejection_reason || '').trim()) return Response.json({ success: false, error: 'REJECTION_REASON_REQUIRED' }, { status: 400 });
     const quote = await base44.asServiceRole.entities.Quote.get(quote_id);

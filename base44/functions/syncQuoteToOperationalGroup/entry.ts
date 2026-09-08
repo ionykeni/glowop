@@ -18,7 +18,12 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user || !['admin', 'ADMIN', 'SUPER_ADMIN', 'OPERATIONS'].includes(user.role)) {
+    if (!user) return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+    const normalizedEmail = user.email.trim().toLowerCase();
+    const internalUsers = await base44.asServiceRole.entities.InternalUser.list();
+    const internalUser = internalUsers.find(row => row.email?.trim().toLowerCase() === normalizedEmail);
+    const role = internalUser?.role || user.role;
+    if (!['admin', 'ADMIN', 'SUPER_ADMIN', 'QUOTES_MANAGER', 'OPERATIONS'].includes(role)) {
       return Response.json({ error: 'אין הרשאה לביצוע פעולה זו' }, { status: 403 });
     }
 

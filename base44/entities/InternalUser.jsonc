@@ -15,6 +15,7 @@
       "enum": [
         "SUPER_ADMIN",
         "ADMIN",
+        "QUOTES_MANAGER",
         "OPERATIONS",
         "HOUSEKEEPING_MANAGER",
         "HOUSEKEEPING_STAFF",

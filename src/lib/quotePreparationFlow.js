@@ -3,7 +3,7 @@ export const QUOTE_PREPARATION_ROLLOUT = "ADMINS";
 
 export function isQuotePreparationEnabled(role) {
   if (!QUOTE_PREPARATION_FLOW) return false;
-  return QUOTE_PREPARATION_ROLLOUT === "SUPER_ADMIN_ONLY" ? role === "SUPER_ADMIN" : ["SUPER_ADMIN", "ADMIN"].includes(role);
+  return QUOTE_PREPARATION_ROLLOUT === "SUPER_ADMIN_ONLY" ? role === "SUPER_ADMIN" : ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"].includes(role);
 }
 
 export const isQuoteOpen = (quote) => ["DRAFT", "SENT"].includes(String(quote?.status || "").toUpperCase());

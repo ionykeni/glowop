@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     const internal = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email });
     const role = internal[0]?.role || user.role;
-    if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return Response.json({ success: false, error: 'FEATURE_NOT_ENABLED_FOR_ROLE' }, { status: 403 });
+    if (!['SUPER_ADMIN', 'ADMIN', 'QUOTES_MANAGER'].includes(role)) return Response.json({ success: false, error: 'FEATURE_NOT_ENABLED_FOR_ROLE' }, { status: 403 });
     const { quote_id } = await req.json();
     if (!quote_id) return Response.json({ success: false, error: 'MISSING_QUOTE_ID' }, { status: 400 });
     const result = await ensureQuotePreparation(base44, quote_id);

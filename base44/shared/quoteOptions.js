@@ -1,5 +1,5 @@
 export const QUOTE_MULTI_OPTION_FLOW = true;
-export const QUOTE_MULTI_OPTION_ROLLOUT = 'SUPER_ADMIN_ONLY';
+export const QUOTE_MULTI_OPTION_ROLLOUT = 'QUOTE_AUTHORITIES';
 
 export const QUOTE_OPTION_FIELDS = [
   'package_lines', 'new_addon_lines', 'student_lodging_lines', 'adult_lodging_lines',
@@ -20,7 +20,7 @@ export function extractSharedQuoteFields(quote = {}) {
 }
 
 export const assertQuoteMultiOptionEnabled = role => {
-  const allowed = QUOTE_MULTI_OPTION_FLOW && (QUOTE_MULTI_OPTION_ROLLOUT !== 'SUPER_ADMIN_ONLY' || role === 'SUPER_ADMIN');
+  const allowed = QUOTE_MULTI_OPTION_FLOW && (QUOTE_MULTI_OPTION_ROLLOUT === 'SUPER_ADMIN_ONLY' ? role === 'SUPER_ADMIN' : ['SUPER_ADMIN', 'ADMIN', 'QUOTES_MANAGER'].includes(role));
   if (!allowed) throw Object.assign(new Error('FEATURE_NOT_ENABLED_FOR_ROLE'), { code: 'FEATURE_NOT_ENABLED_FOR_ROLE' });
 };
 

@@ -3,6 +3,7 @@
 export const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
   ADMIN: "ADMIN",
+  QUOTES_MANAGER: "QUOTES_MANAGER",
   OPERATIONS: "OPERATIONS",
   HOUSEKEEPING_MANAGER: "HOUSEKEEPING_MANAGER",
   HOUSEKEEPING_STAFF: "HOUSEKEEPING_STAFF",
@@ -15,6 +16,7 @@ export const ROLES = {
 export const ROLE_LABELS = {
   SUPER_ADMIN: "סופר מנהל",
   ADMIN: "מנהל",
+  QUOTES_MANAGER: "אחראי/ת הצעות מחיר",
   OPERATIONS: "תפעול",
   HOUSEKEEPING_MANAGER: "מנהל משק בית",
   HOUSEKEEPING_STAFF: "צוות משק בית",
@@ -29,6 +31,7 @@ export const ROLE_LABELS = {
 export const ROLE_NAV_LINKS = {
   SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours"],
   ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours"],
+  QUOTES_MANAGER:       ["quotes"],
   OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "maintenance", "my-shifts", "cleaning-hours"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts"],
@@ -42,6 +45,7 @@ export const ROLE_NAV_LINKS = {
 export const ROLE_ALLOWED_ROUTES = {
   SUPER_ADMIN: "*", // all
   ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "meeting-summaries", "work-schedule", "my-shifts"],
+  QUOTES_MANAGER: ["quotes"],
   OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "cleaning-hours", "maintenance", "my-shifts"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts"],
@@ -61,10 +65,11 @@ export const PERMISSIONS = {
   APPROVE_PROFILE:   ["SUPER_ADMIN", "ADMIN"],
 
   // Commercial
-  CREATE_QUOTE:      ["SUPER_ADMIN", "ADMIN"],
-  EDIT_QUOTE:        ["SUPER_ADMIN", "ADMIN"],
-  APPROVE_QUOTE:     ["SUPER_ADMIN", "ADMIN"],
-  EDIT_PRICES:       ["SUPER_ADMIN", "ADMIN"],
+  CREATE_QUOTE:      ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"],
+  EDIT_QUOTE:        ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"],
+  APPROVE_QUOTE:     ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"],
+  EDIT_PRICES:       ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"],
+  DELETE_QUOTE:      ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"],
 
   // Operational
   MANAGE_MEALS:      ["SUPER_ADMIN", "ADMIN"],
@@ -125,7 +130,7 @@ export function canAccessRoute(role, pathname) {
   if (allowed === "*") return true;
   // Extract route key from pathname (strip leading /)
   const key = pathname.replace(/^\//, "").split("/")[0] || "dashboard";
-  // root "/" maps to dashboard
-  if (key === "") return allowed.includes("dashboard");
+  // root "/" redirects role-specific landing pages before rendering a module
+  if (key === "") return allowed.includes("dashboard") || allowed.includes("quotes");
   return allowed.includes(key);
 }

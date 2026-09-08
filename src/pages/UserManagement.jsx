@@ -14,6 +14,7 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABELS);
 const ROLE_COLORS = {
   SUPER_ADMIN:        "bg-red-100 text-red-800 border-red-200",
   ADMIN:              "bg-violet-100 text-violet-800 border-violet-200",
+  QUOTES_MANAGER:     "bg-cyan-100 text-cyan-800 border-cyan-200",
   OPERATIONS:         "bg-blue-100 text-blue-800 border-blue-200",
   HOUSEKEEPING_MANAGER: "bg-amber-100 text-amber-800 border-amber-200",
   HOUSEKEEPING_STAFF: "bg-yellow-100 text-yellow-800 border-yellow-200",

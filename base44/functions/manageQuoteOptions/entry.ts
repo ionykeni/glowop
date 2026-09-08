@@ -16,7 +16,7 @@ Deno.serve(async req => {
     const internal = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email });
     const role = internal[0]?.role || user.role;
     assertQuoteMultiOptionEnabled(role);
-    if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
+    if (!['SUPER_ADMIN', 'ADMIN', 'QUOTES_MANAGER'].includes(role)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
 
     const body = await req.json();
     const { action, quote_id } = body;

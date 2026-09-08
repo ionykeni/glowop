@@ -28,7 +28,7 @@ import { assertValidQuoteOperationalDates } from '../../shared/operationalDateVa
  * ------------------------------------------------------------------
  */
 
-const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS']);
+const ALLOWED_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'QUOTES_MANAGER', 'OPERATIONS']);
 
 // Fields mapped Quote → Group, ONLY when creating a NEW Group.
 // Quote carries client_* / estimated_pax; Group uses contact_* — mapped below.

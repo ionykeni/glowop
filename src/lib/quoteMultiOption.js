@@ -5,5 +5,5 @@ export function isQuoteMultiOptionEnabled(role) {
   if (!QUOTE_MULTI_OPTION_FLOW) return false;
   return QUOTE_MULTI_OPTION_ROLLOUT === "SUPER_ADMIN_ONLY"
     ? role === "SUPER_ADMIN"
-    : ["SUPER_ADMIN", "ADMIN"].includes(role);
+    : ["SUPER_ADMIN", "ADMIN", "QUOTES_MANAGER"].includes(role);
 }

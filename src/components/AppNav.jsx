@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, CalendarDays, BedDouble,
   UtensilsCrossed, Wrench, ShieldAlert, Layers, Lock,
   Menu, X, Users, Search, ChevronDown, Settings, BookMarked, LogOut, NotebookPen,
-  CalendarClock, Clock, BarChart3
+  CalendarClock, Clock, BarChart3, FileText
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
 import { useRoleContext } from "@/lib/RoleContext";
@@ -35,6 +35,7 @@ function getInitials(name) {
 // All available nav links
 const ALL_LINKS = [
   { key: "dashboard",       to: "/dashboard",       label: "בית",             icon: LayoutDashboard, group: "primary" },
+  { key: "quotes",          to: "/quotes",          label: "הצעות מחיר",      icon: FileText,        group: "primary" },
   { key: "approved-groups", to: "/approved-groups", label: "קבוצות",          icon: CheckSquare,     group: "primary" },
   { key: "calendar",        to: "/calendar",        label: "לוח שנה",          icon: CalendarDays,    group: "primary" },
   { key: "allocation",      to: "/allocation",      label: "לינה",             icon: BedDouble,       group: "primary" },
@@ -203,7 +204,7 @@ export default function AppNav() {
   const showUserManagement = role === "SUPER_ADMIN";
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts"];
+  const PRIMARY_KEYS = ["dashboard", "quotes", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts"];
   const primaryLinks = ALL_LINKS.filter(l => PRIMARY_KEYS.includes(l.key) && allowedKeys.includes(l.key));
 
   // Ops dropdown: housekeeping, kitchen, maintenance, work schedule
