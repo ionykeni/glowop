@@ -9,9 +9,13 @@ export default async function(req) {
     if (!await authorizeActiveStayAdmin(base44, user)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });
     const { group_id, periods } = await req.json().catch(() => ({}));
     if (!group_id || !Array.isArray(periods)) return Response.json({ success: false, error: 'GROUP_ID_AND_PERIODS_REQUIRED' }, { status: 400 });
-    // Rebuild marker: bundle the current shared started-period diagnostics.
     const { result } = await analyzeActiveMultiPeriodStayChange(base44, group_id, periods);
-    return Response.json({ ...result, diagnostic_version: 'started-period-v2' });
+    const blockingErrors = Array.isArray(result.blocking_errors)
+      ? result.blocking_errors.map(blocker => blocker?.code === 'STARTED_PERIOD_CANNOT_BE_REMOVED_OR_REWRITTEN'
+        ? { ...blocker, runtime_entry_confirmed: true }
+        : blocker)
+      : result.blocking_errors;
+    return Response.json({ ...result, blocking_errors: blockingErrors, diagnostic_version: 'preview-entry-v3' });
   } catch (error) {
     return Response.json({ success: false, error: 'PREVIEW_FAILED', message: error.message }, { status: 500 });
   }
