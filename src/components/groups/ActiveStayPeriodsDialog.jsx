@@ -15,7 +15,20 @@ export default function ActiveStayPeriodsDialog({ open, groupId, onClose, onAppl
   useEffect(() => {
     if (!open) return;
     setLoading(true); setConfirmed(false); flow.resetPreview();
-    base44.entities.GroupStayPeriod.filter({ group_id: groupId, status: "ACTIVE" }, "start_date", 100).then(rows => setPeriods(rows.map(row => ({ ...row, _draft_id: row.id })))).finally(() => setLoading(false));
+    base44.entities.GroupStayPeriod.filter({ group_id: groupId, status: "ACTIVE" }, "start_date", 100).then(rows => setPeriods(rows.map(row => ({
+      ...row,
+      _draft_id: row.id,
+      _stored: {
+        id: row.id,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        arrival_time: row.arrival_time,
+        departure_time: row.departure_time,
+        notes: row.notes,
+        status: row.status,
+      },
+      _dirty_fields: [],
+    })))).finally(() => setLoading(false));
   }, [open, groupId]);
   const changePeriods = next => { setPeriods(next); setConfirmed(false); flow.resetPreview(); };
   return (

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 
-const payloadPeriods = periods => periods.map(({ _draft_id, ...period }) => period);
+const PERIOD_FIELDS = ["id", "client_key", "start_date", "end_date", "arrival_time", "departure_time", "notes", "status"];
+const payloadPeriods = periods => periods.map(period => {
+  const source = period._stored
+    ? { ...period._stored, ...Object.fromEntries((period._dirty_fields || []).map(field => [field, period[field]])) }
+    : period;
+  return Object.fromEntries(PERIOD_FIELDS.filter(field => source[field] !== undefined).map(field => [field, source[field]]));
+});
 export default function useActiveStayChange(groupId, onApplied) {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -18,9 +24,6 @@ export default function useActiveStayChange(groupId, onApplied) {
   };
   const previewChange = async periods => {
     const data = await run("previewActiveMultiPeriodStayChange", periods);
-    console.warn("Preview runtime version", data?.diagnostic_version, data);
-    const blocker = data?.blocking_errors?.find(item => item.code === "STARTED_PERIOD_CANNOT_BE_REMOVED_OR_REWRITTEN");
-    if (blocker) console.warn("Active stay started-period blocker diagnostic", blocker);
     if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
   };
   const applyChange = async periods => {

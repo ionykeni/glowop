@@ -3,7 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function StayPeriodRow({ period, index, onChange, onRemove }) {
-  const set = (field, value) => onChange(period._draft_id, { ...period, [field]: value });
+  const set = (field, value) => onChange(period._draft_id, {
+    ...period,
+    [field]: value,
+    _dirty_fields: [...new Set([...(period._dirty_fields || []), field])],
+  });
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-3">
       <div className="flex items-center justify-between">
