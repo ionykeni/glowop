@@ -60,6 +60,7 @@ export function groupLogicalSleepingAssignments(rows = [], todayDate) {
 }
 
 export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], groupId, todayDate) {
+  const todayIL = todayDate || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
   const activeRows = rows.filter(row => row.status !== 'CANCELLED');
   const linkedRows = activeRows.filter(row => row.stay_period_id || row.allocation_series_id);
   if (linkedRows.length === 0) return { linked: false, valid: true, errors: [], ...groupLogicalSleepingAssignments(activeRows) };
@@ -74,7 +75,10 @@ export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], 
     if (series.consistency_errors.includes('SERIES_EFFECTIVE_MARKER_MISMATCH')) {
       errors.push({ code: 'SERIES_EFFECTIVE_MARKER_MISMATCH', allocation_series_id: series.allocation_series_id });
     }
-    const expected = expectedPeriodsForSeries(activePeriods, series.series_effective_from_period_id);
+    const expected = expectedPeriodsForSeries(activePeriods, series.series_effective_from_period_id, {
+      seriesRows: series.period_rows,
+      todayDate: todayIL,
+    });
     if (expected.error) errors.push({ ...expected.error, allocation_series_id: series.allocation_series_id });
     // An explicitly cancelled future row is a termination record, not missing coverage.
     const terminated = rows.filter(row => row.group_id === groupId && row.allocation_series_id === series.allocation_series_id && row.status === 'CANCELLED' && ['RELEASE', 'REASSIGN'].includes(row.series_action) && row.series_action_date && row.departure_date > row.series_action_date);

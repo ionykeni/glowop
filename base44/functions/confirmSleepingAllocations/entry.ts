@@ -3,7 +3,7 @@ import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
 
-const RUNTIME_BUILD = 'MP_CONFIRM_CURRENT_SOURCE_2026_09_14';
+const RUNTIME_BUILD = 'MP_CONFIRM_HISTORICAL_COMPLETE_2026_09_14';
 const responseJson = (body, init) => Response.json({ ...body, runtime_build: RUNTIME_BUILD }, init);
 
 function datesOverlap(a1, a2, b1, b2) {

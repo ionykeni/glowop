@@ -4,12 +4,22 @@ export function todayInJerusalem(now = new Date()) {
   return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
 }
 
-export function expectedPeriodsForSeries(periods, effectivePeriodId) {
+export function expectedPeriodsForSeries(periods, effectivePeriodId, { seriesRows = [], todayDate } = {}) {
   const active = normalizeStayPeriods(periods).filter(period => period.status !== 'CANCELLED');
-  if (!effectivePeriodId) return { periods: active, error: null };
+  const todayIL = todayDate || todayInJerusalem();
+  const nonCancelledRows = seriesRows.filter(row => row.status !== 'CANCELLED');
+  const isFullyHistorical = nonCancelledRows.length > 0 && nonCancelledRows.every(row => row.departure_date <= todayIL);
+  const finalHistoricalDeparture = isFullyHistorical
+    ? nonCancelledRows.reduce((latest, row) => String(row.departure_date) > latest ? String(row.departure_date) : latest, '')
+    : null;
+  const historicallyCapped = finalHistoricalDeparture
+    ? active.filter(period => period.start_date <= finalHistoricalDeparture)
+    : active;
+  if (!effectivePeriodId) return { periods: historicallyCapped, error: null };
   const startIndex = active.findIndex(period => period.id === effectivePeriodId);
   if (startIndex < 0) return { periods: [], error: { code: 'INVALID_SERIES_EFFECTIVE_PERIOD', stay_period_id: effectivePeriodId } };
-  return { periods: active.slice(startIndex), error: null };
+  const expected = active.slice(startIndex);
+  return { periods: finalHistoricalDeparture ? expected.filter(period => period.start_date <= finalHistoricalDeparture) : expected, error: null };
 }
 
 export function readSeriesEffectivePeriod(rows = []) {
