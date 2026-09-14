@@ -4,7 +4,7 @@ import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../sha
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
 
 const RUNTIME_BUILD = 'MP_CONFIRM_CURRENT_SOURCE_2026_09_14';
-const responseJson = (body, init) => responseJson({ ...body, runtime_build: RUNTIME_BUILD }, init);
+const responseJson = (body, init) => Response.json({ ...body, runtime_build: RUNTIME_BUILD }, init);
 
 function datesOverlap(a1, a2, b1, b2) {
   return a1 < b2 && b1 < a2;
