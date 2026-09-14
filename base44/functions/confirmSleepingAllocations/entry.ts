@@ -3,6 +3,9 @@ import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
 
+const RUNTIME_BUILD = 'MP_CONFIRM_CURRENT_SOURCE_2026_09_14';
+const responseJson = (body, init) => responseJson({ ...body, runtime_build: RUNTIME_BUILD }, init);
+
 function datesOverlap(a1, a2, b1, b2) {
   return a1 < b2 && b1 < a2;
 }
@@ -35,7 +38,7 @@ export default async function(req) {
     try {
       body = await req.json();
     } catch {
-      return Response.json({ success: false, error: 'בקשה לא תקינה — JSON שגוי' }, { status: 200 });
+      return responseJson({ success: false, error: 'בקשה לא תקינה — JSON שגוי' }, { status: 200 });
     }
 
     const { group_id, draft_allocation_ids, shared_neighborhood_allowed, shared_neighborhood_reason } = body;
@@ -45,11 +48,11 @@ export default async function(req) {
     console.log('[confirmSleepingAllocations] shared_neighborhood_allowed:', shared_neighborhood_allowed);
 
     if (!group_id) {
-      return Response.json({ success: false, error: 'חסר group_id', debug: { reasonCode: 'NO_GROUP_ID' } }, { status: 200 });
+      return responseJson({ success: false, error: 'חסר group_id', debug: { reasonCode: 'NO_GROUP_ID' } }, { status: 200 });
     }
     // Validate: if shared override requested, reason is mandatory
     if (shared_neighborhood_allowed && !shared_neighborhood_reason?.trim()) {
-      return Response.json({
+      return responseJson({
         success: false,
         error: 'יש לספק סיבה לאישור שכונה משותפת',
         debug: { reasonCode: 'SHARED_REASON_MISSING' }
@@ -57,7 +60,7 @@ export default async function(req) {
     }
 
     const group = await base44.asServiceRole.entities.Group.get(group_id).catch(() => null);
-    try { assertOperationalGroup(group); } catch (error) { return Response.json({ success: false, error: error.code }, { status: 409 }); }
+    try { assertOperationalGroup(group); } catch (error) { return responseJson({ success: false, error: error.code }, { status: 409 }); }
 
     // ── 1. Load ALL draft allocations for this group from DB (source of truth) ─
     // We do NOT rely solely on frontend-supplied IDs — the frontend cache may be
@@ -74,7 +77,7 @@ export default async function(req) {
       : { linked: false, valid: true, errors: [], ...groupLogicalSleepingAssignments(allGroupAllocations) };
 
     if (!seriesValidation.valid) {
-      return Response.json({
+      return responseJson({
         success: false,
         error: 'שיבוץ רב-תקופתי אינו שלם או אינו עקבי',
         debug: { reasonCode: 'INVALID_MULTI_PERIOD_SERIES', series_errors: seriesValidation.errors },
@@ -88,7 +91,7 @@ export default async function(req) {
     if (finalDraftsToConfirm.length === 0) {
       const alreadyConfirmed = seriesValidation.linked && seriesValidation.logical_assignments.length > 0 && seriesValidation.logical_assignments.every(item => item.all_confirmed);
       if (alreadyConfirmed) {
-        return Response.json({
+        return responseJson({
           success: true,
           already_confirmed: true,
           confirmed_count: 0,
@@ -97,7 +100,7 @@ export default async function(req) {
           message: 'שיבוץ הלינה כבר אושר',
         });
       }
-      return Response.json({
+      return responseJson({
         success: false,
         error: 'לא נמצאו שיבוצי טיוטה לאישור — ייתכן שכבר אושרו או בוטלו',
         debug: {
@@ -215,7 +218,7 @@ export default async function(req) {
     if (uniqueErrors.length > 0) {
       console.warn('[confirmSleepingAllocations] validation errors:', uniqueErrors);
       const needsSharedOverride = neighborhoodConflictBlocked.length > 0 && !uniqueErrors.some(e => e.includes('לא ניתן לשבץ את אותו אוהל'));
-      return Response.json({
+      return responseJson({
         success: false,
         errors: uniqueErrors,
         needs_shared_override: needsSharedOverride,
@@ -263,7 +266,7 @@ export default async function(req) {
     };
     console.log('[confirmSleepingAllocations] breakdown:', typeBreakdown);
 
-    return Response.json({
+    return responseJson({
       success: true,
       confirmed_count: finalDraftsToConfirm.length,
       confirmed_ids: confirmedIds,
@@ -277,7 +280,7 @@ export default async function(req) {
 
   } catch (err) {
     console.error('[confirmSleepingAllocations] unexpected error:', err?.message, err?.stack);
-    return Response.json({
+    return responseJson({
       success: false,
       error: 'שגיאה פנימית באישור שיבוץ לינה',
       debug: { reasonCode: 'UNEXPECTED_EXCEPTION', message: err?.message }
