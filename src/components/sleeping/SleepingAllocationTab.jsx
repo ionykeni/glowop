@@ -160,7 +160,13 @@ export default function SleepingAllocationTab({ groupId }) {
     },
     enabled: isMultiPeriod && !!groupId,
   });
-  const seriesValidation = isMultiPeriod ? (remoteSeriesValidation || { valid: false, errors: [], loading: true }) : { valid: true, errors: [] };
+  const seriesValidation = !isMultiPeriod
+    ? { status: 'VALID', valid: true, errors: [], loading: false }
+    : checkingSeries
+      ? { status: 'LOADING', valid: undefined, errors: [], loading: true }
+      : remoteSeriesValidation?.valid
+        ? { ...remoteSeriesValidation, status: 'VALID', loading: false }
+        : { ...(remoteSeriesValidation || {}), status: 'INVALID', valid: false, errors: remoteSeriesValidation?.errors || [], loading: false };
 
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
@@ -257,15 +263,19 @@ export default function SleepingAllocationTab({ groupId }) {
   );
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['sleepingSeriesValidation', groupId] });
-    queryClient.invalidateQueries({ queryKey: ["sleepingAllocations", groupId] });
-    queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] });       // housekeeping broad key
-    queryClient.invalidateQueries({ queryKey: ["allConfirmedAllocations"] });
-    queryClient.invalidateQueries({ queryKey: ["allActiveAllocations"] });
-    queryClient.invalidateQueries({ queryKey: ["allAllocations"] });            // dashboard/housekeeping
-    queryClient.invalidateQueries({ queryKey: ["nhoodReservations", groupId] });
-    queryClient.invalidateQueries({ queryKey: ["allNhoodReservations"] });
+  const invalidate = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["sleepingAllocations", groupId] }),
+      queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] }),       // housekeeping broad key
+      queryClient.invalidateQueries({ queryKey: ["allConfirmedAllocations"] }),
+      queryClient.invalidateQueries({ queryKey: ["allActiveAllocations"] }),
+      queryClient.invalidateQueries({ queryKey: ["allAllocations"] }),            // dashboard/housekeeping
+      queryClient.invalidateQueries({ queryKey: ["nhoodReservations", groupId] }),
+      queryClient.invalidateQueries({ queryKey: ["allNhoodReservations"] }),
+    ]);
+    if (isMultiPeriod) {
+      await queryClient.invalidateQueries({ queryKey: ['sleepingSeriesValidation', groupId] });
+    }
   };
 
   const handleReleaseAll = async () => {
@@ -558,7 +568,12 @@ export default function SleepingAllocationTab({ groupId }) {
             שיבוץ אוהלים רב־תקופתי זמין לאחר אישור המכינה והפעלתה התפעולית.
           </div>
         )}
-        {isMultiPeriod && !seriesValidation.loading && seriesValidation.valid === false && (
+        {isMultiPeriod && seriesValidation.status === 'LOADING' && (
+          <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            בודק את תקינות השיבוץ הרב־תקופתי…
+          </div>
+        )}
+        {isMultiPeriod && seriesValidation.status === 'INVALID' && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-300 rounded-lg px-3 py-2">
             השיבוץ הרב־תקופתי הקיים אינו עקבי. נדרשת בדיקה לפני עריכה או אישור; אין לשחרר היסטוריה כדי לתקן אותו.
           </div>
@@ -636,7 +651,7 @@ export default function SleepingAllocationTab({ groupId }) {
             groupId={groupId}
             onInvalidate={invalidate}
             isMultiPeriod={isMultiPeriod}
-            canUseMultiPeriod={canUseMultiPeriod && seriesValidation.valid}
+            canUseMultiPeriod={canUseMultiPeriod && seriesValidation.status !== 'INVALID'}
             logicalAssignments={logicalSeriesData.logical_assignments}
             group={group}
           />
@@ -662,7 +677,7 @@ export default function SleepingAllocationTab({ groupId }) {
         departureDate={departureDate}
         onInvalidate={invalidate}
         isMultiPeriod={isMultiPeriod}
-        canUseMultiPeriod={canUseMultiPeriod && seriesValidation.valid}
+        canUseMultiPeriod={canUseMultiPeriod && seriesValidation.status !== 'INVALID'}
         logicalAssignments={logicalSeriesData.logical_assignments}
         activeStayPeriods={activeStayPeriods}
       />
