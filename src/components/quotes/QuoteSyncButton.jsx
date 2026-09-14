@@ -64,7 +64,7 @@ export default function QuoteSyncButton({ quote, group, profile, onSynced }) {
   };
 
   return (
-    <RoleGate roles={["admin", "ADMIN", "SUPER_ADMIN", "QUOTES_MANAGER", "OPERATIONS"]}>
+    <RoleGate roles={["admin", "ADMIN", "SUPER_ADMIN", "OPERATIONS"]}>
       <Button
         size="sm"
         variant="outline"

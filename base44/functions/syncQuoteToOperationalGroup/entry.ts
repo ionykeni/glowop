@@ -23,7 +23,7 @@ export default async function(req) {
     const internalUsers = await base44.asServiceRole.entities.InternalUser.list();
     const internalUser = internalUsers.find(row => row.email?.trim().toLowerCase() === normalizedEmail);
     const role = internalUser?.role || user.role;
-    if (!['admin', 'ADMIN', 'SUPER_ADMIN', 'QUOTES_MANAGER', 'OPERATIONS'].includes(role)) {
+    if (!['admin', 'ADMIN', 'SUPER_ADMIN', 'OPERATIONS'].includes(role)) {
       return Response.json({ error: 'אין הרשאה לביצוע פעולה זו' }, { status: 403 });
     }
 
