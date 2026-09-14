@@ -447,6 +447,12 @@ export default function SleepingAllocationTab({ groupId }) {
   return (
     <div className="space-y-6" dir="rtl">
 
+      {isMultiPeriod && (
+        <div className="w-fit rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700" dir="ltr">
+          MP UI BUILD 2026-09-14-A
+        </div>
+      )}
+
       {/* Release all button */}
       <RoleGate permission="MANAGE_ALLOCATION">
         {hasActiveAllocations && (
