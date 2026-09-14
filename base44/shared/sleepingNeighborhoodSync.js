@@ -6,7 +6,12 @@ export async function syncSleepingNeighborhoods(db, writes, groupId, affected, t
   for (const sample of pairs.values()) {
     const own = reservations.filter(r => r.departure_date > today && r.stay_period_id === sample.stay_period_id && r.neighborhood_id === sample.neighborhood_id);
     const occupants = rows.filter(r => liveSleeping(r) && r.departure_date > today && r.allocation_type === 'STUDENT' && r.stay_period_id === sample.stay_period_id && r.neighborhood_id === sample.neighborhood_id);
-    if (!occupants.length) { for (const row of own) await writes.update('NeighborhoodReservation', row, { status: 'CANCELLED' }); continue; }
+    if (!occupants.length) {
+      for (const row of own) await writes.update('NeighborhoodReservation', row, row.arrival_date < today
+        ? { departure_date: today }
+        : { status: 'CANCELLED' });
+      continue;
+    }
     const starts = occupants.map(r => r.arrival_date).sort(), ends = occupants.map(r => r.departure_date).sort();
     const genders = [...new Set(occupants.map(r => r.gender_group))];
     const data = { group_id: groupId, operational_group_profile_id: sample.operational_group_profile_id, stay_period_id: sample.stay_period_id, neighborhood_id: sample.neighborhood_id, arrival_date: starts[0], departure_date: ends.at(-1), planned_tents: new Set(occupants.map(r => r.tent_id)).size, gender_group: genders.length === 1 ? genders[0] : 'MIXED', status: 'ACTIVE', source: 'allocation' };

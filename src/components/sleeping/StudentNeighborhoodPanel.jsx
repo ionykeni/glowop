@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Lock, CheckCircle2, ChevronDown, ChevronUp, Plus, X, LayoutGrid, AlertTriangle, Users } from "lucide-react";
 import TentDistributionEditor from "./TentDistributionEditor";
 import AutoAllocationButton from "./AutoAllocationButton";
+import { releaseSleepingNeighborhood } from '@/components/sleeping/seriesActions';
+import { toast } from 'sonner';
 
 const GENDER_OPTIONS = [
   { value: "BOYS",  label: "בנים 👦" },
@@ -55,6 +57,7 @@ export default function StudentNeighborhoodPanel({
 }) {
   const [open, setOpen] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
+  const [releasingNeighborhood, setReleasingNeighborhood] = useState(false);
   const [form, setForm] = useState({
     gender_group: defaultGenderGroup,
     planned_tents: tents.length,
@@ -114,7 +117,18 @@ export default function StudentNeighborhoodPanel({
     setOpen(false);
   };
 
-  const handleRelease = () => {
+  const handleRelease = async () => {
+    if (isMultiPeriod) {
+      if (!window.confirm(`לשחרר את השיבוצים הנוכחיים והעתידיים של ${neighborhood.name}?\nשיבוצים היסטוריים ושכונות אחרות יישמרו.`)) return;
+      setReleasingNeighborhood(true);
+      try {
+        await releaseSleepingNeighborhood(groupId, neighborhood.id);
+        onSaved?.();
+        toast.success(`${neighborhood.name} שוחררה; ההיסטוריה ושכונות אחרות נשמרו`);
+      } catch (error) { toast.error(error.message); }
+      finally { setReleasingNeighborhood(false); }
+      return;
+    }
     if (!window.confirm("לשחרר שכונה זו מהקצאת הקבוצה?")) return;
     onRelease(lockByThisGroup.id);
   };
@@ -216,6 +230,17 @@ export default function StudentNeighborhoodPanel({
                 >
                   <LayoutGrid className="w-3 h-3" /> פירוט לפי אוהלים
                 </Button>
+                {isMultiPeriod && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={handleRelease}
+                    disabled={saving || releasingNeighborhood}
+                  >
+                    <X className="w-3 h-3" /> {releasingNeighborhood ? 'משחרר...' : 'שחרור שכונה'}
+                  </Button>
+                )}
                 {!isMultiPeriod && (
                   <>
                     <Button

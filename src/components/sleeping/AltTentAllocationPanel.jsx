@@ -291,7 +291,6 @@ function AltTentAllocationModal({
       if (!sel.pax || sel.pax < 1) errs.push(`יש לבחור מספר אנשים לאוהל ${tent.code}`);
       if (sel.pax > tent.capacity) errs.push(`מספר האנשים גדול מקיבולת אוהל ${tent.code}`);
     });
-    if (required > 0 && allocatedPax > required) errs.push(`שובצו יותר אנשים מהנדרש (${allocatedPax} > ${required})`);
     if (errs.length) { setErrors(errs); return; }
 
     if (isMultiPeriod && !canUseMultiPeriod) {
@@ -536,12 +535,12 @@ function AltTentAllocationModal({
                 })}
 
                 <div className={`rounded-lg px-3 py-2 text-xs font-semibold ${
-                  remainingPax === 0 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : allocatedPax > required ? "bg-red-50 text-red-600 border border-red-200"
+                  allocatedPax > required ? "bg-amber-50 text-amber-700 border border-amber-300"
+                  : remainingPax === 0 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                     : "bg-slate-50 text-slate-600 border border-slate-200"
                 }`}>
                   {allocatedPax > required
-                    ? `⚠️ שובצו יותר מהנדרש (${allocatedPax}/${required})`
+                    ? `⚠️ שובצו יותר מקומות לינה מהדרישה הנוכחית (${allocatedPax}/${required})`
                     : remainingPax === 0
                       ? `✓ ${allocatedPax}/${required} — מלא`
                       : `${allocatedPax}/${required} — נותרו ${remainingPax}`

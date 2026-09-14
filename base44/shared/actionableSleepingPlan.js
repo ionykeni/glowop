@@ -22,13 +22,30 @@ export function prepareActionableSleepingPlan(ctx, assignments, sharedNeighborho
     const candidates = live.filter(r=>assignment.allocation_series_id ? r.allocation_series_id===assignment.allocation_series_id : r.tent_id===assignment.tent_id);
     const ids = [...new Set(candidates.map(r=>r.allocation_series_id))];
     if (ids.length>1 || candidates.some(r=>!r.allocation_series_id||!r.stay_period_id)) throw new Error('לא ניתן לזהות סדרת שיבוץ יחידה');
-    if (assignment.allocation_series_id && !candidates.length) throw new Error('השיבוץ השתנה; יש לרענן לפני שמירה');
+    if (assignment.allocation_series_id && !candidates.length) {
+      const requestedSeries = mine.filter(r=>r.allocation_series_id===assignment.allocation_series_id);
+      const released = requestedSeries.length>0 && requestedSeries.some(r=>r.series_action==='RELEASE') && requestedSeries.every(r=>!liveSleeping(r)||r.departure_date<=today);
+      if (!released) throw new Error('השיבוץ השתנה; יש לרענן לפני שמירה');
+    }
     if (candidates.length) {
       if (used.has(ids[0])) throw new Error('אותה סדרת שיבוץ נשלחה פעמיים'); used.add(ids[0]);
-      for (const row of candidates) {
-        if (['tent_id','neighborhood_id','allocation_type','gender_group'].some(k=>row[k]!==assignment[k]) || (row.notes||'')!==(assignment.notes||'')) throw new Error('שינוי מקום דורש פעולת העברה מתוארכת; ניתן לערוך כאן כמות בלבד');
-        if (Number(row.allocated_pax)!==Number(assignment.allocated_pax)) updates.push({ row, data:{allocated_pax:Number(assignment.allocated_pax)} });
-        plannedRows.push({ plan_key:`existing:${row.id}`, source_stay_period_id:row.stay_period_id, logical_assignment_index:index, existing_id:row.id, sleeping_allocation:{...row,allocated_pax:Number(assignment.allocated_pax)} });
+      for (const row of candidates) if (['tent_id','neighborhood_id','allocation_type','gender_group'].some(k=>row[k]!==assignment[k]) || (row.notes||'')!==(assignment.notes||'')) throw new Error('שינוי מקום דורש פעולת העברה מתוארכת; ניתן לערוך כאן כמות בלבד');
+      const paxChanged = candidates.some(row=>Number(row.allocated_pax)!==Number(assignment.allocated_pax));
+      const crossesToday = paxChanged && candidates.some(row=>row.arrival_date<today&&today<row.departure_date);
+      if (crossesToday) {
+        const series=crypto.randomUUID(),first=candidates.slice().sort((a,b)=>a.arrival_date.localeCompare(b.arrival_date))[0];
+        for (const row of candidates) {
+          const arrival=row.arrival_date<today?today:row.arrival_date;
+          const replacement={...row,id:undefined,created_date:undefined,updated_date:undefined,arrival_date:arrival,allocated_pax:Number(assignment.allocated_pax),allocation_series_id:series,series_effective_from_period_id:first.stay_period_id,source_allocation_id:row.id,housekeeping_status:'PENDING',series_action:undefined,series_action_date:undefined,replacement_series_id:undefined,segment_end_date:undefined,...(arrival!==row.arrival_date?{segment_start_date:arrival}:{})};
+          plannedRows.push({plan_key:`pax:${series}:${row.stay_period_id}`,source_stay_period_id:row.stay_period_id,logical_assignment_index:index,sleeping_allocation:replacement});
+          const meta={series_action:'REASSIGN',series_action_date:today,replacement_series_id:series};
+          updates.push({row,data:row.arrival_date<today?{...meta,departure_date:today,segment_end_date:today}:{...meta,status:'CANCELLED'}});
+        }
+      } else {
+        for (const row of candidates) {
+          if (Number(row.allocated_pax)!==Number(assignment.allocated_pax)) updates.push({ row, data:{allocated_pax:Number(assignment.allocated_pax)} });
+          plannedRows.push({ plan_key:`existing:${row.id}`, source_stay_period_id:row.stay_period_id, logical_assignment_index:index, existing_id:row.id, sleeping_allocation:{...row,allocated_pax:Number(assignment.allocated_pax)} });
+        }
       }
     } else {
       const first = periods.find(p=>p.end_date>today); if (!first) throw new Error('אין תקופות לינה נוכחיות או עתידיות');

@@ -4,13 +4,15 @@ import { validateLinkedSeriesCompleteness } from './logicalSleepingSeries.js';
 import { syncSleepingNeighborhoods } from './sleepingNeighborhoodSync.js';
 export function planSeriesAction(ctx, body) {
   const {group,periods,rows,tents,neighborhoods,reservations,today}=ctx;
-  const {action,allocation_series_id,destination_tent_id,effective_period_id,effective_date}=body;
-  if (!['release_series','release_all','reassign_series'].includes(action)) throw new Error('פעולת שיבוץ לא מוכרת');
+  const {action,allocation_series_id,neighborhood_id,destination_tent_id,effective_period_id,effective_date}=body;
+  if (!['release_series','release_neighborhood','release_all','reassign_series'].includes(action)) throw new Error('פעולת שיבוץ לא מוכרת');
   if (body.scope && body.scope!=='FROM_EFFECTIVE_FORWARD') throw new Error('היקף השינוי אינו נתמך');
-  if(action!=='release_all'&&!allocation_series_id) throw new Error('חסרה זהות סדרת השיבוץ');
+  if(['release_series','reassign_series'].includes(action)&&!allocation_series_id) throw new Error('חסרה זהות סדרת השיבוץ');
+  if(action==='release_neighborhood'&&!neighborhood_id) throw new Error('חסרה זהות השכונה');
   const mine=rows.filter(r=>r.group_id===group.id);
-  const source=mine.filter(r=>action==='release_all'||r.allocation_series_id===allocation_series_id);
-  if(action!=='release_all'&&!source.length) throw new Error('סדרת השיבוץ לא נמצאה');
+  const source=mine.filter(r=>action==='release_all'||(action==='release_neighborhood'?r.neighborhood_id===neighborhood_id:r.allocation_series_id===allocation_series_id));
+  if(['release_series','reassign_series'].includes(action)&&!source.length) throw new Error('סדרת השיבוץ לא נמצאה');
+  if(action==='release_neighborhood'&&!neighborhoods.some(n=>n.id===neighborhood_id)) throw new Error('השכונה לא נמצאה');
   let effective=today;
   if(action==='reassign_series') {
     const p=effective_period_id?periods.find(p=>p.id===effective_period_id):null;
@@ -50,7 +52,10 @@ export function planSeriesAction(ctx, body) {
     const projected=mine.map(r=>({...r,...updates.find(u=>u.row.id===r.id)?.data})).concat(creates.map((r,i)=>({...r,id:`projected-${i}`})));
     if(!validateLinkedSeriesCompleteness(projected,periods,group.id,today).valid) throw new Error('השינוי המבוקש אינו שומר על רציפות הסדרות');
   }
-  return {updates,creates,warnings,affected_reservations:action==='release_all'?reservations.filter(r=>r.group_id===group.id&&r.departure_date>today):[],already_applied:updates.length===0};
+  const affectedReservations = ['release_all','release_neighborhood'].includes(action)
+    ? reservations.filter(r=>r.group_id===group.id&&r.departure_date>today&&(action==='release_all'||r.neighborhood_id===neighborhood_id))
+    : [];
+  return {updates,creates,warnings,affected_reservations:affectedReservations,already_applied:updates.length===0&&affectedReservations.length===0};
 }
 export async function applySeriesAction(db,writes,ctx,plan) {
   // Create destination before releasing source: failures never silently lose source capacity.
