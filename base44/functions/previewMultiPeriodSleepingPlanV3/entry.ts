@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { assertSleepingAccess } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext, prepareActionableSleepingPlan } from '../../shared/actionableSleepingPlan.js';
+// Runtime bundle refreshed for released-series desired-state reconciliation.
 export default async function(req) {
   try {
     const base44=createClientFromRequest(req),user=await base44.auth.me();

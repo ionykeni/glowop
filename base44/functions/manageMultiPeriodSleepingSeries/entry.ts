@@ -3,6 +3,7 @@ import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActio
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planSeriesAction, applySeriesAction } from '../../shared/multiPeriodSeriesActions.js';
 import { validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
+// Runtime bundle refreshed for neighborhood-scoped release.
 export default async function(req) {
   let writes;
   try {
