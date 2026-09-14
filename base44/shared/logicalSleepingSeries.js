@@ -4,9 +4,9 @@ function unique(rows, field, normalize = value => value) {
   return [...new Set(rows.map(row => normalize(row[field])))];
 }
 
-export function groupLogicalSleepingAssignments(rows = []) {
+export function groupLogicalSleepingAssignments(rows = [], todayDate) {
   const activeRows = rows.filter(row => row.status !== 'CANCELLED');
-  const todayIL = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+  const todayIL = todayDate || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
   const buckets = new Map();
   activeRows.forEach((row, index) => {
     const linked = !!row.allocation_series_id;
@@ -59,14 +59,14 @@ export function groupLogicalSleepingAssignments(rows = []) {
   };
 }
 
-export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], groupId) {
+export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], groupId, todayDate) {
   const activeRows = rows.filter(row => row.status !== 'CANCELLED');
   const linkedRows = activeRows.filter(row => row.stay_period_id || row.allocation_series_id);
   if (linkedRows.length === 0) return { linked: false, valid: true, errors: [], ...groupLogicalSleepingAssignments(activeRows) };
 
   const errors = [];
   if (activeRows.some(row => !row.stay_period_id || !row.allocation_series_id)) errors.push({ code: 'MIXED_OR_MISSING_SERIES_LINKAGE' });
-  const grouped = groupLogicalSleepingAssignments(linkedRows);
+  const grouped = groupLogicalSleepingAssignments(linkedRows, todayDate);
   grouped.inconsistent_series.forEach(series => errors.push({ code: 'INCONSISTENT_LOGICAL_SERIES', allocation_series_id: series.allocation_series_id, details: series.consistency_errors }));
   const periodById = Object.fromEntries(activePeriods.map(period => [period.id, period]));
 

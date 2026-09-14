@@ -11,7 +11,7 @@ export function prepareActionableSleepingPlan(ctx, assignments, sharedNeighborho
   const { group, profile, periods, tents, neighborhoods, rows, reservations, today } = ctx;
   if (!Array.isArray(assignments) || !assignments.length) throw new Error('יש לבחור לפחות שיבוץ אחד');
   const mine = rows.filter(r=>r.group_id===group.id);
-  const validation = validateLinkedSeriesCompleteness(mine, periods, group.id);
+  const validation = validateLinkedSeriesCompleteness(mine, periods, group.id, today);
   if (!validation.valid) throw new Error('השיבוץ הקיים אינו עקבי; נדרשת בדיקה לפני שינוי');
   const live = mine.filter(r=>liveSleeping(r)&&r.departure_date>today);
   const used = new Set(), plannedRows = [], updates = [];

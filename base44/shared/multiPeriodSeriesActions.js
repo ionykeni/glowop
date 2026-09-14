@@ -39,7 +39,7 @@ export function planSeriesAction(ctx, body) {
       updates.push({row,data:row.arrival_date<effective?{...meta,departure_date:effective,segment_end_date:effective}:{...meta,status:'CANCELLED'}});
     }
     const projected=mine.map(r=>({...r,...updates.find(u=>u.row.id===r.id)?.data})).concat(creates.map((r,i)=>({...r,id:`projected-${i}`})));
-    if(!validateLinkedSeriesCompleteness(projected,periods,group.id).valid) throw new Error('השינוי המבוקש אינו שומר על רציפות הסדרות');
+    if(!validateLinkedSeriesCompleteness(projected,periods,group.id,today).valid) throw new Error('השינוי המבוקש אינו שומר על רציפות הסדרות');
   }
   return {updates,creates,warnings,affected_reservations:action==='release_all'?reservations.filter(r=>r.group_id===group.id&&r.departure_date>today):[],already_applied:updates.length===0};
 }

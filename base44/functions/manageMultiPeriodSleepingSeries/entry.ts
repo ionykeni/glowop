@@ -12,7 +12,7 @@ export default async function(req) {
     if(!body.group_id) return Response.json({success:false,error:'חסרה קבוצה'});
     const db=base44.asServiceRole.entities,ctx=await loadSleepingContext(db,body.group_id);
     if(body.action==='inspect') {
-      const validation=validateLinkedSeriesCompleteness(ctx.rows.filter(r=>r.group_id===ctx.group.id),ctx.periods,ctx.group.id);
+      const validation=validateLinkedSeriesCompleteness(ctx.rows.filter(r=>r.group_id===ctx.group.id),ctx.periods,ctx.group.id,ctx.today);
       return Response.json({success:true,read_only:true,validation:{valid:validation.valid,errors:validation.errors}});
     }
     const plan=planSeriesAction(ctx,body);
