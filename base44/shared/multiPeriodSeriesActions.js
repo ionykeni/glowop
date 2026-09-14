@@ -41,7 +41,7 @@ export function planSeriesAction(ctx, body) {
     const projected=mine.map(r=>({...r,...updates.find(u=>u.row.id===r.id)?.data})).concat(creates.map((r,i)=>({...r,id:`projected-${i}`})));
     if(!validateLinkedSeriesCompleteness(projected,periods,group.id).valid) throw new Error('השינוי המבוקש אינו שומר על רציפות הסדרות');
   }
-  return {updates,creates,warnings,already_applied:updates.length===0};
+  return {updates,creates,warnings,affected_reservations:action==='release_all'?reservations.filter(r=>r.group_id===group.id&&r.departure_date>today):[],already_applied:updates.length===0};
 }
 export async function applySeriesAction(db,writes,ctx,plan) {
   // Create destination before releasing source: failures never silently lose source capacity.
@@ -50,6 +50,6 @@ export async function applySeriesAction(db,writes,ctx,plan) {
     if(item.row.departure_date<=ctx.today) throw new Error('אין לשנות שיבוץ היסטורי');
     await writes.update('SleepingAllocation',item.row,item.data);
   }
-  const affected=[...plan.updates.map(u=>u.row),...plan.creates];
+  const affected=[...plan.updates.map(u=>u.row),...plan.creates,...(plan.affected_reservations||[])];
   await syncSleepingNeighborhoods(db,writes,ctx.group.id,affected,ctx.today);
 }

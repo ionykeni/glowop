@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, CheckCircle2, Save, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
-import { groupLogicalSleepingAssignments } from "../../../base44/shared/logicalSleepingSeries.js";
+import { groupLogicalSleepingAssignments } from '@/components/sleeping/logicalSleepingView';
 
 const GENDER_LABEL = { BOYS: "בנים 👦", GIRLS: "בנות 👧", MEN: "גברים 👨", WOMEN: "נשים 👩" };
 
@@ -303,7 +303,7 @@ export default function TentDistributionEditor({
         if (!preview?.success || preview.legacy_envelope_requires_conversion || !preview.allowed) {
           const message = preview?.legacy_envelope_requires_conversion
             ? "קיים שיבוץ מעטפת ישן הדורש המרה לפני שמירה."
-            : formatPreviewConflict(preview);
+            : (preview?.error || formatPreviewConflict(preview));
           setPeriodErrors([message]);
 
           return;

@@ -1,4 +1,4 @@
-import { groupLogicalSleepingAssignments } from "../../base44/shared/logicalSleepingSeries.js";
+import { groupLogicalSleepingAssignments } from '@/components/sleeping/logicalSleepingView';
 
 export function getVipRequirementIndex(notes = "") {
   const match = notes.match(/__vip_req_(\d+)__/);

@@ -10,7 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { computeAllocationCounts } from "@/lib/allocationCounts";
-import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from "../../../base44/shared/logicalSleepingSeries.js";
+import { groupLogicalSleepingAssignments } from '@/components/sleeping/logicalSleepingView';
 
 import SleepingRequirementsSummary from "./SleepingRequirementsSummary";
 import StudentNeighborhoodPanel from "./StudentNeighborhoodPanel";
@@ -152,12 +152,15 @@ export default function SleepingAllocationTab({ groupId }) {
     () => logicalSeriesData.logical_assignments.filter(a => a.allocation_type === "STUDENT"),
     [logicalSeriesData]
   );
-  const seriesValidation = useMemo(
-    () => isMultiPeriod
-      ? validateLinkedSeriesCompleteness(myAllocations, activeStayPeriods, groupId)
-      : { valid: true, errors: [] },
-    [isMultiPeriod, myAllocations, activeStayPeriods, groupId]
-  );
+  const { data: remoteSeriesValidation, isFetching: checkingSeries } = useQuery({
+    queryKey: ['sleepingSeriesValidation', groupId, myAllocations.map(r => `${r.id}:${r.updated_date}`).join('|'), activeStayPeriods.map(p => `${p.id}:${p.updated_date}`).join('|')],
+    queryFn: async () => {
+      const { data } = await base44.functions.invoke('manageMultiPeriodSleepingSeries', { action: 'inspect', group_id: groupId });
+      return data?.success ? data.validation : { valid: false, errors: [] };
+    },
+    enabled: isMultiPeriod && !!groupId,
+  });
+  const seriesValidation = isMultiPeriod ? (remoteSeriesValidation || { valid: false, errors: [], loading: true }) : { valid: true, errors: [] };
 
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
@@ -255,6 +258,7 @@ export default function SleepingAllocationTab({ groupId }) {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['sleepingSeriesValidation', groupId] });
     queryClient.invalidateQueries({ queryKey: ["sleepingAllocations", groupId] });
     queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] });       // housekeeping broad key
     queryClient.invalidateQueries({ queryKey: ["allConfirmedAllocations"] });
@@ -554,7 +558,7 @@ export default function SleepingAllocationTab({ groupId }) {
             שיבוץ אוהלים רב־תקופתי זמין לאחר אישור המכינה והפעלתה התפעולית.
           </div>
         )}
-        {isMultiPeriod && seriesValidation.valid === false && (
+        {isMultiPeriod && !seriesValidation.loading && seriesValidation.valid === false && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-300 rounded-lg px-3 py-2">
             השיבוץ הרב־תקופתי הקיים אינו עקבי. נדרשת בדיקה לפני עריכה או אישור; אין לשחרר היסטוריה כדי לתקן אותו.
           </div>
