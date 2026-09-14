@@ -536,8 +536,9 @@ export default function VipAllocationPanel({
   const [dialogTarget, setDialogTarget] = useState(null);
   // paxEditTarget: { allocation, tent } — open the confirmed pax-edit dialog
   const [paxEditTarget, setPaxEditTarget] = useState(null);
-  const [confirming, setConfirming]     = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [serverErrors, setServerErrors] = useState([]);
+  const [confirmDiagnostics, setConfirmDiagnostics] = useState(null);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
   const isActiveContinuous = !isMultiPeriod && group?.stay_mode === "CONTINUOUS" && group.arrival_date <= today && today < group.departure_date;
 
@@ -685,6 +686,7 @@ export default function VipAllocationPanel({
     if (!draftIds.length) { toast.error("אין טיוטות לאישור"); return; }
     setConfirming(true);
     setServerErrors([]);
+    setConfirmDiagnostics(null);
     try {
       const res = await base44.functions.invoke("confirmSleepingAllocations", {
         group_id: groupId,
@@ -696,11 +698,19 @@ export default function VipAllocationPanel({
           : `${res.data.confirmed_count} הקצאות VIP אושרו ✓`);
         onInvalidate();
       } else {
-        setServerErrors(res.data?.errors || ["שגיאה לא ידועה"]);
+        const responseErrors = res.data?.errors;
+        const visibleError = res.data?.error
+          || (typeof responseErrors === "string" ? responseErrors : null)
+          || (Array.isArray(responseErrors) && responseErrors.length ? responseErrors.join(" • ") : null)
+          || "שגיאה לא ידועה";
+        setServerErrors([visibleError]);
+        setConfirmDiagnostics(res.data || {});
       }
     } catch (err) {
       console.error("[VipAllocationPanel] handleConfirmAll error:", err);
-      setServerErrors([err?.response?.data?.error || err?.message || "שגיאה באישור ההקצאות — נסה שוב"]);
+      const responseData = err?.response?.data || {};
+      setServerErrors([responseData.error || err?.message || "שגיאה באישור ההקצאות — נסה שוב"]);
+      setConfirmDiagnostics(responseData);
     } finally {
       setConfirming(false);
     }
@@ -834,6 +844,15 @@ export default function VipAllocationPanel({
             <AlertTriangle className="w-4 h-4" /> שגיאות:
           </p>
           {serverErrors.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
+          {confirmDiagnostics && (
+            <div className="mt-2 border-t border-red-200 pt-2 text-[10px] leading-4 text-red-700" dir="ltr">
+              <p>endpoint: confirmSleepingAllocations</p>
+              <p>runtime_build: {confirmDiagnostics.runtime_build ?? "—"}</p>
+              <p>success: {String(confirmDiagnostics.success ?? "—")}</p>
+              <p>error: {confirmDiagnostics.error ?? "—"}</p>
+              <p>errors: {Array.isArray(confirmDiagnostics.errors) ? confirmDiagnostics.errors.join(" | ") : (confirmDiagnostics.errors ?? "—")}</p>
+            </div>
+          )}
         </div>
       )}
 
