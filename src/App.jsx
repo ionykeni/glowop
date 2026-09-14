@@ -42,7 +42,6 @@ import AuthenticatedSnapshotFallback from "@/components/snapshots/AuthenticatedS
 const HomeLanding = () => {
   const { role } = useRoleContext();
   if (role === "MAINTENANCE") return <Navigate to="/maintenance" replace />;
-  if (role === "QUOTES_MANAGER") return <Navigate to="/quotes" replace />;
   return <Dashboard />;
 };
 

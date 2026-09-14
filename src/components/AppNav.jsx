@@ -36,6 +36,7 @@ function getInitials(name) {
 const ALL_LINKS = [
   { key: "dashboard",       to: "/dashboard",       label: "בית",             icon: LayoutDashboard, group: "primary" },
   { key: "quotes",          to: "/quotes",          label: "הצעות מחיר",      icon: FileText,        group: "primary" },
+  { key: "groups",          to: "/groups",          label: "קבוצות",          icon: Users,           group: "primary" },
   { key: "approved-groups", to: "/approved-groups", label: "קבוצות",          icon: CheckSquare,     group: "primary" },
   { key: "calendar",        to: "/calendar",        label: "לוח שנה",          icon: CalendarDays,    group: "primary" },
   { key: "allocation",      to: "/allocation",      label: "לינה",             icon: BedDouble,       group: "primary" },
@@ -204,8 +205,12 @@ export default function AppNav() {
   const showUserManagement = role === "SUPER_ADMIN";
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "quotes", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts"];
-  const primaryLinks = ALL_LINKS.filter(l => PRIMARY_KEYS.includes(l.key) && allowedKeys.includes(l.key));
+  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts"];
+  const primaryLinks = ALL_LINKS
+    .filter(l => PRIMARY_KEYS.includes(l.key) && allowedKeys.includes(l.key))
+    .sort((a, b) => role === "QUOTES_MANAGER"
+      ? ["dashboard", "groups", "calendar", "quotes"].indexOf(a.key) - ["dashboard", "groups", "calendar", "quotes"].indexOf(b.key)
+      : 0);
 
   // Ops dropdown: housekeeping, kitchen, maintenance, work schedule
   const OPS_KEYS = ["housekeeping", "kitchen", "maintenance", "work-schedule", "cleaning-hours"];

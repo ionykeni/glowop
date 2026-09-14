@@ -29,11 +29,14 @@ import QuoteSyncButton from "@/components/quotes/QuoteSyncButton";
 import MechinaMovementSummary from "@/components/groups/MechinaMovementSummary";
 import ActiveStayPeriodsDialog from "@/components/groups/ActiveStayPeriodsDialog";
 import { updateQuotePreparationCache, invalidateQuotePreparationCache } from "@/lib/quotePreparationCache";
+import { useRoleContext } from "@/lib/RoleContext";
 
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { role } = useRoleContext();
+  const isQuotesManager = role === "QUOTES_MANAGER";
 
   const [editGroup, setEditGroup] = useState(false);
   const [showSubmissionForm, setShowSubmissionForm] = useState(false);
@@ -176,16 +179,16 @@ export default function GroupDetail() {
       </div>
 
       {/* Review alerts for this group — grouped by source to avoid 3 duplicate cards */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+      {!isQuotesManager && <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
         <ReviewAlertsBanner groupId={id} grouped />
-      </div>
+      </div>}
 
       {/* Tab navigation */}
       <div className="border-b border-border bg-card">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 flex gap-0">
           {[
             { key: "overview", label: "סקירה כללית" },
-            ...(!isPreparation ? [
+            ...(!isQuotesManager && !isPreparation ? [
               { key: "schedule", label: "📅 לוח זמנים וארוחות" },
               { key: "coffee", label: "☕ קפה / פריסה" },
               { key: "sleeping", label: "🛏️ דרישות לינה" },
@@ -309,9 +312,9 @@ export default function GroupDetail() {
                     </div>
                     {s.total_pax && <p className="text-xs text-muted-foreground">{s.total_pax} משתתפים · {s.submitted_at ? format(new Date(s.submitted_at), "dd/MM/yyyy") : ""}</p>}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setReviewSubmission(s)} className="gap-1">
+                  {!isQuotesManager && <Button size="sm" variant="outline" onClick={() => setReviewSubmission(s)} className="gap-1">
                     <Pencil className="w-3 h-3" /> צפייה / עריכה
-                  </Button>
+                  </Button>}
                 </div>
               ))}
             </div>
@@ -320,12 +323,12 @@ export default function GroupDetail() {
 
         {/* Operational Profile */}
         <div id="operational-profile" className="space-y-3">
-          {group.status === "CONFIRMED" && operationalProfile && <div className="flex justify-end gap-2"><QuoteSyncButton quote={activeQuote} group={group} profile={operationalProfile} onSynced={refetch} /><OperationalProfileAction groupId={id} profile={operationalProfile} onOpen={() => document.getElementById("operational-profile")?.scrollIntoView({ behavior: "smooth" })} /></div>}
+          {!isQuotesManager && group.status === "CONFIRMED" && operationalProfile && <div className="flex justify-end gap-2"><QuoteSyncButton quote={activeQuote} group={group} profile={operationalProfile} onSynced={refetch} /><OperationalProfileAction groupId={id} profile={operationalProfile} onOpen={() => document.getElementById("operational-profile")?.scrollIntoView({ behavior: "smooth" })} /></div>}
           <OperationalProfileDisplay groupId={id} group={group} provisional={isPreparation} />
         </div>
 
         {/* Operational Hold — admin debug card */}
-        <OperationalHoldCard groupId={id} />
+        {!isQuotesManager && <OperationalHoldCard groupId={id} />}
 
         {/* Internal Notes */}
         {group.internal_notes && (
@@ -341,11 +344,11 @@ export default function GroupDetail() {
         </RoleGate>
 
         {/* Lifecycle Actions */}
-        <GroupLifecycleActions
+        {!isQuotesManager && <GroupLifecycleActions
           group={group}
           onDeleted={() => navigate("/groups")}
           onUpdated={refetch}
-        />
+        />}
 
         </>}
       </div>

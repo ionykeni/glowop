@@ -31,7 +31,7 @@ export const ROLE_LABELS = {
 export const ROLE_NAV_LINKS = {
   SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours"],
   ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours"],
-  QUOTES_MANAGER:       ["quotes"],
+  QUOTES_MANAGER:       ["dashboard", "groups", "calendar", "quotes"],
   OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "maintenance", "my-shifts", "cleaning-hours"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts"],
@@ -45,7 +45,7 @@ export const ROLE_NAV_LINKS = {
 export const ROLE_ALLOWED_ROUTES = {
   SUPER_ADMIN: "*", // all
   ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "meeting-summaries", "work-schedule", "my-shifts"],
-  QUOTES_MANAGER: ["quotes"],
+  QUOTES_MANAGER: ["dashboard", "groups", "calendar", "quotes"],
   OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "cleaning-hours", "maintenance", "my-shifts"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts"],

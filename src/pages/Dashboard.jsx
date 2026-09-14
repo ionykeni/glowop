@@ -594,9 +594,9 @@ export default function Dashboard() {
         </Section>
 
         {/* ── Quick links ──────────────────────────────────────────────── */}
-        <Section title="קישורים מהירים">
+        {role !== "QUOTES_MANAGER" && <Section title="קישורים מהירים">
           <DashboardQuickLinks />
-        </Section>
+        </Section>}
         </>}
 
       </div>
