@@ -6,6 +6,7 @@ import {
   AlertTriangle, BedDouble, X, Home, CheckCircle2, Plus, Users, Pencil, Trash2, Unlock
 } from "lucide-react";
 import { toast } from "sonner";
+import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import RoleGate from "@/components/RoleGate";
 import { getLogicalAltTentAllocations, ALT_TENT_MARKER } from "@/lib/altTentLogicalAllocations";
 import { toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
@@ -297,8 +298,8 @@ function AltTentAllocationModal({
       setErrors(["שיבוץ אוהל חילופי רב־תקופתי זמין רק למכינה מאושרת ופעילה תפעולית"]);
       return;
     }
-    if (isMultiPeriod && existingAltAllocs.length > 0) {
-      setErrors(["לא ניתן להחליף שיבוץ אוהל חילופי רב־תקופתי קיים. יש לשחרר את כל תכנית הלינה וליצור תכנית חדשה."]);
+    if (isMultiPeriod && existingAltAllocs.some(a => !selections[a.tent_id])) {
+      setErrors(['להסרת אוהל קיים יש להשתמש בכפתור השחרור שלו; יתר השיבוצים יישמרו.']);
       return;
     }
     const todayIL = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
@@ -318,6 +319,7 @@ function AltTentAllocationModal({
         const tent = allTents.find(item => item.id === tentId);
         const cleanNotes = (sel.notes || "").replace(/__alt_tent__\s*/g, "").trim();
         return {
+          allocation_series_id: existingAltAllocs.find(a => a.tent_id === tentId)?.allocation_series_id,
           tent_id: tentId,
           neighborhood_id: tent.neighborhood_id,
           allocated_pax: Number(sel.pax),
@@ -326,15 +328,16 @@ function AltTentAllocationModal({
           notes: `${ALT_TENT_MARKER}${cleanNotes ? ` ${cleanNotes}` : ""}`,
         };
       });
-      const assignments = [...periodizedAssignments, ...altAssignments];
+      const editedSeries = new Set(existingAltAllocs.map(a => a.allocation_series_id));
+      const assignments = [...periodizedAssignments.filter(a => !editedSeries.has(a.allocation_series_id)), ...altAssignments];
       try {
-        const preview = await base44.functions.invoke("previewMultiPeriodSleepingPlan", { group_id: groupId, assignments });
+        const preview = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
         if (!preview.data?.success || !preview.data?.allowed) {
           const conflicts = preview.data?.exact_tent_conflicts || [];
           const details = conflicts.map(item => `אוהל תפוס בתקופה ${item.planned_period?.arrival_date}–${item.planned_period?.departure_date}`);
           failed.push(...(details.length ? details : [preview.data?.error || "האוהל אינו פנוי בכל תקופות השהייה הפעילות"]));
         } else {
-          const commit = await base44.functions.invoke("commitMultiPeriodSleepingPlan", { group_id: groupId, assignments });
+          const commit = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
           if (!commit.data?.success) failed.push(commit.data?.error || "שמירת השיבוץ הרב־תקופתי נכשלה");
         }
       } catch (err) {
@@ -614,7 +617,7 @@ export default function AltTentAllocationPanel({
   // All active alt tent allocations for this group
   const altAllocs = useMemo(
     () => isMultiPeriod
-      ? getLogicalAltTentAllocations(myAllocations)
+      ? getLogicalAltTentAllocations(actionableSleepingRows(myAllocations))
       : myAllocations.filter(a => a.status !== "CANCELLED" && (a.notes || "").includes(ALT_TENT_MARKER)),
     [myAllocations, isMultiPeriod]
   );
@@ -669,7 +672,11 @@ export default function AltTentAllocationPanel({
 
   const handleRelease = async (alloc) => {
     if (isMultiPeriod) {
-      toast.error("לא ניתן לשחרר תקופה בודדת משיבוץ אוהל חילופי רב־תקופתי. יש לשחרר את כל תכנית הלינה.");
+      if (!window.confirm('לשחרר רק את השיבוץ הנוכחי והעתידי של אוהל זה? ההיסטוריה תישמר.')) return;
+      setReleasingId(alloc.id);
+      try { await releaseSleepingSeries(groupId, alloc.allocation_series_id); onInvalidate(); toast.success('האוהל שוחרר; יתר השיבוצים נשמרו'); }
+      catch (err) { toast.error(err.message); }
+      finally { setReleasingId(null); }
       return;
     }
     setReleasingId(alloc.id);
@@ -719,10 +726,6 @@ export default function AltTentAllocationPanel({
             size="sm"
             variant="outline"
             onClick={() => {
-              if (isMultiPeriod && altAllocs.length > 0) {
-                toast.error("לא ניתן להחליף שיבוץ אוהל חילופי רב־תקופתי קיים. יש לשחרר את כל תכנית הלינה וליצור תכנית חדשה.");
-                return;
-              }
               setModalOpen(true);
             }}
             className={`gap-1 shrink-0 ${

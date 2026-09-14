@@ -17,6 +17,7 @@ import StudentNeighborhoodPanel from "./StudentNeighborhoodPanel";
 import VipAllocationPanel from "./VipAllocationPanel";
 import AltTentAllocationPanel from "./AltTentAllocationPanel";
 import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
+import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -144,8 +145,8 @@ export default function SleepingAllocationTab({ groupId }) {
   const isMultiPeriod = group?.stay_mode === "MULTI_PERIOD";
   const canUseMultiPeriod = isMultiPeriod && group?.operationally_active === true && group?.status === "CONFIRMED";
   const logicalSeriesData = useMemo(
-    () => groupLogicalSleepingAssignments(myAllocations.filter(a => a.status !== "CANCELLED")),
-    [myAllocations]
+    () => groupLogicalSleepingAssignments(isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations.filter(a => a.status !== "CANCELLED")),
+    [myAllocations, isMultiPeriod]
   );
   const logicalStudentAssignments = useMemo(
     () => logicalSeriesData.logical_assignments.filter(a => a.allocation_type === "STUDENT"),
@@ -161,8 +162,8 @@ export default function SleepingAllocationTab({ groupId }) {
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
   const myActiveNhoodRes = useMemo(
-    () => myNhoodReservations.filter(r => r.status === "ACTIVE"),
-    [myNhoodReservations]
+    () => myNhoodReservations.filter(r => r.status === "ACTIVE" && (!isMultiPeriod || r.departure_date > todayLocal())),
+    [myNhoodReservations, isMultiPeriod]
   );
   const myNhoodResById = useMemo(
     () => Object.fromEntries(myActiveNhoodRes.map(r => [r.neighborhood_id, r])),
@@ -266,6 +267,13 @@ export default function SleepingAllocationTab({ groupId }) {
   const handleReleaseAll = async () => {
     setSaving(true);
     try {
+      if (isMultiPeriod) {
+        const { data } = await base44.functions.invoke('manageMultiPeriodSleepingSeries', { group_id: groupId, action: 'release_all' });
+        if (!data?.success) throw new Error(data?.error || 'שחרור השיבוץ נכשל');
+        toast.success('שיבוצים נוכחיים ועתידיים שוחררו; ההיסטוריה נשמרה');
+        invalidate();
+        return;
+      }
       const activeAllocs = myAllocations.filter(a => a.status !== "CANCELLED");
       const activeNhoodRes = myNhoodReservations.filter(r => r.status === "ACTIVE");
 
@@ -450,7 +458,7 @@ export default function SleepingAllocationTab({ groupId }) {
             <AlertDialogTitle>שחרור כל שיבוצי הלינה</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-slate-600">
-                <p>פעולה זו תשחרר את כל שיבוצי הלינה של הקבוצה:</p>
+                <p>{isMultiPeriod ? 'פעולה זו תשחרר רק שיבוצים נוכחיים ועתידיים; שיבוצים שהסתיימו יישמרו ללא שינוי:' : 'פעולה זו תשחרר את כל שיבוצי הלינה של הקבוצה:'}</p>
                 <ul className="list-disc pr-5 space-y-1">
                   <li>אוהלי תלמידים</li>
                   <li>אוהלי VIP</li>
@@ -486,7 +494,7 @@ export default function SleepingAllocationTab({ groupId }) {
       {/* Requirements summary */}
       <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
-        allocations={myAllocations}
+        allocations={isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
         nhoodReservations={myActiveNhoodRes}
         allTents={allTents}
         neighborhoods={neighborhoods}
@@ -548,7 +556,7 @@ export default function SleepingAllocationTab({ groupId }) {
         )}
         {isMultiPeriod && seriesValidation.valid === false && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-300 rounded-lg px-3 py-2">
-            השיבוץ הרב־תקופתי הקיים חלקי או לא עקבי. לא ניתן לערוך או לאשר אותו; יש לשחרר את כל השיבוץ וליצור תכנית חדשה.
+            השיבוץ הרב־תקופתי הקיים אינו עקבי. נדרשת בדיקה לפני עריכה או אישור; אין לשחרר היסטוריה כדי לתקן אותו.
           </div>
         )}
         {isMultiPeriod && (
@@ -670,7 +678,7 @@ export default function SleepingAllocationTab({ groupId }) {
         const hasNhoodOnly = myActiveNhoodRes.length > 0 && activeAllocs.length === 0;
 
         // Unified counts for partial allocation warning
-        const unifiedCounts = computeAllocationCounts(myAllocations, profile);
+        const unifiedCounts = computeAllocationCounts(isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations, profile);
         const isPartialAlloc = unifiedCounts.totalRequired > 0 && unifiedCounts.totalRemaining > 0;
 
         // A: All specific tents confirmed

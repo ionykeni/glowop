@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ShieldCheck, AlertTriangle, X, Shield, Car, User, Star, BookOpen, BedDouble, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import VipPaxEditDialog from "./VipPaxEditDialog";
 import { getLogicalVipAllocations, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 
@@ -120,22 +121,19 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
           setErrors(["שיבוץ VIP רב־תקופתי זמין רק למכינה מאושרת ופעילה תפעולית."]);
           return;
         }
-        if (existingAlloc) {
-          setErrors(["החלפת שיבוץ VIP רב־תקופתי אינה נתמכת בבטחה בשלב זה. יש להשתמש בשחרור כל השיבוץ בלבד."]);
-          return;
-        }
         const marker = `__vip_req_${reqIndex}__`;
         const cleanNotes = notes.replace(/__vip_req_\d+__\s*/g, "").trim();
         const assignment = {
+          allocation_series_id: existingAlloc?.allocation_series_id,
           tent_id: tent.id,
           neighborhood_id: neighborhoodId,
           allocated_pax: Number(pax),
           allocation_type: "STAFF",
-          gender_group: gender,
-          notes: `${marker}${cleanNotes ? " " + cleanNotes : ""}`.trim(),
+          gender_group: existingAlloc?.gender_group || gender,
+          notes: existingAlloc?.notes ?? `${marker}${cleanNotes ? " " + cleanNotes : ""}`.trim(),
         };
-        const assignments = [...periodizedAssignments, assignment];
-        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlan", { group_id: groupId, assignments });
+        const assignments = [...periodizedAssignments.filter(a => !existingAlloc || a.allocation_series_id !== existingAlloc.allocation_series_id), assignment];
+        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
         const preview = previewRes.data;
         if (!preview?.success || preview.legacy_envelope_requires_conversion || !preview.allowed) {
           const conflict = preview?.exact_tent_conflicts?.[0];
@@ -144,7 +142,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
             : "לא ניתן לשמור את שיבוץ ה-VIP הרב־תקופתי במצב הנוכחי."]);
           return;
         }
-        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlan", { group_id: groupId, assignments });
+        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
         if (!commitRes.data?.success) {
           setErrors([commitRes.data?.error === "INCONSISTENT_PERIODIZED_SLEEPING_STATE"
             ? "מצב השיבוץ הרב־תקופתי אינו מאפשר הוספת VIP בטוחה."
@@ -181,7 +179,11 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
   const handleRelease = async () => {
     if (!existingAlloc) { onReleased(); return; }
     if (isMultiPeriod) {
-      setErrors(["שחרור דרישת VIP בודדת אינו נתמך עדיין למכינה רב־תקופתית. ניתן לשחרר רק את כל שיבוץ הלינה."]);
+      if (!window.confirm('לשחרר רק את השיבוץ הנוכחי והעתידי של דרישה זו? ההיסטוריה תישמר.')) return;
+      setReleasing(true); setErrors([]);
+      try { await releaseSleepingSeries(groupId, existingAlloc.allocation_series_id); onReleased(); }
+      catch (err) { setErrors([err.message]); }
+      finally { setReleasing(false); }
       return;
     }
     if (!window.confirm(`לשחרר את אוהל ${tent.code}?`)) return;
@@ -257,6 +259,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
                   <button
                     key={opt.value}
                     type="button"
+                    disabled={isMultiPeriod && !!existingAlloc}
                     onClick={() => setGender(opt.value)}
                     className={`flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       gender === opt.value
@@ -305,6 +308,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
               <input
                 type="text"
                 value={notes}
+                disabled={isMultiPeriod && !!existingAlloc}
                 onChange={e => setNotes(e.target.value)}
                 placeholder="הערות לאוהל..."
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
@@ -314,7 +318,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
 
           {isMultiPeriod && existingAlloc && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
-              עריכה, החלפה או שחרור של דרישת VIP יחידה חסומים כדי לא להשאיר שורות תקופתיות חלקיות.
+              שינוי כמות ושחרור יחולו רק על שיבוצים נוכחיים ועתידיים; ההיסטוריה תישמר. שינוי מקום מתבצע בפעולת העברה מתוארכת.
             </div>
           )}
 
@@ -338,7 +342,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
                 size="sm"
                 variant="outline"
                 onClick={handleRelease}
-                disabled={releasing || saving || isMultiPeriod}
+                disabled={releasing || saving}
                 className="text-red-500 border-red-200 hover:bg-red-50 gap-1"
               >
                 <X className="w-3.5 h-3.5" />
@@ -353,7 +357,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
               type="button"
               size="sm"
               onClick={handleSave}
-              disabled={saving || releasing || (isMultiPeriod && !!existingAlloc)}
+              disabled={saving || releasing || (isMultiPeriod && !canUseMultiPeriod)}
               className="bg-primary hover:bg-primary/90 gap-1"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -540,7 +544,7 @@ export default function VipAllocationPanel({
   // ── Persisted allocation maps ──────────────────────────────────────────────
   const myActiveVipAllocs = useMemo(
     () => isMultiPeriod
-      ? getLogicalVipAllocations(myAllocations).filter(a => vipTents.some(t => t.id === a.tent_id))
+      ? getLogicalVipAllocations(actionableSleepingRows(myAllocations)).filter(a => vipTents.some(t => t.id === a.tent_id))
       : myAllocations.filter(a => a.status !== "CANCELLED" && vipTents.some(t => t.id === a.tent_id) && (!isActiveContinuous || a.departure_date > today)),
     [myAllocations, vipTents, isMultiPeriod, isActiveContinuous, today]
   );

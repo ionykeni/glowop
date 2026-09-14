@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
+import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
 
 function datesOverlap(a1, a2, b1, b2) {
@@ -61,7 +62,10 @@ export default async function(req) {
     // ── 1. Load ALL draft allocations for this group from DB (source of truth) ─
     // We do NOT rely solely on frontend-supplied IDs — the frontend cache may be
     // stale and miss VIP / alt-tent rows saved in the same session.
-    const allGroupAllocations = await base44.asServiceRole.entities.SleepingAllocation.filter({ group_id });
+    if (group?.stay_mode === 'MULTI_PERIOD') await assertSleepingAccess(base44, user);
+    const allGroupAllocations = group?.stay_mode === 'MULTI_PERIOD'
+      ? await readSleepingRows(base44.asServiceRole.entities.SleepingAllocation, { group_id })
+      : await base44.asServiceRole.entities.SleepingAllocation.filter({ group_id });
     const activePeriods = group?.stay_mode === 'MULTI_PERIOD'
       ? await base44.asServiceRole.entities.GroupStayPeriod.filter({ group_id, status: 'ACTIVE' }, 'start_date', 100)
       : [];
@@ -77,7 +81,7 @@ export default async function(req) {
       }, { status: 200 });
     }
 
-    const finalDraftsToConfirm = allGroupAllocations.filter(a => a.status === 'DRAFT');
+    const finalDraftsToConfirm = allGroupAllocations.filter(a => a.status === 'DRAFT' && (group?.stay_mode !== 'MULTI_PERIOD' || a.departure_date > sleepingToday()));
     console.log(`[confirmSleepingAllocations] total group drafts found in DB: ${finalDraftsToConfirm.length}`);
     console.log(`[confirmSleepingAllocations] frontend requested IDs: ${draft_allocation_ids?.length ?? 0}`);
 
@@ -227,7 +231,7 @@ export default async function(req) {
       // Update all matching active NhoodReservations for this group that are in a shared context
       const nhoodIdsInBatch = new Set(finalDraftsToConfirm.map(d => d.neighborhood_id));
       for (const nhoodId of nhoodIdsInBatch) {
-        const matchingReservations = myNhoodReservations.filter(r => r.neighborhood_id === nhoodId);
+        const matchingReservations = myNhoodReservations.filter(r => r.neighborhood_id === nhoodId && (group?.stay_mode !== 'MULTI_PERIOD' || r.departure_date > today));
         await Promise.all(matchingReservations.map(res =>
           base44.asServiceRole.entities.NeighborhoodReservation.update(res.id, {
             shared_neighborhood_allowed: true,

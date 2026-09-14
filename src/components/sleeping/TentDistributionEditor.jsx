@@ -13,6 +13,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2, Save, Unlock } from "lucide-react";
 import { toast } from "sonner";
+import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import { groupLogicalSleepingAssignments } from "../../../base44/shared/logicalSleepingSeries.js";
 
 const GENDER_LABEL = { BOYS: "בנים 👦", GIRLS: "בנות 👧", MEN: "גברים 👨", WOMEN: "נשים 👩" };
@@ -78,7 +79,6 @@ export default function TentDistributionEditor({
   const [releasingTentId, setReleasingTentId] = useState(null);
   const [overrideMismatch, setOverrideMismatch] = useState(false);
   const [periodErrors, setPeriodErrors] = useState([]);
-  const [debugDiagnostic, setDebugDiagnostic] = useState(null);
 
   // A preview error belongs only to the exact draft that produced it.
   const draftSignature = useMemo(() => JSON.stringify({
@@ -127,9 +127,9 @@ export default function TentDistributionEditor({
   );
   const logicalAssignments = useMemo(
     () => groupLogicalSleepingAssignments(
-      existingAllocs.filter(a => a.status !== "CANCELLED")
+      isMultiPeriod ? actionableSleepingRows(existingAllocs) : existingAllocs.filter(a => a.status !== "CANCELLED")
     ).logical_assignments,
-    [existingAllocs]
+    [existingAllocs, isMultiPeriod]
   );
   const logicalStudentAssignments = useMemo(
     () => logicalAssignments.filter(a => a.allocation_type === "STUDENT"),
@@ -162,7 +162,6 @@ export default function TentDistributionEditor({
     setGenderMap(gm);
     setOverrideMismatch(false);
     setPeriodErrors([]);
-    setDebugDiagnostic(null);
   }, [open, displayedNeighborhoodAllocs, isMultiPeriod]);
 
   // Exact tent availability remains authoritative even when neighborhood sharing is approved.
@@ -266,12 +265,13 @@ export default function TentDistributionEditor({
     try {
       if (isMultiPeriod) {
         if (!canUseMultiPeriod) throw new Error("שיבוץ רב־תקופתי זמין רק למכינה מאושרת ופעילה תפעולית.");
-        if (seriesValidation?.valid === false) throw new Error("קיים שיבוץ רב־תקופתי חלקי או לא עקבי. יש לשחרר את כל השיבוץ וליצור אותו מחדש.");
+        if (seriesValidation?.valid === false) throw new Error("השיבוץ הקיים אינו עקבי. נדרשת בדיקה לפני שמירה.");
 
         const currentNeighborhoodAssignments = tents.flatMap(tent => {
           const pax = Number(paxMap[tent.id]) || 0;
           if (pax <= 0) return [];
           return [{
+            allocation_series_id: displayedNeighborhoodAllocs.find(a => a.tent_id === tent.id)?.allocation_series_id,
             tent_id: tent.id,
             neighborhood_id: neighborhood.id,
             allocated_pax: pax,
@@ -283,6 +283,7 @@ export default function TentDistributionEditor({
         const otherNeighborhoodAssignments = logicalAssignments
           .filter(a => !a.inconsistent && (a.allocation_type !== "STUDENT" || a.neighborhood_id !== neighborhood.id))
           .map(a => ({
+            allocation_series_id: a.allocation_series_id,
             tent_id: a.tent_id,
             neighborhood_id: a.neighborhood_id,
             allocated_pax: a.logical_allocated_pax,
@@ -291,50 +292,20 @@ export default function TentDistributionEditor({
             notes: a.notes || "",
           }));
         const assignments = [...otherNeighborhoodAssignments, ...currentNeighborhoodAssignments];
-        // ── TEMPORARY DIAGNOSTIC — capture exact runtime payload ──
-        const tentByIdForDebug = Object.fromEntries(tents.map(t => [t.id, t]));
-        const debugAssignments = assignments.map((a, i) => ({
-          index: i,
-          tent_id: a.tent_id,
-          tent_code: tentByIdForDebug[a.tent_id]?.code || null,
-          neighborhood_id: a.neighborhood_id,
-          allocated_pax: a.allocated_pax,
-          allocation_type: a.allocation_type,
-          gender_group: a.gender_group,
-          notes: a.notes,
-        }));
-        // ── END DIAGNOSTIC ──
+
         const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", {
           group_id: groupId,
           assignments,
           shared_neighborhoods: sharedNeighborhoods,
         });
         const preview = previewRes.data;
-        // ── TEMPORARY DIAGNOSTIC — capture exact preview response ──
-        setDebugDiagnostic({
-          timestamp: new Date().toISOString(),
-          error_stage: null,
-          assignments_sent: debugAssignments,
-          preview_response: preview,
-          commit_response: null,
-          period_errors_after: [],
-        });
-        // ── END DIAGNOSTIC ──
+
         if (!preview?.success || preview.legacy_envelope_requires_conversion || !preview.allowed) {
           const message = preview?.legacy_envelope_requires_conversion
             ? "קיים שיבוץ מעטפת ישן הדורש המרה לפני שמירה."
             : formatPreviewConflict(preview);
           setPeriodErrors([message]);
-          // ── TEMPORARY DIAGNOSTIC — PREVIEW failure ──
-          setDebugDiagnostic({
-            timestamp: new Date().toISOString(),
-            error_stage: "PREVIEW",
-            assignments_sent: debugAssignments,
-            preview_response: preview,
-            commit_response: null,
-            period_errors_after: [message],
-          });
-          // ── END DIAGNOSTIC ──
+
           return;
         }
         setPeriodErrors([]);
@@ -345,31 +316,13 @@ export default function TentDistributionEditor({
         });
         if (!commitRes.data?.success) {
           const message = commitRes.data?.error === "INCONSISTENT_PERIODIZED_SLEEPING_STATE"
-            ? "השיבוץ הקיים אינו תואם לתכנית. יש לשחרר את כל השיבוץ לפני שינוי אוהלים."
+            ? "השיבוץ הקיים אינו תואם לתכנית. יש לרענן ולבדוק לפני שמירה."
             : (commitRes.data?.error || "שמירת התכנית הרב־תקופתית נכשלה");
           setPeriodErrors([message]);
-          // ── TEMPORARY DIAGNOSTIC — COMMIT failure ──
-          setDebugDiagnostic({
-            timestamp: new Date().toISOString(),
-            error_stage: "COMMIT",
-            assignments_sent: debugAssignments,
-            preview_response: preview,
-            commit_response: commitRes.data,
-            period_errors_after: [message],
-          });
-          // ── END DIAGNOSTIC ──
+
           return;
         }
-        // ── TEMPORARY DIAGNOSTIC — COMMIT success ──
-        setDebugDiagnostic({
-          timestamp: new Date().toISOString(),
-          error_stage: null,
-          assignments_sent: debugAssignments,
-          preview_response: preview,
-          commit_response: commitRes.data,
-          period_errors_after: [],
-        });
-        // ── END DIAGNOSTIC ──
+
         toast.success(commitRes.data.already_committed
           ? "השיבוץ הרב־תקופתי כבר שמור ✓"
           : commitRes.data.pax_edit
@@ -440,17 +393,7 @@ export default function TentDistributionEditor({
         const catchDetail = err?.response?.data || err?.message || String(err);
         const catchMessage = catchDetail?.error || catchDetail?.message || err?.message || "שגיאה בשמירה — נסה שוב";
         setPeriodErrors([catchMessage]);
-        // ── TEMPORARY DIAGNOSTIC — CATCH ──
-        setDebugDiagnostic({
-          timestamp: new Date().toISOString(),
-          error_stage: "CATCH",
-          assignments_sent: null,
-          preview_response: null,
-          commit_response: null,
-          catch_error: catchDetail,
-          period_errors_after: [catchMessage],
-        });
-        // ── END DIAGNOSTIC ──
+
       } else {
         toast.error(err?.message || "שגיאה בשמירה — נסה שוב");
       }
@@ -461,7 +404,17 @@ export default function TentDistributionEditor({
 
   const handleReleaseTent = async (tent) => {
     if (isMultiPeriod) {
-      setPeriodErrors(["שחרור אוהל יחיד אינו זמין בשיבוץ רב־תקופתי. יש להשתמש ב׳שחרר את כל השיבוץ׳."]);
+      const assignment = displayedNeighborhoodAllocs.find(a => a.tent_id === tent.id);
+      if (!window.confirm(`לשחרר רק את השיבוץ הנוכחי והעתידי של אוהל ${tent.code}? ההיסטוריה תישמר.`)) return;
+      setReleasingTentId(tent.id);
+      try {
+        await releaseSleepingSeries(groupId, assignment?.allocation_series_id);
+        queryClient.invalidateQueries({ queryKey: ['sleepingAllocations', groupId] });
+        onSaved?.();
+        onClose();
+        toast.success('השיבוץ שוחרר; יתר האוהלים וההיסטוריה נשמרו');
+      } catch (err) { setPeriodErrors([err.message]); }
+      finally { setReleasingTentId(null); }
       return;
     }
     const existing = myNeighborhoodAllocs.find(a => a.tent_id === tent.id);
@@ -657,14 +610,7 @@ export default function TentDistributionEditor({
           </div>
         )}
 
-        {isMultiPeriod && debugDiagnostic && (
-          <div className="border border-dashed border-slate-400 rounded-lg p-2 bg-slate-50">
-            <div className="text-[10px] font-bold text-slate-500 mb-1">אבחון זמני</div>
-            <pre className="text-[9px] leading-tight text-slate-700 bg-white border border-slate-200 rounded p-2 overflow-x-auto max-h-56 whitespace-pre-wrap break-all" dir="ltr">
-{JSON.stringify(debugDiagnostic, null, 2)}
-            </pre>
-          </div>
-        )}
+
 
         <DialogFooter className="flex gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>ביטול</Button>

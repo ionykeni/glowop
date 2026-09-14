@@ -1,77 +1,15 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { addSleepingPlanConflicts, buildMultiPeriodSleepingPlan, findLegacyEnvelopeAllocations, normalizeSharedNeighborhoodIntent, validateSleepingAssignments } from '../../shared/multiPeriodSleepingPlan.js';
-import { preserveHistoricalPaxInPlan, resolveAssignmentEffectivePeriods } from '../../shared/effectiveSleepingSeries.js';
-import '../../shared/logicalSleepingSeries.js';
-
-const RUNTIME_BUILD = 'MULTI_PERIOD_EFFECTIVE_20260830_V3_NEW_ENDPOINT';
-const versionedResponse = (payload, init) => globalThis.Response.json({ ...payload, runtime_build: RUNTIME_BUILD }, init);
-
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
+import { assertSleepingAccess } from '../../shared/sleepingActionCore.js';
+import { loadSleepingContext, prepareActionableSleepingPlan } from '../../shared/actionableSleepingPlan.js';
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return versionedResponse({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
-    const body = await req.json();
-    const groupId = body?.group_id;
-    const assignments = body?.assignments;
-    const sharedNeighborhoods = body?.shared_neighborhoods;
-    if (!groupId) return versionedResponse({ success: false, error: 'GROUP_ID_REQUIRED' }, { status: 400 });
-
-    const group = await base44.asServiceRole.entities.Group.get(groupId).catch(() => null);
-    if (!group) return versionedResponse({ success: false, error: 'GROUP_NOT_FOUND' }, { status: 404 });
-    if (group.stay_mode !== 'MULTI_PERIOD') return versionedResponse({ success: false, error: 'GROUP_NOT_MULTI_PERIOD' }, { status: 409 });
-
-    const [profiles, periods, tents, inventoryNeighborhoods, existingAllocations, neighborhoodReservations] = await Promise.all([
-      base44.asServiceRole.entities.OperationalGroupProfile.filter({ group_id: groupId }),
-      base44.asServiceRole.entities.GroupStayPeriod.filter({ group_id: groupId, status: 'ACTIVE' }, 'start_date', 100),
-      base44.asServiceRole.entities.Tent.list(),
-      base44.asServiceRole.entities.Neighborhood.list(),
-      base44.asServiceRole.entities.SleepingAllocation.filter({ status: { $in: ['DRAFT', 'CONFIRMED'] } }),
-      base44.asServiceRole.entities.NeighborhoodReservation.filter({ status: 'ACTIVE' }),
-    ]);
-    if (profiles.length !== 1) return versionedResponse({ success: false, error: 'EXACTLY_ONE_OGP_REQUIRED', profile_count: profiles.length }, { status: 409 });
-
-    const assignmentErrors = validateSleepingAssignments(assignments, tents, inventoryNeighborhoods);
-    if (assignmentErrors.length > 0) return versionedResponse({ success: false, error: 'INVALID_ASSIGNMENTS', errors: assignmentErrors }, { status: 400 });
-    const sharedIntent = normalizeSharedNeighborhoodIntent(sharedNeighborhoods, assignments);
-    if (sharedIntent.errors.length > 0) return versionedResponse({ success: false, error: 'INVALID_SHARED_NEIGHBORHOODS', errors: sharedIntent.errors }, { status: 400 });
-
-    const myAllocations = existingAllocations.filter(row => row.group_id === groupId);
-    const effectiveResolution = resolveAssignmentEffectivePeriods({ periods, assignments, existingAllocations: myAllocations });
-    if (!effectiveResolution.valid) return versionedResponse({ success: false, error: 'INVALID_SERIES_EFFECTIVE_PERIODS', errors: effectiveResolution.errors }, { status: 409 });
-    const builtPlan = buildMultiPeriodSleepingPlan({
-      groupId,
-      profileId: profiles[0].id,
-      periods,
-      assignments,
-      assignmentEffectivePeriodIds: effectiveResolution.effectivePeriodIds,
-    });
-    if (!builtPlan.valid) return versionedResponse({ success: false, error: 'INVALID_ACTIVE_PERIODS', errors: builtPlan.errors }, { status: 409 });
-    const plan = preserveHistoricalPaxInPlan({ plan: builtPlan, existingAllocations: myAllocations, todayIL: effectiveResolution.todayIL });
-
-    const sharedNeighborhoodIds = [...new Set([
-      ...neighborhoodReservations
-        .filter(reservation => reservation.group_id === groupId && reservation.shared_neighborhood_allowed === true)
-        .map(reservation => reservation.neighborhood_id),
-      ...sharedIntent.sharedNeighborhoodIds,
-    ])];
-    const todayIL = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
-    const preview = addSleepingPlanConflicts({ plan, existingAllocations, existingNeighborhoodReservations: neighborhoodReservations, sharedNeighborhoodIds, todayDate: todayIL });
-    const legacyEnvelopeAllocations = findLegacyEnvelopeAllocations(groupId, periods, existingAllocations);
-    return versionedResponse({
-      success: true,
-      read_only: true,
-      group_id: groupId,
-      operational_group_profile_id: profiles[0].id,
-      runtime_build: 'MULTI_PERIOD_EFFECTIVE_20260830_V3_NEW_ENDPOINT',
-      today_il: effectiveResolution.todayIL,
-      first_actionable_period_id: effectiveResolution.firstActionablePeriodId,
-      resolved_effective_period_ids: effectiveResolution.effectivePeriodIds,
-      legacy_envelope_allocations: legacyEnvelopeAllocations.map(row => ({ id: row.id, tent_id: row.tent_id, arrival_date: row.arrival_date, departure_date: row.departure_date, status: row.status })),
-      legacy_envelope_requires_conversion: legacyEnvelopeAllocations.length > 0,
-      ...preview,
-    });
-  } catch (error) {
-    return versionedResponse({ success: false, error: error?.message || 'PREVIEW_FAILED' }, { status: 500 });
-  }
+    const base44=createClientFromRequest(req),user=await base44.auth.me();
+    await assertSleepingAccess(base44,user);
+    const body=await req.json();
+    if(!body.group_id) return Response.json({success:false,error:'חסרה קבוצה'});
+    const ctx=await loadSleepingContext(base44.asServiceRole.entities,body.group_id);
+    const plan=prepareActionableSleepingPlan(ctx,body.assignments,body.shared_neighborhoods);
+    const {updates,intent,...preview}=plan;
+    return Response.json({success:true,read_only:true,today_il:ctx.today,legacy_envelope_requires_conversion:false,...preview});
+  } catch(error) { return Response.json({success:false,error:error.message}); }
 }

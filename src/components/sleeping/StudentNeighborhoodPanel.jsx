@@ -198,6 +198,7 @@ export default function StudentNeighborhoodPanel({
                   arrivalDate={arrivalDate}
                   departureDate={departureDate}
                   allConfirmedAllocs={allConfirmedAllocs}
+                  allActiveAllocs={allActiveAllocs}
                   existingGroupAllocs={existingGroupAllocs}
                   onSaved={onSaved}
                   isMultiPeriod={isMultiPeriod}
@@ -249,6 +250,7 @@ export default function StudentNeighborhoodPanel({
                   arrivalDate={arrivalDate}
                   departureDate={departureDate}
                   allConfirmedAllocs={allConfirmedAllocs}
+                  allActiveAllocs={allActiveAllocs}
                   existingGroupAllocs={existingGroupAllocs}
                   onSaved={onSaved}
                   isMultiPeriod

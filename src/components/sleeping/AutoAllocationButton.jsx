@@ -45,6 +45,7 @@ export default function AutoAllocationButton({
   arrivalDate,
   departureDate,
   allConfirmedAllocs = [],
+  allActiveAllocs = [],
   existingGroupAllocs = [],
   onSaved,
   isMultiPeriod = false,
@@ -71,22 +72,22 @@ export default function AutoAllocationButton({
   // Tents blocked by OTHER groups (overbooking check)
   const blockedTentIds = useMemo(() => {
     const set = new Set();
-    allConfirmedAllocs.forEach(a => {
+    (isMultiPeriod ? allActiveAllocs : allConfirmedAllocs).forEach(a => {
       if (a.group_id === groupId || a.status === "CANCELLED") return;
       const overlapsRequiredStay = isMultiPeriod
-        ? activeStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, a.arrival_date, a.departure_date))
+        ? activeStayPeriods.some(period => period.end_date > todayIL && a.departure_date > todayIL && datesOverlap(period.start_date < todayIL ? todayIL : period.start_date, period.end_date, a.arrival_date, a.departure_date))
         : datesOverlap(allocationStartDate, departureDate, a.arrival_date, a.departure_date);
       if (overlapsRequiredStay) set.add(a.tent_id);
     });
     return set;
-  }, [allConfirmedAllocs, groupId, allocationStartDate, departureDate, isMultiPeriod, activeStayPeriods]);
+  }, [allConfirmedAllocs, allActiveAllocs, groupId, allocationStartDate, departureDate, isMultiPeriod, activeStayPeriods, todayIL]);
 
   // Tents already allocated by THIS group in this neighborhood (any status except cancelled)
   const usedByMeTentIds = useMemo(() => new Set(
     existingGroupAllocs
-      .filter(a => a.status !== "CANCELLED" && a.neighborhood_id === neighborhood?.id)
+      .filter(a => a.status !== "CANCELLED" && a.neighborhood_id === neighborhood?.id && (!isMultiPeriod || a.departure_date > todayIL))
       .map(a => a.tent_id)
-  ), [existingGroupAllocs, neighborhood]);
+  ), [existingGroupAllocs, neighborhood, isMultiPeriod, todayIL]);
 
   // Already-allocated pax per gender across ALL neighborhoods.
   // MULTI_PERIOD counts one logical series once, never once per physical period row.
@@ -147,7 +148,7 @@ export default function AutoAllocationButton({
       return;
     }
     if (isMultiPeriod && seriesValidation?.valid === false) {
-      setPreview({ error: "השיבוץ הרב־תקופתי הקיים חלקי או לא עקבי. יש לשחרר את כולו לפני שיבוץ אוטומטי." });
+      setPreview({ error: "השיבוץ הרב־תקופתי הקיים אינו עקבי. נדרשת בדיקה לפני שיבוץ אוטומטי." });
       return;
     }
     if (!profile) {
@@ -246,6 +247,7 @@ export default function AutoAllocationButton({
         const existingAssignments = logicalAssignments
           .filter(assignment => !assignment.inconsistent)
           .map(assignment => ({
+            allocation_series_id: assignment.allocation_series_id,
             tent_id: assignment.tent_id,
             neighborhood_id: assignment.neighborhood_id,
             allocated_pax: assignment.logical_allocated_pax,
@@ -255,7 +257,7 @@ export default function AutoAllocationButton({
           }));
         const assignments = [...existingAssignments, ...newAssignments];
         const payload = { group_id: groupId, assignments, shared_neighborhoods: sharedNeighborhoods };
-        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlan", payload);
+        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", payload);
         const previewResult = previewRes.data;
         if (!previewResult?.success || previewResult.legacy_envelope_requires_conversion || !previewResult.allowed) {
           const message = previewResult?.legacy_envelope_requires_conversion
@@ -264,10 +266,10 @@ export default function AutoAllocationButton({
           setPreview({ error: message });
           return;
         }
-        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlan", payload);
+        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", payload);
         if (!commitRes.data?.success) {
           setPreview({ error: commitRes.data?.error === "INCONSISTENT_PERIODIZED_SLEEPING_STATE"
-            ? "כבר קיים שיבוץ רב־תקופתי שאינו ניתן להחלפה אוטומטית. יש לשחרר את כולו תחילה."
+            ? "השיבוץ הקיים השתנה. יש לרענן ולבדוק לפני הוספת אוהלים."
             : (commitRes.data?.error || "שמירת השיבוץ הרב־תקופתי נכשלה.") });
           return;
         }

@@ -20,6 +20,7 @@ export function getLogicalVipAllocations(rows = []) {
 
 export function toSleepingAssignmentPrototype(item) {
   return {
+    allocation_series_id: item.allocation_series_id,
     tent_id: item.tent_id,
     neighborhood_id: item.neighborhood_id,
     allocated_pax: item.logical_allocated_pax,

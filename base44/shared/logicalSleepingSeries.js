@@ -76,15 +76,19 @@ export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], 
     }
     const expected = expectedPeriodsForSeries(activePeriods, series.series_effective_from_period_id);
     if (expected.error) errors.push({ ...expected.error, allocation_series_id: series.allocation_series_id });
+    // An explicitly cancelled future row is a termination record, not missing coverage.
+    const terminated = rows.filter(row => row.group_id === groupId && row.allocation_series_id === series.allocation_series_id && row.status === 'CANCELLED' && ['RELEASE', 'REASSIGN'].includes(row.series_action) && row.series_action_date && row.departure_date > row.series_action_date);
     const expectedIds = new Set(expected.periods.map(period => period.id));
-    const seen = new Set();
+    const seen = new Set(terminated.filter(row => expectedIds.has(row.stay_period_id)).map(row => row.stay_period_id));
     series.period_rows.forEach(row => {
       const period = periodById[row.stay_period_id];
       if (row.group_id !== groupId) errors.push({ code: 'SERIES_GROUP_MISMATCH', allocation_series_id: series.allocation_series_id, allocation_id: row.id });
       if (!period || period.group_id !== groupId) errors.push({ code: 'INVALID_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
       if (seen.has(row.stay_period_id)) errors.push({ code: 'DUPLICATE_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
       seen.add(row.stay_period_id);
-      if (period && (row.arrival_date !== period.start_date || row.departure_date !== period.end_date)) errors.push({ code: 'PERIOD_DATE_MISMATCH', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
+      const validStart = period && (row.arrival_date === period.start_date || (row.segment_start_date === row.arrival_date && period.start_date <= row.arrival_date && row.arrival_date < period.end_date));
+      const validEnd = period && (row.departure_date === period.end_date || (row.series_action === 'REASSIGN' && row.segment_end_date === row.departure_date && row.series_action_date === row.departure_date && period.start_date < row.departure_date && row.departure_date <= period.end_date));
+      if (period && (!validStart || !validEnd || row.arrival_date >= row.departure_date)) errors.push({ code: 'PERIOD_DATE_MISMATCH', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
     });
     expectedIds.forEach(periodId => {
       if (!seen.has(periodId)) errors.push({ code: 'MISSING_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: periodId });

@@ -3,54 +3,43 @@
   "type": "object",
   "properties": {
     "operational_group_profile_id": {
-      "type": "string",
-      "description": "FK to OperationalGroupProfile"
+      "type": "string"
     },
     "group_id": {
-      "type": "string",
-      "description": "FK to Group"
+      "type": "string"
     },
     "tent_id": {
-      "type": "string",
-      "description": "FK to Tent"
+      "type": "string"
     },
     "neighborhood_id": {
-      "type": "string",
-      "description": "FK to Neighborhood (denormalized for fast neighborhood-level checks)"
+      "type": "string"
     },
     "stay_period_id": {
-      "type": "string",
-      "description": "Optional FK to GroupStayPeriod for one MULTI_PERIOD occupancy interval"
+      "type": "string"
     },
     "allocation_series_id": {
-      "type": "string",
-      "description": "Optional stable identifier linking one logical tent assignment across MULTI_PERIOD returns"
+      "type": "string"
     },
     "series_effective_from_period_id": {
-      "type": "string",
-      "description": "Optional FK to GroupStayPeriod. When set, this logical series begins at that ACTIVE period; absent preserves legacy all-period behavior."
+      "type": "string"
     },
     "arrival_date": {
       "type": "string",
-      "format": "date",
-      "description": "First night of stay"
+      "format": "date"
     },
     "departure_date": {
       "type": "string",
-      "format": "date",
-      "description": "Checkout day \u2014 exclusive (does not block this night)"
+      "format": "date"
     },
     "allocated_pax": {
-      "type": "number",
-      "description": "Total people assigned to this tent"
+      "type": "number"
     },
     "allocation_type": {
       "type": "string",
       "enum": [
         "STUDENT",
         "STAFF"
-      ],
-      "description": "Category of occupants"
+      ]
     },
     "gender_group": {
       "type": "string",
@@ -60,8 +49,7 @@
         "MEN",
         "WOMEN",
         "MIXED"
-      ],
-      "description": "Gender group \u2014 MIXED used when no gender split is available"
+      ]
     },
     "status": {
       "type": "string",
@@ -80,11 +68,39 @@
         "READY",
         "ISSUE"
       ],
-      "default": "PENDING",
-      "description": "Cleaning/preparation workflow status \u2014 separate from allocation status"
+      "default": "PENDING"
     },
     "notes": {
       "type": "string"
+    },
+    "series_action": {
+      "type": "string",
+      "enum": [
+        "RELEASE",
+        "REASSIGN"
+      ],
+      "description": "Explicit cancellation/segment termination; never added to historical rows"
+    },
+    "series_action_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "replacement_series_id": {
+      "type": "string"
+    },
+    "source_allocation_id": {
+      "type": "string",
+      "description": "Original row replaced by this reassignment segment"
+    },
+    "segment_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Explicit start inside a stay period"
+    },
+    "segment_end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Explicit retained segment end inside a stay period"
     }
   },
   "required": [
