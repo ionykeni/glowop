@@ -336,8 +336,8 @@ export default function TentDistributionEditor({
           return;
         }
         setPeriodErrors([]);
-        commitEndpoint = "commitMultiPeriodSleepingPlanV3";
-        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", {
+        commitEndpoint = "commitMultiPeriodSleepingPlanCurrent";
+        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanCurrent", {
           group_id: groupId,
           assignments,
           shared_neighborhoods: sharedNeighborhoods,

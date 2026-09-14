@@ -142,7 +142,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
             : "לא ניתן לשמור את שיבוץ ה-VIP הרב־תקופתי במצב הנוכחי."]);
           return;
         }
-        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
+        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanCurrent", { group_id: groupId, assignments });
         if (!commitRes.data?.success) {
           setErrors([commitRes.data?.error === "INCONSISTENT_PERIODIZED_SLEEPING_STATE"
             ? "מצב השיבוץ הרב־תקופתי אינו מאפשר הוספת VIP בטוחה."

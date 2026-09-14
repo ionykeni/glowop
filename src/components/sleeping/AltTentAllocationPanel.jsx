@@ -336,7 +336,7 @@ function AltTentAllocationModal({
           const details = conflicts.map(item => `אוהל תפוס בתקופה ${item.planned_period?.arrival_date}–${item.planned_period?.departure_date}`);
           failed.push(...(details.length ? details : [preview.data?.error || "האוהל אינו פנוי בכל תקופות השהייה הפעילות"]));
         } else {
-          const commit = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
+          const commit = await base44.functions.invoke("commitMultiPeriodSleepingPlanCurrent", { group_id: groupId, assignments });
           if (!commit.data?.success) failed.push(commit.data?.error || "שמירת השיבוץ הרב־תקופתי נכשלה");
         }
       } catch (err) {

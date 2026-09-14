@@ -266,7 +266,7 @@ export default function AutoAllocationButton({
           setPreview({ error: message });
           return;
         }
-        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", payload);
+        const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanCurrent", payload);
         if (!commitRes.data?.success) {
           setPreview({ error: commitRes.data?.error === "INCONSISTENT_PERIODIZED_SLEEPING_STATE"
             ? "השיבוץ הקיים השתנה. יש לרענן ולבדוק לפני הוספת אוהלים."
