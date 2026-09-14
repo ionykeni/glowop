@@ -383,7 +383,8 @@ export default function SleepingAllocationTab({ groupId }) {
         payload.shared_neighborhood_allowed = true;
         payload.shared_neighborhood_reason = sharedReason.trim();
       }
-      const res = await base44.functions.invoke("confirmSleepingAllocations", payload);
+      const confirmEndpoint = isMultiPeriod ? "confirmSleepingAllocationsCurrent" : "confirmSleepingAllocations";
+      const res = await base44.functions.invoke(confirmEndpoint, payload);
 
       if (res.data?.success) {
         toast.success(isMultiPeriod

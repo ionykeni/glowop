@@ -688,7 +688,8 @@ export default function VipAllocationPanel({
     setServerErrors([]);
     setConfirmDiagnostics(null);
     try {
-      const res = await base44.functions.invoke("confirmSleepingAllocations", {
+      const confirmEndpoint = isMultiPeriod ? "confirmSleepingAllocationsCurrent" : "confirmSleepingAllocations";
+      const res = await base44.functions.invoke(confirmEndpoint, {
         group_id: groupId,
         draft_allocation_ids: draftIds,
       });
@@ -846,7 +847,7 @@ export default function VipAllocationPanel({
           {serverErrors.map((e, i) => <p key={i} className="text-xs text-red-600">• {e}</p>)}
           {confirmDiagnostics && (
             <div className="mt-2 border-t border-red-200 pt-2 text-[10px] leading-4 text-red-700" dir="ltr">
-              <p>endpoint: confirmSleepingAllocations</p>
+              <p>endpoint: {isMultiPeriod ? "confirmSleepingAllocationsCurrent" : "confirmSleepingAllocations"}</p>
               <p>runtime_build: {confirmDiagnostics.runtime_build ?? "—"}</p>
               <p>success: {String(confirmDiagnostics.success ?? "—")}</p>
               <p>error: {confirmDiagnostics.error ?? "—"}</p>

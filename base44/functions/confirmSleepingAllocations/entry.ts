@@ -2,20 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { groupLogicalSleepingAssignments, validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
+import { createConfirmationResponse, sleepingDatesOverlap, operationalSleepingMaxPax } from '../../shared/sleepingConfirmation.js';
 
 const RUNTIME_BUILD = 'MP_CONFIRM_HISTORICAL_COMPLETE_2026_09_14';
-const responseJson = (body, init) => Response.json({ ...body, runtime_build: RUNTIME_BUILD }, init);
-
-function datesOverlap(a1, a2, b1, b2) {
-  return a1 < b2 && b1 < a2;
-}
-
-// Preserve the established VIP operational override; standard tents use physical capacity.
-function getOperationalMaxPax(tent) {
-  return tent.tent_type === 'VIP' || tent.is_accessible === true || /^8\d/.test(String(tent.code || ''))
-    ? 4
-    : (tent.capacity || 8);
-}
+const responseJson = createConfirmationResponse(RUNTIME_BUILD);
 
 export default async function(req) {
   try {
@@ -150,7 +140,7 @@ export default async function(req) {
       const isVip = neighborhood?.is_vip === true;
 
       // Rule 1: capacity
-      const operationalMax = getOperationalMaxPax(tent);
+      const operationalMax = operationalSleepingMaxPax(tent);
       if (draft.allocated_pax > operationalMax) {
         errors.push(`אוהל ${tent.code}: כמות האנשים (${draft.allocated_pax}) גדולה מהמקסימום התפעולי (${operationalMax}).`);
       }
@@ -158,7 +148,7 @@ export default async function(req) {
       // Rule 2: EXACT TENT exclusivity — ALWAYS hard-blocked, even with shared override
       const tentConflicts = otherActive.filter(o =>
         o.tent_id === draft.tent_id &&
-        datesOverlap(draft.arrival_date, draft.departure_date, o.arrival_date, o.departure_date)
+        sleepingDatesOverlap(draft.arrival_date, draft.departure_date, o.arrival_date, o.departure_date)
       );
       if (tentConflicts.length > 0) {
         errors.push(`לא ניתן לשבץ את אותו אוהל לשתי קבוצות באותם תאריכים. (אוהל ${tent.code})`);
@@ -171,7 +161,7 @@ export default async function(req) {
         other.departure_date > today &&
         other.id !== draft.id &&
         other.tent_id === draft.tent_id &&
-        datesOverlap(draft.arrival_date, draft.departure_date, other.arrival_date, other.departure_date) &&
+        sleepingDatesOverlap(draft.arrival_date, draft.departure_date, other.arrival_date, other.departure_date) &&
         draft.allocation_series_id &&
         other.allocation_series_id
       );
@@ -188,7 +178,7 @@ export default async function(req) {
         const nhoodConflicts = otherActive.filter(o =>
           o.allocation_type === 'STUDENT' &&
           o.neighborhood_id === draft.neighborhood_id &&
-          datesOverlap(draft.arrival_date, draft.departure_date, o.arrival_date, o.departure_date)
+          sleepingDatesOverlap(draft.arrival_date, draft.departure_date, o.arrival_date, o.departure_date)
         );
         if (nhoodConflicts.length > 0) {
           const isSharedAllowed = shared_neighborhood_allowed || sharedNhoodIds.has(draft.neighborhood_id);
@@ -207,7 +197,7 @@ export default async function(req) {
         other.id !== draft.id &&
         other.tent_id === draft.tent_id &&
         other.gender_group !== draft.gender_group &&
-        datesOverlap(draft.arrival_date, draft.departure_date, other.arrival_date, other.departure_date)
+        sleepingDatesOverlap(draft.arrival_date, draft.departure_date, other.arrival_date, other.departure_date)
       );
       if (genderConflict) {
         errors.push(`אוהל ${tent.code}: לא ניתן לשבץ שני מגדרים שונים לאותו אוהל.`);
