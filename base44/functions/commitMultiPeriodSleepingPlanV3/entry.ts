@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext, prepareActionableSleepingPlan } from '../../shared/actionableSleepingPlan.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
-// Runtime bundle refreshed for idempotent PAX edits and released-series re-adds.
+// Runtime bundle refreshed 2026-09-14-A for actionable V3 PAX reconciliation.
 export default async function(req) {
   let writes;
   try {
