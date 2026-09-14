@@ -354,6 +354,7 @@ export default function TentDistributionEditor({
             commit_response: {
               success: commitRes.data?.success ?? null,
               error: commitRes.data?.error ?? null,
+              runtime_build: commitRes.data?.runtime_build ?? null,
               already_committed: commitRes.data?.already_committed ?? null,
               pax_edit: commitRes.data?.pax_edit ?? null,
               sleeping_rows_created: commitRes.data?.sleeping_rows_created ?? null,
@@ -453,6 +454,7 @@ export default function TentDistributionEditor({
           commit_response: commitEndpoint ? {
             success: false,
             error: catchMessage,
+            runtime_build: catchDetail?.runtime_build ?? null,
             already_committed: null,
             pax_edit: null,
             sleeping_rows_created: null,
