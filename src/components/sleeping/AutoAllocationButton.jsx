@@ -257,7 +257,7 @@ export default function AutoAllocationButton({
           }));
         const assignments = [...existingAssignments, ...newAssignments];
         const payload = { group_id: groupId, assignments, shared_neighborhoods: sharedNeighborhoods };
-        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", payload);
+        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanCurrent", payload);
         const previewResult = previewRes.data;
         if (!previewResult?.success || previewResult.legacy_envelope_requires_conversion || !previewResult.allowed) {
           const message = previewResult?.legacy_envelope_requires_conversion

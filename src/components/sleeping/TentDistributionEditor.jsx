@@ -307,12 +307,12 @@ export default function TentDistributionEditor({
         traceBase = {
           marker: "MP LIVE TRACE 2026-09-14-B",
           series_validation_status: seriesValidation?.status || (seriesValidation?.valid === false ? "INVALID" : seriesValidation?.valid === true ? "VALID" : "LOADING"),
-          preview_endpoint: "previewMultiPeriodSleepingPlanV3",
+          preview_endpoint: "previewMultiPeriodSleepingPlanCurrent",
           edited_assignment: editedAssignment,
           assignments_count: assignments.length,
         };
 
-        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", {
+        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanCurrent", {
           group_id: groupId,
           assignments,
           shared_neighborhoods: sharedNeighborhoods,
@@ -322,6 +322,7 @@ export default function TentDistributionEditor({
           success: preview?.success ?? null,
           allowed: preview?.allowed ?? null,
           error: preview?.error ?? null,
+          runtime_build: preview?.runtime_build ?? null,
           exact_tent_conflicts_count: preview?.exact_tent_conflicts?.length ?? 0,
           neighborhood_conflicts_count: preview?.neighborhood_conflicts?.length ?? 0,
         };
@@ -439,7 +440,7 @@ export default function TentDistributionEditor({
           ...(traceBase || {
             marker: "MP LIVE TRACE 2026-09-14-B",
             series_validation_status: seriesValidation?.status || (seriesValidation?.valid === false ? "INVALID" : seriesValidation?.valid === true ? "VALID" : "LOADING"),
-            preview_endpoint: "previewMultiPeriodSleepingPlanV3",
+            preview_endpoint: "previewMultiPeriodSleepingPlanCurrent",
             edited_assignment: null,
             assignments_count: null,
           }),

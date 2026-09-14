@@ -330,7 +330,7 @@ function AltTentAllocationModal({
       const editedSeries = new Set(existingAltAllocs.map(a => a.allocation_series_id));
       const assignments = [...periodizedAssignments.filter(a => !editedSeries.has(a.allocation_series_id)), ...altAssignments];
       try {
-        const preview = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
+        const preview = await base44.functions.invoke("previewMultiPeriodSleepingPlanCurrent", { group_id: groupId, assignments });
         if (!preview.data?.success || !preview.data?.allowed) {
           const conflicts = preview.data?.exact_tent_conflicts || [];
           const details = conflicts.map(item => `אוהל תפוס בתקופה ${item.planned_period?.arrival_date}–${item.planned_period?.departure_date}`);

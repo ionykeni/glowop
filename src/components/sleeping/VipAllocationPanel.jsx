@@ -133,7 +133,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
           notes: existingAlloc?.notes ?? `${marker}${cleanNotes ? " " + cleanNotes : ""}`.trim(),
         };
         const assignments = [...periodizedAssignments.filter(a => !existingAlloc || a.allocation_series_id !== existingAlloc.allocation_series_id), assignment];
-        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", { group_id: groupId, assignments });
+        const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanCurrent", { group_id: groupId, assignments });
         const preview = previewRes.data;
         if (!preview?.success || preview.legacy_envelope_requires_conversion || !preview.allowed) {
           const conflict = preview?.exact_tent_conflicts?.[0];
