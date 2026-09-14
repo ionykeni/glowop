@@ -21,7 +21,16 @@ export function planSeriesAction(ctx, body) {
   }
   const selected=source.filter(r=>liveSleeping(r)&&r.departure_date>today&&r.departure_date>effective);
   const updates=[],creates=[],warnings=[];
-  if(action!=='reassign_series') { for(const row of selected) updates.push({row,data:{status:'CANCELLED',series_action:'RELEASE',series_action_date:today}}); }
+  if(action!=='reassign_series') {
+    for(const row of selected) {
+      updates.push({
+        row,
+        data: row.arrival_date < today
+          ? { departure_date:today, segment_end_date:today, series_action:'RELEASE', series_action_date:today }
+          : { status:'CANCELLED', series_action:'RELEASE', series_action_date:today },
+      });
+    }
+  }
   else {
     const destination=tents.find(t=>t.id===destination_tent_id);if(!destination) throw new Error('אוהל היעד לא נמצא');
     // A retry finds the retained cancellation records, not a new source assignment.

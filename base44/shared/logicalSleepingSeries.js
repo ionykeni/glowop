@@ -87,7 +87,7 @@ export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], 
       if (seen.has(row.stay_period_id)) errors.push({ code: 'DUPLICATE_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
       seen.add(row.stay_period_id);
       const validStart = period && (row.arrival_date === period.start_date || (row.segment_start_date === row.arrival_date && period.start_date <= row.arrival_date && row.arrival_date < period.end_date));
-      const validEnd = period && (row.departure_date === period.end_date || (row.series_action === 'REASSIGN' && row.segment_end_date === row.departure_date && row.series_action_date === row.departure_date && period.start_date < row.departure_date && row.departure_date <= period.end_date));
+      const validEnd = period && (row.departure_date === period.end_date || (['REASSIGN', 'RELEASE'].includes(row.series_action) && row.segment_end_date === row.departure_date && row.series_action_date === row.departure_date && period.start_date < row.departure_date && row.departure_date <= period.end_date));
       if (period && (!validStart || !validEnd || row.arrival_date >= row.departure_date)) errors.push({ code: 'PERIOD_DATE_MISMATCH', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
     });
     expectedIds.forEach(periodId => {
