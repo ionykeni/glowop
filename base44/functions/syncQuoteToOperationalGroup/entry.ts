@@ -14,7 +14,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { getEffectiveQuoteGroupName } from '../../shared/quotePreparation.js';
 import { assertValidQuoteOperationalDates } from '../../shared/operationalDateValidation.js';
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -61,9 +61,8 @@ Deno.serve(async (req) => {
     const girlsCount = group.girls_count ?? null;
 
     // ── Validate boys + girls = participant_count for LODGING ──────────────
-    const targetType = quote.arrival_date && !quote.departure_date ? 'DAY_USE' : (group.group_type || 'LODGING');
-    // We keep group_type from quote.departure_date heuristic only if quote has it;
-    // more reliably: if group is LODGING we validate the gender split
+    const targetType = quote.quote_type === 'day_use' ? 'DAY_USE' : quote.quote_type === 'lodging' ? 'LODGING' : group.group_type;
+    // Preserve the operational gender split; validate it before a pax change.
     if (group.group_type === 'LODGING' && participantCount != null && boysCount != null && girlsCount != null) {
       if ((boysCount + girlsCount) !== participantCount) {
         return Response.json({
@@ -75,7 +74,6 @@ Deno.serve(async (req) => {
     // ── Detect what changes ─────────────────────────────────────────────────
     const datesChange   = (quote.arrival_date   && quote.arrival_date   !== group.arrival_date)   ||
                           (quote.departure_date  && quote.departure_date  !== group.departure_date);
-    // group_type is not stored on Quote directly; we do not change it from quote
     const paxChanges    = (totalPax       != null && totalPax       !== group.total_pax)       ||
                           (staffCount     != null && staffCount     !== group.staff_count)     ||
                           (participantCount != null && participantCount !== group.participant_count);
@@ -96,7 +94,7 @@ Deno.serve(async (req) => {
     // ── Build Group update payload ─────────────────────────────────────────
     // Only non-empty Quote values are applied — empty/null values never overwrite
     // the operational source of truth.
-    const groupUpdate = { group_name: getEffectiveQuoteGroupName(quote) };
+    const groupUpdate = { group_name: getEffectiveQuoteGroupName(quote), group_type: targetType };
     if (quote.contact_person)  groupUpdate.contact_name  = quote.contact_person;
     if (quote.client_phone)   groupUpdate.contact_phone = quote.client_phone;
     if (quote.client_email)   groupUpdate.contact_email = quote.client_email;
@@ -109,21 +107,25 @@ Deno.serve(async (req) => {
     if (participantCount != null) groupUpdate.participant_count = participantCount;
 
     // ── Build OGP update payload ───────────────────────────────────────────
-    const isSleeping = group.group_type === 'LODGING';
+    // Quote owns only these counts. Sleeping requirements, beds, diets and notes stay untouched.
     const ogpUpdate = {
       ...(totalPax        != null ? { total_pax: totalPax }             : {}),
       ...(staffCount      != null ? { staff_count: staffCount }         : {}),
       ...(participantCount != null ? { participant_count: participantCount } : {}),
-      // beds_needed derived from existing boys/girls or updated participant
-      ...(isSleeping && boysCount  != null ? { boys_beds_needed: boysCount }  : {}),
-      ...(isSleeping && girlsCount != null ? { girls_beds_needed: girlsCount } : {}),
-      is_sleeping_group: isSleeping,
     };
 
-    // ── Apply updates ──────────────────────────────────────────────────────
-    await base44.asServiceRole.entities.Group.update(group_id, groupUpdate);
-    if (profile) {
-      await base44.asServiceRole.entities.OperationalGroupProfile.update(profile.id, ogpUpdate);
+    const changedGroupUpdate = Object.fromEntries(Object.entries(groupUpdate).filter(([key, value]) => value !== group[key]));
+    const changedOgpUpdate = profile
+      ? Object.fromEntries(Object.entries(ogpUpdate).filter(([key, value]) => value !== profile[key]))
+      : {};
+    if (Object.keys(changedGroupUpdate).length === 0 && Object.keys(changedOgpUpdate).length === 0) {
+      return Response.json({ success: true, already_synced: true, message: 'הקבוצה כבר מעודכנת לפי ההצעה' });
+    }
+
+    // ── Apply changed fields only ───────────────────────────────────────────
+    if (Object.keys(changedGroupUpdate).length > 0) await base44.asServiceRole.entities.Group.update(group_id, changedGroupUpdate);
+    if (profile && Object.keys(changedOgpUpdate).length > 0) {
+      await base44.asServiceRole.entities.OperationalGroupProfile.update(profile.id, changedOgpUpdate);
     }
 
     // ── Check if meals exist for alerts ────────────────────────────────────
@@ -184,4 +186,4 @@ Deno.serve(async (req) => {
   } catch (error) {
     return Response.json({ error: error?.code || 'INTERNAL_ERROR', message: error.message }, { status: error?.code === 'INVALID_QUOTE_OPERATIONAL_DATE' ? 400 : 500 });
   }
-});
+}

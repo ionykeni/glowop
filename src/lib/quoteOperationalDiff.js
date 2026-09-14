@@ -32,8 +32,11 @@ export function buildQuoteOperationalDiff(quote, group, profile) {
 
   // ── Quote vs Group ──────────────────────────────────────────────────────
   const effectiveGroupName = getEffectiveQuoteGroupName(quote);
+  const targetGroupType = quote.quote_type === "day_use" ? "DAY_USE" : quote.quote_type === "lodging" ? "LODGING" : group.group_type;
   if (effectiveGroupName !== group.group_name)
     diffs.push({ label: "שם קבוצה", from: group.group_name || "—", to: effectiveGroupName });
+  if (targetGroupType !== group.group_type)
+    diffs.push({ label: "סוג קבוצה", from: group.group_type || "—", to: targetGroupType });
   if (quote.contact_person && quote.contact_person !== group.contact_name)
     diffs.push({ label: "איש קשר", from: group.contact_name || "—", to: quote.contact_person });
   if (quote.client_phone && quote.client_phone !== group.contact_phone)

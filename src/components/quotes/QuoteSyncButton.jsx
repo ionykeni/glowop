@@ -23,7 +23,15 @@ export default function QuoteSyncButton({ quote, group, profile, onSynced }) {
   if (!quote || !["APPROVED", "DRAFT"].includes(quote.status) || !group) return null;
 
   const diffs = buildQuoteOperationalDiff(quote, group, profile);
-  if (diffs.length === 0) return null;
+
+  const handleOpen = () => {
+    if (diffs.length === 0) {
+      toast.success("הקבוצה כבר מעודכנת לפי ההצעה");
+      return;
+    }
+    setBlockError(null);
+    setOpen(true);
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -47,7 +55,7 @@ export default function QuoteSyncButton({ quote, group, profile, onSynced }) {
     }
     setSyncing(false);
     if (res.data?.success) {
-      toast.success("הנתונים התפעוליים עודכנו מההצעה");
+      toast.success(res.data.already_synced ? "הקבוצה כבר מעודכנת לפי ההצעה" : "פרטי הקבוצה עודכנו לפי ההצעה");
       setOpen(false);
       onSynced?.();
     } else {
@@ -56,27 +64,27 @@ export default function QuoteSyncButton({ quote, group, profile, onSynced }) {
   };
 
   return (
-    <RoleGate roles={["admin", "ADMIN", "SUPER_ADMIN", "OPERATIONS"]}>
+    <RoleGate roles={["admin", "ADMIN", "SUPER_ADMIN", "QUOTES_MANAGER", "OPERATIONS"]}>
       <Button
         size="sm"
         variant="outline"
         className="gap-1.5 text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-50"
-        onClick={() => { setBlockError(null); setOpen(true); }}
+        onClick={handleOpen}
       >
         <RefreshCw className="w-3.5 h-3.5" />
-        עדכן נתונים תפעוליים מההצעה
+        עדכון פרטי הקבוצה לפי ההצעה
       </Button>
 
       {open && (
         <Dialog open onOpenChange={() => setOpen(false)}>
           <DialogContent dir="rtl" className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-right">עדכון נתונים תפעוליים מההצעה</DialogTitle>
+              <DialogTitle className="text-right">עדכון פרטי הקבוצה</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 text-sm">
               <p className="text-muted-foreground text-xs">
-                השדות הבאים ישתנו בקבוצה ובפרופיל התפעולי:
+                פרטי ההצעה יעודכנו בקבוצה המקושרת.
               </p>
 
               <div className="border border-border rounded-lg divide-y divide-border">
@@ -108,7 +116,7 @@ export default function QuoteSyncButton({ quote, group, profile, onSynced }) {
                   onClick={handleSync}
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                 >
-                  {syncing ? "מסנכרן..." : "אשר וסנכרן"}
+                  {syncing ? "מעדכן..." : "עדכון"}
                 </Button>
               </div>
             </div>
