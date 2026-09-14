@@ -79,6 +79,7 @@ export default function TentDistributionEditor({
   const [releasingTentId, setReleasingTentId] = useState(null);
   const [overrideMismatch, setOverrideMismatch] = useState(false);
   const [periodErrors, setPeriodErrors] = useState([]);
+  const [liveTrace, setLiveTrace] = useState(null);
 
   // A preview error belongs only to the exact draft that produced it.
   const draftSignature = useMemo(() => JSON.stringify({
@@ -113,7 +114,10 @@ export default function TentDistributionEditor({
   ]);
 
   useEffect(() => {
-    if (open) setPeriodErrors([]);
+    if (open) {
+      setPeriodErrors([]);
+      setLiveTrace(null);
+    }
   }, [open, draftSignature]);
 
   // Active student allocs for this group in this neighborhood
@@ -262,6 +266,10 @@ export default function TentDistributionEditor({
 
     setSaving(true);
     setPeriodErrors([]);
+    setLiveTrace(null);
+    let traceBase = null;
+    let previewTrace = null;
+    let commitEndpoint = null;
     try {
       if (isMultiPeriod) {
         if (!canUseMultiPeriod) throw new Error("שיבוץ רב־תקופתי זמין רק למכינה מאושרת ופעילה תפעולית.");
@@ -292,6 +300,17 @@ export default function TentDistributionEditor({
             notes: a.notes || "",
           }));
         const assignments = [...otherNeighborhoodAssignments, ...currentNeighborhoodAssignments];
+        const editedAssignment = currentNeighborhoodAssignments.find(assignment => {
+          const existing = displayedNeighborhoodAllocs.find(item => item.tent_id === assignment.tent_id);
+          return Number(existing?.logical_allocated_pax) !== Number(assignment.allocated_pax);
+        }) || currentNeighborhoodAssignments[0] || null;
+        traceBase = {
+          marker: "MP LIVE TRACE 2026-09-14-B",
+          series_validation_status: seriesValidation?.status || (seriesValidation?.valid === false ? "INVALID" : seriesValidation?.valid === true ? "VALID" : "LOADING"),
+          preview_endpoint: "previewMultiPeriodSleepingPlanV3",
+          edited_assignment: editedAssignment,
+          assignments_count: assignments.length,
+        };
 
         const previewRes = await base44.functions.invoke("previewMultiPeriodSleepingPlanV3", {
           group_id: groupId,
@@ -299,16 +318,25 @@ export default function TentDistributionEditor({
           shared_neighborhoods: sharedNeighborhoods,
         });
         const preview = previewRes.data;
+        previewTrace = {
+          success: preview?.success ?? null,
+          allowed: preview?.allowed ?? null,
+          error: preview?.error ?? null,
+          exact_tent_conflicts_count: preview?.exact_tent_conflicts?.length ?? 0,
+          neighborhood_conflicts_count: preview?.neighborhood_conflicts?.length ?? 0,
+        };
 
         if (!preview?.success || preview.legacy_envelope_requires_conversion || !preview.allowed) {
           const message = preview?.legacy_envelope_requires_conversion
             ? "קיים שיבוץ מעטפת ישן הדורש המרה לפני שמירה."
             : (preview?.error || formatPreviewConflict(preview));
           setPeriodErrors([message]);
+          setLiveTrace({ ...traceBase, preview_response: previewTrace, commit_endpoint: null, commit_response: null });
 
           return;
         }
         setPeriodErrors([]);
+        commitEndpoint = "commitMultiPeriodSleepingPlanV3";
         const commitRes = await base44.functions.invoke("commitMultiPeriodSleepingPlanV3", {
           group_id: groupId,
           assignments,
@@ -319,6 +347,19 @@ export default function TentDistributionEditor({
             ? "השיבוץ הקיים אינו תואם לתכנית. יש לרענן ולבדוק לפני שמירה."
             : (commitRes.data?.error || "שמירת התכנית הרב־תקופתית נכשלה");
           setPeriodErrors([message]);
+          setLiveTrace({
+            ...traceBase,
+            preview_response: previewTrace,
+            commit_endpoint: commitEndpoint,
+            commit_response: {
+              success: commitRes.data?.success ?? null,
+              error: commitRes.data?.error ?? null,
+              already_committed: commitRes.data?.already_committed ?? null,
+              pax_edit: commitRes.data?.pax_edit ?? null,
+              sleeping_rows_created: commitRes.data?.sleeping_rows_created ?? null,
+              sleeping_rows_updated: commitRes.data?.sleeping_rows_updated ?? null,
+            },
+          });
 
           return;
         }
@@ -393,6 +434,31 @@ export default function TentDistributionEditor({
         const catchDetail = err?.response?.data || err?.message || String(err);
         const catchMessage = catchDetail?.error || catchDetail?.message || err?.message || "שגיאה בשמירה — נסה שוב";
         setPeriodErrors([catchMessage]);
+        setLiveTrace({
+          ...(traceBase || {
+            marker: "MP LIVE TRACE 2026-09-14-B",
+            series_validation_status: seriesValidation?.status || (seriesValidation?.valid === false ? "INVALID" : seriesValidation?.valid === true ? "VALID" : "LOADING"),
+            preview_endpoint: "previewMultiPeriodSleepingPlanV3",
+            edited_assignment: null,
+            assignments_count: null,
+          }),
+          preview_response: previewTrace || {
+            success: null,
+            allowed: null,
+            error: commitEndpoint ? null : catchMessage,
+            exact_tent_conflicts_count: 0,
+            neighborhood_conflicts_count: 0,
+          },
+          commit_endpoint: commitEndpoint,
+          commit_response: commitEndpoint ? {
+            success: false,
+            error: catchMessage,
+            already_committed: null,
+            pax_edit: null,
+            sleeping_rows_created: null,
+            sleeping_rows_updated: null,
+          } : null,
+        });
 
       } else {
         toast.error(err?.message || "שגיאה בשמירה — נסה שוב");
@@ -610,7 +676,12 @@ export default function TentDistributionEditor({
           </div>
         )}
 
-
+        {isMultiPeriod && liveTrace && (
+          <div className="rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-[11px] text-violet-950" dir="ltr">
+            <div className="mb-1 font-bold">MP LIVE TRACE 2026-09-14-B</div>
+            <pre className="whitespace-pre-wrap break-all font-mono leading-4">{JSON.stringify(liveTrace, null, 2)}</pre>
+          </div>
+        )}
 
         <DialogFooter className="flex gap-2 pt-1">
           <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>ביטול</Button>
