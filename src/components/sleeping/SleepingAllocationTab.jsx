@@ -20,6 +20,7 @@ import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
 import StayPeriodSelector from "./StayPeriodSelector";
 import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
+import PeriodizedLocationOverview from "./PeriodizedLocationOverview";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
@@ -165,7 +166,7 @@ export default function SleepingAllocationTab({ groupId }) {
     (!row.stay_period_id && datesOverlap(row.arrival_date, row.departure_date, selectedPeriod.start_date, selectedPeriod.end_date))
   );
   const displayedAllocations = isPeriodView
-    ? myAllocations.filter(row => row.status !== "CANCELLED" && periodMatches(row))
+    ? myAllocations.filter(row => row.status !== "CANCELLED" && periodMatches(row) && (periodState !== "current" || row.departure_date > todayLocal()))
     : myAllocations;
   const displayedNhoodReservations = isPeriodView
     ? myNhoodReservations.filter(row => row.status === "ACTIVE" && periodMatches(row))
@@ -563,6 +564,16 @@ export default function SleepingAllocationTab({ groupId }) {
           tents={allTents}
           neighborhoods={neighborhoods}
           onSaved={invalidate}
+        />
+      )}
+
+      {!isPeriodView && isMultiPeriod && (
+        <PeriodizedLocationOverview
+          allocations={myAllocations}
+          periods={sortedStayPeriods}
+          tents={allTents}
+          neighborhoods={neighborhoods}
+          today={todayLocal()}
         />
       )}
 
