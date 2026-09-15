@@ -531,6 +531,8 @@ export default function VipAllocationPanel({
   logicalAssignments = [],
   group,
   readOnly = false,
+  allowPeriodPaxEdit = false,
+  onPeriodPaxEdit,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
   // dialogTarget: { reqIndex, tent } — open the assignment dialog
@@ -604,7 +606,11 @@ export default function VipAllocationPanel({
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleReqClick = (index) => {
-    if (readOnly) return;
+    const periodAllocation = persistedReqToAlloc[index];
+    if (readOnly) {
+      if (allowPeriodPaxEdit && periodAllocation) onPeriodPaxEdit?.(periodAllocation.period_rows?.[0] || periodAllocation);
+      return;
+    }
     if (vipMarkerCollisions.includes(index)) {
       setServerErrors([`דרישת VIP #${index + 1} מקושרת ליותר משיבוץ לוגי אחד. יש לשחרר את כל השיבוץ וליצור תכנית חדשה.`]);
       return;
@@ -790,7 +796,7 @@ export default function VipAllocationPanel({
                     isSelected={selectedReqIndex === i}
                     onClick={() => handleReqClick(i)}
                     editLocked={isMultiPeriod}
-                    readOnly={readOnly}
+                    readOnly={readOnly && !allowPeriodPaxEdit}
                   />
                   {isActiveContinuous && alloc?.status === "CONFIRMED" && (
                     <button type="button" onClick={() => handleActiveLocationChange(i)} className="text-[10px] font-semibold text-primary hover:underline">

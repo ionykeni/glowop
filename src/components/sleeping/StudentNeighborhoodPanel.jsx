@@ -8,6 +8,7 @@ import TentDistributionEditor from "./TentDistributionEditor";
 import AutoAllocationButton from "./AutoAllocationButton";
 import { releaseSleepingNeighborhood } from '@/components/sleeping/seriesActions';
 import { toast } from 'sonner';
+import RoleGate from "@/components/RoleGate";
 
 const GENDER_OPTIONS = [
   { value: "BOYS",  label: "בנים 👦" },
@@ -55,6 +56,8 @@ export default function StudentNeighborhoodPanel({
   seriesValidation = null,
   activeStayPeriods = [],
   readOnly = false,
+  allowPeriodPaxEdit = false,
+  onPeriodPaxEdit,
 }) {
   const [open, setOpen] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
@@ -316,7 +319,8 @@ export default function StudentNeighborhoodPanel({
           <div className="flex flex-wrap gap-1.5">
             {logicalNeighborhoodAssignments.map(assignment => {
               const tent = tents.find(item => item.id === assignment.tent_id);
-              return <span key={assignment.key || assignment.id || assignment.tent_id} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים</span>;
+              const row = assignment.period_rows?.[0] || assignment;
+              return <span key={assignment.logical_key || row.id || assignment.tent_id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodPaxEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">ערוך כמות</button></RoleGate>}</span>;
             })}
           </div>
         </div>

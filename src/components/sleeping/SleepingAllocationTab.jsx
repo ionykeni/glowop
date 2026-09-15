@@ -18,6 +18,8 @@ import VipAllocationPanel from "./VipAllocationPanel";
 import AltTentAllocationPanel from "./AltTentAllocationPanel";
 import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
 import StayPeriodSelector from "./StayPeriodSelector";
+import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
+import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -62,6 +64,7 @@ export default function SleepingAllocationTab({ groupId }) {
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [showReleaseAllDialog, setShowReleaseAllDialog] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState(null);
+  const [periodPaxTarget, setPeriodPaxTarget] = useState(null);
   // Shared neighborhood override state for confirm flow
   const [pendingSharedOverride, setPendingSharedOverride] = useState(null); // { blockedNeighborhoods, draftIds }
   const [sharedOverrideReason, setSharedOverrideReason] = useState("");
@@ -495,7 +498,7 @@ export default function SleepingAllocationTab({ groupId }) {
 
       {isPeriodView && (
         <div className={`rounded-lg border px-3 py-2 text-xs ${periodState === "past" ? "border-slate-200 bg-slate-50 text-slate-500" : periodState === "current" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}>
-          {periodState === "past" ? "תקופה שהסתיימה — צפייה היסטורית בלבד" : periodState === "current" ? "תקופת השהייה הנוכחית — צפייה בלבד" : "תקופת שהייה עתידית — צפייה בלבד"}
+          {periodState === "past" ? "תקופה שהסתיימה — צפייה היסטורית בלבד" : periodState === "current" ? "תקופת השהייה הנוכחית — ניתן לערוך את מספר האנשים בשיבוצים קיימים" : "תקופת שהייה עתידית — ניתן לערוך את מספר האנשים בשיבוצים קיימים"}
         </div>
       )}
 
@@ -668,6 +671,8 @@ export default function SleepingAllocationTab({ groupId }) {
             seriesValidation={seriesValidation}
             activeStayPeriods={visibleStayPeriods}
             readOnly={isPeriodView}
+            allowPeriodPaxEdit={isPeriodView && periodState !== "past"}
+            onPeriodPaxEdit={setPeriodPaxTarget}
             />
           );
         })}
@@ -706,6 +711,8 @@ export default function SleepingAllocationTab({ groupId }) {
             logicalAssignments={displayedLogicalSeriesData.logical_assignments}
             group={group}
             readOnly={isPeriodView}
+            allowPeriodPaxEdit={isPeriodView && periodState !== "past"}
+            onPeriodPaxEdit={setPeriodPaxTarget}
           />
         </section>
       )}
@@ -734,6 +741,18 @@ export default function SleepingAllocationTab({ groupId }) {
         activeStayPeriods={visibleStayPeriods}
         readOnly={isPeriodView}
       />
+
+      {periodPaxTarget && selectedPeriod && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          <PeriodPaxEditDialog
+            target={periodPaxTarget}
+            groupId={groupId}
+            hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0}
+            onClose={() => setPeriodPaxTarget(null)}
+            onSaved={() => { setPeriodPaxTarget(null); invalidate(); }}
+          />
+        </RoleGate>
+      )}
 
       {/* ── CONFIRMATION PANEL ── */}
       {!isPeriodView && (() => {
