@@ -606,6 +606,7 @@ export default function AltTentAllocationPanel({
   canUseMultiPeriod = false,
   logicalAssignments = [],
   activeStayPeriods = [],
+  readOnly = false,
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [releasingId, setReleasingId] = useState(null);
@@ -616,9 +617,9 @@ export default function AltTentAllocationPanel({
   // All active alt tent allocations for this group
   const altAllocs = useMemo(
     () => isMultiPeriod
-      ? getLogicalAltTentAllocations(actionableSleepingRows(myAllocations))
+      ? getLogicalAltTentAllocations(readOnly ? myAllocations.filter(a => a.status !== "CANCELLED") : actionableSleepingRows(myAllocations))
       : myAllocations.filter(a => a.status !== "CANCELLED" && (a.notes || "").includes(ALT_TENT_MARKER)),
-    [myAllocations, isMultiPeriod]
+    [myAllocations, isMultiPeriod, readOnly]
   );
   const periodizedAssignments = useMemo(
     () => logicalAssignments.filter(item => !item.inconsistent).map(toSleepingAssignmentPrototype),
@@ -716,29 +717,23 @@ export default function AltTentAllocationPanel({
               </p>
             </>
           ) : (
-            <p className="text-sm text-slate-500">לא הוגדרו דרישות אוהל חילופי — ניתן לשבץ ידנית במידת הצורך</p>
+            <p className="text-sm text-slate-500">{readOnly ? "לא הוגדרו דרישות אוהל חילופי בתקופה זו" : "לא הוגדרו דרישות אוהל חילופי — ניתן לשבץ ידנית במידת הצורך"}</p>
           )}
           {altTentNotes && <p className="text-xs text-amber-700">הערות: {altTentNotes}</p>}
         </div>
-        <RoleGate permission="MANAGE_ALLOCATION">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setModalOpen(true);
-            }}
-            className={`gap-1 shrink-0 ${
-              allDone
-                ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                : altTentPax > 0
-                  ? "border-amber-400 text-amber-700 hover:bg-amber-100"
-                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            {altAllocs.length > 0 ? "ערוך שיבוץ" : "שבץ אוהל חילופי"}
-          </Button>
-        </RoleGate>
+        {!readOnly && (
+          <RoleGate permission="MANAGE_ALLOCATION">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setModalOpen(true)}
+              className={`gap-1 shrink-0 ${allDone ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50" : altTentPax > 0 ? "border-amber-400 text-amber-700 hover:bg-amber-100" : "border-slate-300 text-slate-600 hover:bg-slate-50"}`}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {altAllocs.length > 0 ? "ערוך שיבוץ" : "שבץ אוהל חילופי"}
+            </Button>
+          </RoleGate>
+        )}
       </div>
 
       {/* Compact list of assigned alt tents */}
@@ -765,18 +760,20 @@ export default function AltTentAllocationPanel({
                       : <span className="text-amber-600">טיוטה</span>}
                   </p>
                 </div>
-                <RoleGate permission="MANAGE_ALLOCATION">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isReleasing}
-                    onClick={() => handleRelease(alloc)}
-                    className="gap-1 shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    {isReleasing ? "משחרר..." : "שחרר"}
-                  </Button>
-                </RoleGate>
+                {!readOnly && (
+                  <RoleGate permission="MANAGE_ALLOCATION">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isReleasing}
+                      onClick={() => handleRelease(alloc)}
+                      className="gap-1 shrink-0 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                    >
+                      <Unlock className="w-3.5 h-3.5" />
+                      {isReleasing ? "משחרר..." : "שחרר"}
+                    </Button>
+                  </RoleGate>
+                )}
               </div>
             );
           })}
@@ -784,7 +781,7 @@ export default function AltTentAllocationPanel({
       )}
 
       {/* Modal */}
-      {modalOpen && (
+      {!readOnly && modalOpen && (
         <AltTentAllocationModal
           profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
           groupId={groupId}

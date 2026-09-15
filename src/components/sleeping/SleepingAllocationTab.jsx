@@ -17,6 +17,7 @@ import StudentNeighborhoodPanel from "./StudentNeighborhoodPanel";
 import VipAllocationPanel from "./VipAllocationPanel";
 import AltTentAllocationPanel from "./AltTentAllocationPanel";
 import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
+import StayPeriodSelector from "./StayPeriodSelector";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export default function SleepingAllocationTab({ groupId }) {
   const [saving, setSaving] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [showReleaseAllDialog, setShowReleaseAllDialog] = useState(false);
+  const [selectedPeriodId, setSelectedPeriodId] = useState(null);
   // Shared neighborhood override state for confirm flow
   const [pendingSharedOverride, setPendingSharedOverride] = useState(null); // { blockedNeighborhoods, draftIds }
   const [sharedOverrideReason, setSharedOverrideReason] = useState("");
@@ -144,6 +146,26 @@ export default function SleepingAllocationTab({ groupId }) {
   const departureDate = profile?.departure_date || group?.departure_date || "";
   const isMultiPeriod = group?.stay_mode === "MULTI_PERIOD";
   const canUseMultiPeriod = isMultiPeriod && group?.operationally_active === true && group?.status === "CONFIRMED";
+  const sortedStayPeriods = useMemo(
+    () => [...activeStayPeriods].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+    [activeStayPeriods]
+  );
+  const selectedPeriod = sortedStayPeriods.find(period => period.id === selectedPeriodId) || null;
+  const isPeriodView = isMultiPeriod && !!selectedPeriod;
+  const periodState = selectedPeriod
+    ? selectedPeriod.end_date <= todayLocal() ? "past" : selectedPeriod.start_date <= todayLocal() ? "current" : "future"
+    : null;
+  const periodMatches = row => selectedPeriod && (
+    row.stay_period_id === selectedPeriod.id ||
+    (!row.stay_period_id && datesOverlap(row.arrival_date, row.departure_date, selectedPeriod.start_date, selectedPeriod.end_date))
+  );
+  const displayedAllocations = isPeriodView
+    ? myAllocations.filter(row => row.status !== "CANCELLED" && periodMatches(row))
+    : myAllocations;
+  const displayedNhoodReservations = isPeriodView
+    ? myNhoodReservations.filter(row => row.status === "ACTIVE" && periodMatches(row))
+    : null;
+  const visibleStayPeriods = isPeriodView ? [selectedPeriod] : activeStayPeriods;
   const logicalSeriesData = useMemo(
     () => groupLogicalSleepingAssignments(isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations.filter(a => a.status !== "CANCELLED")),
     [myAllocations, isMultiPeriod]
@@ -151,6 +173,10 @@ export default function SleepingAllocationTab({ groupId }) {
   const logicalStudentAssignments = useMemo(
     () => logicalSeriesData.logical_assignments.filter(a => a.allocation_type === "STUDENT"),
     [logicalSeriesData]
+  );
+  const displayedLogicalSeriesData = useMemo(
+    () => isPeriodView ? groupLogicalSleepingAssignments(displayedAllocations) : logicalSeriesData,
+    [displayedAllocations, isPeriodView, logicalSeriesData]
   );
   const { data: remoteSeriesValidation, isFetching: checkingSeries } = useQuery({
     queryKey: ['sleepingSeriesValidation', groupId, myAllocations.map(r => `${r.id}:${r.updated_date}`).join('|'), activeStayPeriods.map(p => `${p.id}:${p.updated_date}`).join('|')],
@@ -174,9 +200,10 @@ export default function SleepingAllocationTab({ groupId }) {
     () => myNhoodReservations.filter(r => r.status === "ACTIVE" && (!isMultiPeriod || r.departure_date > todayLocal())),
     [myNhoodReservations, isMultiPeriod]
   );
+  const visibleNhoodReservations = isPeriodView ? displayedNhoodReservations : myActiveNhoodRes;
   const myNhoodResById = useMemo(
-    () => Object.fromEntries(myActiveNhoodRes.map(r => [r.neighborhood_id, r])),
-    [myActiveNhoodRes]
+    () => Object.fromEntries(visibleNhoodReservations.map(r => [r.neighborhood_id, r])),
+    [visibleNhoodReservations]
   );
 
   const otherNhoodResByNeighborhood = useMemo(() => {
@@ -187,13 +214,13 @@ export default function SleepingAllocationTab({ groupId }) {
       if (r.group_id === groupId) return;
       if (r.departure_date <= today) return; // stay already ended
       const overlapsGroup = isMultiPeriod
-        ? activeStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, r.arrival_date, r.departure_date))
+        ? visibleStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, r.arrival_date, r.departure_date))
         : datesOverlap(arrivalDate, departureDate, r.arrival_date, r.departure_date);
       if (!overlapsGroup) return;
       map[r.neighborhood_id] = { group_name: groupById[r.group_id]?.group_name || r.group_id, gender_group: r.gender_group };
     });
     return map;
-  }, [allNhoodReservations, groupId, arrivalDate, departureDate, groupById, isMultiPeriod, activeStayPeriods]);
+  }, [allNhoodReservations, groupId, arrivalDate, departureDate, groupById, isMultiPeriod, visibleStayPeriods]);
 
   // VIP tent conflict map: tentId → { gender_group, group_id } for OTHER groups
   const vipTentConflictMap = useMemo(() => {
@@ -204,13 +231,13 @@ export default function SleepingAllocationTab({ groupId }) {
       if (oa.group_id === groupId) return;
       if (oa.departure_date <= today) return; // stay already ended
       const overlapsGroup = isMultiPeriod
-        ? activeStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, oa.arrival_date, oa.departure_date))
+        ? visibleStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, oa.arrival_date, oa.departure_date))
         : datesOverlap(arrivalDate, departureDate, oa.arrival_date, oa.departure_date);
       if (!overlapsGroup) return;
       map[oa.tent_id] = { gender_group: oa.gender_group, group_id: oa.group_id };
     });
     return map;
-  }, [allConfirmedAllocations, groupId, arrivalDate, departureDate, isMultiPeriod, activeStayPeriods]);
+  }, [allConfirmedAllocations, groupId, arrivalDate, departureDate, isMultiPeriod, visibleStayPeriods]);
 
   // Tent-level occupancy by OTHER groups, grouped by neighborhood — makes hidden
   // conflicts (e.g. alt-tent allocations without a neighborhood reservation) visible
@@ -223,7 +250,7 @@ export default function SleepingAllocationTab({ groupId }) {
       if (oa.group_id === groupId) return;
       if (oa.departure_date <= today) return; // stay already ended
       const overlapsGroup = isMultiPeriod
-        ? activeStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, oa.arrival_date, oa.departure_date))
+        ? visibleStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, oa.arrival_date, oa.departure_date))
         : datesOverlap(arrivalDate, departureDate, oa.arrival_date, oa.departure_date);
       if (!overlapsGroup) return;
       if (!oa.neighborhood_id) return;
@@ -237,7 +264,7 @@ export default function SleepingAllocationTab({ groupId }) {
       });
     });
     return map;
-  }, [allConfirmedAllocations, groupId, arrivalDate, departureDate, allTents, groupById, isMultiPeriod, activeStayPeriods]);
+  }, [allConfirmedAllocations, groupId, arrivalDate, departureDate, allTents, groupById, isMultiPeriod, visibleStayPeriods]);
 
   // Gender split availability
   const hasGenderSplit = (Number(profile?.boys_count) + Number(profile?.girls_count)) > 0;
@@ -436,6 +463,9 @@ export default function SleepingAllocationTab({ groupId }) {
   }
 
   const studentNeighborhoods = neighborhoods.filter(n => !n.is_vip);
+  const visibleStudentNeighborhoods = isPeriodView
+    ? studentNeighborhoods.filter(hood => myNhoodResById[hood.id] || displayedLogicalSeriesData.logical_assignments.some(a => a.allocation_type === "STUDENT" && a.neighborhood_id === hood.id))
+    : studentNeighborhoods;
   const vipNeighborhood      = neighborhoods.find(n => n.is_vip);
   const vipTents             = vipNeighborhood
     ? allTents.filter(t => t.neighborhood_id === vipNeighborhood.id && t.working_status === "WORKING")
@@ -454,23 +484,40 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
+      {isMultiPeriod && (
+        <StayPeriodSelector
+          periods={sortedStayPeriods}
+          selectedId={selectedPeriodId}
+          onSelect={setSelectedPeriodId}
+          today={todayLocal()}
+        />
+      )}
+
+      {isPeriodView && (
+        <div className={`rounded-lg border px-3 py-2 text-xs ${periodState === "past" ? "border-slate-200 bg-slate-50 text-slate-500" : periodState === "current" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}>
+          {periodState === "past" ? "תקופה שהסתיימה — צפייה היסטורית בלבד" : periodState === "current" ? "תקופת השהייה הנוכחית — צפייה בלבד" : "תקופת שהייה עתידית — צפייה בלבד"}
+        </div>
+      )}
+
       {/* Release all button */}
-      <RoleGate permission="MANAGE_ALLOCATION">
-        {hasActiveAllocations && (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
-              onClick={() => setShowReleaseAllDialog(true)}
-              disabled={saving}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              שחרר את כל השיבוץ
-            </Button>
-          </div>
-        )}
-      </RoleGate>
+      {!isPeriodView && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          {hasActiveAllocations && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                onClick={() => setShowReleaseAllDialog(true)}
+                disabled={saving}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                שחרר את כל השיבוץ
+              </Button>
+            </div>
+          )}
+        </RoleGate>
+      )}
 
       {/* Release all confirmation dialog */}
       <AlertDialog open={showReleaseAllDialog} onOpenChange={setShowReleaseAllDialog}>
@@ -504,30 +551,27 @@ export default function SleepingAllocationTab({ groupId }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <EffectiveReassignmentPanel
-        group={group}
-        allocations={myAllocations}
-        tents={allTents}
-        neighborhoods={neighborhoods}
-        onSaved={invalidate}
-      />
+      {!isPeriodView && (
+        <EffectiveReassignmentPanel
+          group={group}
+          allocations={myAllocations}
+          tents={allTents}
+          neighborhoods={neighborhoods}
+          onSaved={invalidate}
+        />
+      )}
 
       {/* Requirements summary */}
       <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
-        allocations={isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
-        nhoodReservations={myActiveNhoodRes}
+        allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
+        nhoodReservations={visibleNhoodReservations}
         allTents={allTents}
         neighborhoods={neighborhoods}
       />
 
       {/* Date range */}
-      {isMultiPeriod ? (
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-          📅 תקופות לינה פעילות: {activeStayPeriods.map(period => `${period.start_date}–${period.end_date}`).join(" · ")}
-          <span className="text-slate-400 mr-2">(תאריך יציאה בלעדי)</span>
-        </div>
-      ) : arrivalDate && (
+      {!isMultiPeriod && arrivalDate && (
         <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
           📅 תאריכי לינה: <strong>{arrivalDate}</strong> — <strong>{departureDate}</strong>
           <span className="text-slate-400 mr-2">(departure_date בלעדי)</span>
@@ -591,11 +635,11 @@ export default function SleepingAllocationTab({ groupId }) {
             </div>
         )}
 
-        {studentNeighborhoods.length === 0 && (
-          <p className="text-sm text-slate-400 text-center py-4">לא נמצאו שכונות חניכים במלאי.</p>
+        {visibleStudentNeighborhoods.length === 0 && (
+          <p className="text-sm text-slate-400 text-center py-4">{isPeriodView ? "לא נמצאו שיבוצי חניכים בתקופה זו." : "לא נמצאו שכונות חניכים במלאי."}</p>
         )}
 
-        {studentNeighborhoods.map(hood => {
+        {visibleStudentNeighborhoods.map(hood => {
           const hoodTents = allTents.filter(t => t.neighborhood_id === hood.id && t.working_status === "WORKING");
           return (
             <StudentNeighborhoodPanel
@@ -616,13 +660,14 @@ export default function SleepingAllocationTab({ groupId }) {
             onSaved={invalidate}
             defaultGenderGroup={defaultGenderGroup}
             profile={profile}
-            existingGroupAllocs={myAllocations}
+            existingGroupAllocs={displayedAllocations}
             occupiedTents={tentConflictsByNeighborhood[hood.id] || []}
             isMultiPeriod={isMultiPeriod}
-            canUseMultiPeriod={canUseMultiPeriod}
-            logicalAssignments={logicalSeriesData.logical_assignments}
+            canUseMultiPeriod={canUseMultiPeriod && !isPeriodView}
+            logicalAssignments={displayedLogicalSeriesData.logical_assignments}
             seriesValidation={seriesValidation}
-            activeStayPeriods={activeStayPeriods}
+            activeStayPeriods={visibleStayPeriods}
+            readOnly={isPeriodView}
             />
           );
         })}
@@ -633,8 +678,7 @@ export default function SleepingAllocationTab({ groupId }) {
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-700">שיבוץ VIP</h3>
           <p className="text-[11px] text-slate-500">
-            שייך כל דרישת VIP לאוהל ספציפי (80–89). לחץ על דרישה ← לאחר מכן על אוהל.
-            {isMultiPeriod && " אותו אוהל נשמר בכל תקופות השהייה הפעילות."}
+            {isPeriodView ? "מצב שיבוצי ה-VIP בתקופה שנבחרה." : <>שייך כל דרישת VIP לאוהל ספציפי (80–89). לחץ על דרישה ← לאחר מכן על אוהל.{isMultiPeriod && " אותו אוהל נשמר בכל תקופות השהייה הפעילות."}</>}
           </p>
 
           {isMultiPeriod && !canUseMultiPeriod && (
@@ -653,14 +697,15 @@ export default function SleepingAllocationTab({ groupId }) {
             vipTents={vipTents}
             vipNeighborhoodId={vipNeighborhood?.id}
             conflictMap={vipTentConflictMap}
-            myAllocations={myAllocations}
+            myAllocations={displayedAllocations}
             profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
             groupId={groupId}
             onInvalidate={invalidate}
             isMultiPeriod={isMultiPeriod}
-            canUseMultiPeriod={canUseMultiPeriod && seriesValidation.status !== 'INVALID'}
-            logicalAssignments={logicalSeriesData.logical_assignments}
+            canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID'}
+            logicalAssignments={displayedLogicalSeriesData.logical_assignments}
             group={group}
+            readOnly={isPeriodView}
           />
         </section>
       )}
@@ -678,19 +723,20 @@ export default function SleepingAllocationTab({ groupId }) {
         groupId={groupId}
         allTents={allTents}
         neighborhoods={neighborhoods}
-        myAllocations={myAllocations}
+        myAllocations={displayedAllocations}
         allActiveAllocations={allActiveAllocations}
         arrivalDate={arrivalDate}
         departureDate={departureDate}
         onInvalidate={invalidate}
         isMultiPeriod={isMultiPeriod}
-        canUseMultiPeriod={canUseMultiPeriod && seriesValidation.status !== 'INVALID'}
-        logicalAssignments={logicalSeriesData.logical_assignments}
-        activeStayPeriods={activeStayPeriods}
+        canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID'}
+        logicalAssignments={displayedLogicalSeriesData.logical_assignments}
+        activeStayPeriods={visibleStayPeriods}
+        readOnly={isPeriodView}
       />
 
       {/* ── CONFIRMATION PANEL ── */}
-      {(() => {
+      {!isPeriodView && (() => {
         const physicalDraftAllocs = myAllocations.filter(a => a.status === "DRAFT");
         const physicalConfirmedAllocs = myAllocations.filter(a => a.status === "CONFIRMED");
         const activeAllocs = myAllocations.filter(a => a.status !== "CANCELLED");

@@ -372,7 +372,7 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
 
 // ── VIP Requirement Card (compact square) ─────────────────────────────────────
 
-function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActualPax, isSelected, onClick, editLocked = false }) {
+function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActualPax, isSelected, onClick, editLocked = false, readOnly = false }) {
   const gc = getGenderCfg(req.gender_group);
   const pc = getPurposeCfg(req.purpose);
   const { Icon } = pc;
@@ -397,8 +397,8 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
     <button
       type="button"
       onClick={onClick}
-      disabled={false}
-      className={`relative rounded-2xl border-2 ${borderCls} ${bgCls} ${shadow} px-3.5 py-3.5 flex flex-col items-center gap-1.5 min-w-[88px] max-w-[100px] cursor-pointer transition-all hover:scale-105 active:scale-100`}
+      disabled={readOnly}
+      className={`relative rounded-2xl border-2 ${borderCls} ${bgCls} ${shadow} px-3.5 py-3.5 flex flex-col items-center gap-1.5 min-w-[88px] max-w-[100px] transition-all ${readOnly ? "cursor-default" : "cursor-pointer hover:scale-105 active:scale-100"}`}
     >
       {/* index top-right */}
       <span className="absolute top-2 right-2 text-[9px] font-bold text-slate-400/80">#{index + 1}</span>
@@ -447,7 +447,7 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
       )}
       {isConfirmed && (
         <span className="text-[9px] text-emerald-600 flex items-center gap-0.5 opacity-80">
-          <Pencil className="w-2 h-2" /> {editLocked ? "לצפייה בלבד" : "ערוך כמות"}
+          {!readOnly && <Pencil className="w-2 h-2" />} {readOnly || editLocked ? "לצפייה בלבד" : "ערוך כמות"}
         </span>
       )}
     </button>
@@ -456,7 +456,7 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
 
 // ── VIP Tent Card ─────────────────────────────────────────────────────────────
 
-function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isSelectedByAnotherReq, onClick }) {
+function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isSelectedByAnotherReq, onClick, readOnly = false }) {
   const isAssigned  = !!myAllocForTent;
   const isConfirmed = myAllocForTent?.status === "CONFIRMED";
   const gc          = myAllocForTent ? getGenderCfg(myAllocForTent.gender_group) : null;
@@ -482,10 +482,10 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
   return (
     <button
       type="button"
-      disabled={isOccupiedByOther || (!isSelecting && !isAssigned && !isConfirmed)}
+      disabled={readOnly || isOccupiedByOther || (!isSelecting && !isAssigned && !isConfirmed)}
       onClick={onClick}
       className={`rounded-xl border-2 ${borderCls} ${bgCls} ${shadow} ${opacity} px-2.5 py-3 flex flex-col items-center gap-1 min-w-[60px] transition-all relative
-        ${isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed ? "cursor-pointer hover:scale-105 active:scale-100" : "cursor-default"}`}
+        ${!readOnly && (isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed) ? "cursor-pointer hover:scale-105 active:scale-100" : "cursor-default"}`}
     >
       {isEditableConfirmed && (
         <span className="absolute top-1 left-1">
@@ -530,6 +530,7 @@ export default function VipAllocationPanel({
   canUseMultiPeriod = false,
   logicalAssignments = [],
   group,
+  readOnly = false,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
   // dialogTarget: { reqIndex, tent } — open the assignment dialog
@@ -545,9 +546,9 @@ export default function VipAllocationPanel({
   // ── Persisted allocation maps ──────────────────────────────────────────────
   const myActiveVipAllocs = useMemo(
     () => isMultiPeriod
-      ? getLogicalVipAllocations(actionableSleepingRows(myAllocations)).filter(a => vipTents.some(t => t.id === a.tent_id))
+      ? getLogicalVipAllocations(readOnly ? myAllocations.filter(a => a.status !== "CANCELLED") : actionableSleepingRows(myAllocations)).filter(a => vipTents.some(t => t.id === a.tent_id))
       : myAllocations.filter(a => a.status !== "CANCELLED" && vipTents.some(t => t.id === a.tent_id) && (!isActiveContinuous || a.departure_date > today)),
-    [myAllocations, vipTents, isMultiPeriod, isActiveContinuous, today]
+    [myAllocations, vipTents, isMultiPeriod, isActiveContinuous, today, readOnly]
   );
   const periodizedAssignments = useMemo(
     () => logicalAssignments.filter(item => !item.inconsistent).map(toSleepingAssignmentPrototype),
@@ -603,6 +604,7 @@ export default function VipAllocationPanel({
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleReqClick = (index) => {
+    if (readOnly) return;
     if (vipMarkerCollisions.includes(index)) {
       setServerErrors([`דרישת VIP #${index + 1} מקושרת ליותר משיבוץ לוגי אחד. יש לשחרר את כל השיבוץ וליצור תכנית חדשה.`]);
       return;
@@ -647,6 +649,7 @@ export default function VipAllocationPanel({
   };
 
   const handleTentClick = (tent) => {
+    if (readOnly) return;
     if (selectedReqIndex === null) {
       // If tent is assigned by me, open edit dialog
       const assignedReqIndex = Object.entries(persistedReqToAlloc).find(
@@ -727,7 +730,9 @@ export default function VipAllocationPanel({
     <div className="space-y-5" dir="rtl">
 
       {/* Step instruction */}
-      {selectedReqIndex !== null ? (
+      {readOnly ? (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-[11px] text-slate-500">שיבוצי VIP בתקופה זו מוצגים לצפייה בלבד.</div>
+      ) : selectedReqIndex !== null ? (
         <div className="bg-primary/8 border border-primary/25 rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm text-primary font-medium shadow-sm">
           <span className="text-base">👆</span>
           <span>בחרת דרישה #{selectedReqIndex + 1} — כעת לחץ על אוהל פנוי</span>
@@ -785,6 +790,7 @@ export default function VipAllocationPanel({
                     isSelected={selectedReqIndex === i}
                     onClick={() => handleReqClick(i)}
                     editLocked={isMultiPeriod}
+                    readOnly={readOnly}
                   />
                   {isActiveContinuous && alloc?.status === "CONFIRMED" && (
                     <button type="button" onClick={() => handleActiveLocationChange(i)} className="text-[10px] font-semibold text-primary hover:underline">
@@ -824,6 +830,7 @@ export default function VipAllocationPanel({
                   myAllocForTent={myAllocForTent}
                   isSelecting={selectedReqIndex !== null}
                   onClick={() => handleTentClick(tent)}
+                  readOnly={readOnly}
                 />
               );
             })}
@@ -858,7 +865,7 @@ export default function VipAllocationPanel({
       )}
 
       {/* Action bar */}
-      {(hasDraftAllocs || myActiveVipAllocs.length > 0) && (
+      {!readOnly && (hasDraftAllocs || myActiveVipAllocs.length > 0) && (
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
           {hasDraftAllocs && (
             <Button
@@ -885,7 +892,7 @@ export default function VipAllocationPanel({
       )}
 
       {/* Assignment Dialog */}
-      {dialogTarget && (
+      {!readOnly && dialogTarget && (
         <AssignmentDialog
           req={vipRows[dialogTarget.reqIndex]}
           reqIndex={dialogTarget.reqIndex}
@@ -905,7 +912,7 @@ export default function VipAllocationPanel({
       )}
 
       {/* Confirmed VIP Pax Edit Dialog */}
-      {paxEditTarget && (
+      {!readOnly && paxEditTarget && (
         <VipPaxEditDialog
           allocation={paxEditTarget.allocation}
           tent={paxEditTarget.tent}

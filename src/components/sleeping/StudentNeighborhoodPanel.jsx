@@ -54,6 +54,7 @@ export default function StudentNeighborhoodPanel({
   logicalAssignments = [],
   seriesValidation = null,
   activeStayPeriods = [],
+  readOnly = false,
 }) {
   const [open, setOpen] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
@@ -199,7 +200,7 @@ export default function StudentNeighborhoodPanel({
         </div>
 
         {/* Actions */}
-        {(isLockedByOther || !isLockedByOther) && (
+        {!readOnly && (isLockedByOther || !isLockedByOther) && (
           <div className="flex items-center gap-1.5 shrink-0">
             {isLockedByMe ? (
               <>
@@ -309,7 +310,19 @@ export default function StudentNeighborhoodPanel({
         )}
       </div>
 
-      {isMultiPeriod && hasNeighborhoodConflict && hasPhysicallyAvailableTent && !isAlreadyShared && (
+      {readOnly && logicalNeighborhoodAssignments.length > 0 && (
+        <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">
+          <p className="text-[10px] font-semibold text-slate-500 mb-1">אוהלים בתקופה זו</p>
+          <div className="flex flex-wrap gap-1.5">
+            {logicalNeighborhoodAssignments.map(assignment => {
+              const tent = tents.find(item => item.id === assignment.tent_id);
+              return <span key={assignment.key || assignment.id || assignment.tent_id} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים</span>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {!readOnly && isMultiPeriod && hasNeighborhoodConflict && hasPhysicallyAvailableTent && !isAlreadyShared && (
         <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
           <p className="text-xs text-amber-800">
             השכונה משותפת עם {lockByOtherGroup.group_name}. אישור זה עוקף רק את התנגשות השכונה; אוהל תפוס נשאר חסום.
@@ -364,7 +377,7 @@ export default function StudentNeighborhoodPanel({
       />
 
       {/* Expand form */}
-      {open && (
+      {!readOnly && open && (
         <div className="border-t border-slate-200 px-4 py-3 bg-white space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
