@@ -8,6 +8,7 @@ import { releaseSleepingSeries, actionableSleepingRows } from '@/components/slee
 import VipPaxEditDialog from "./VipPaxEditDialog";
 import RoleGate from "@/components/RoleGate";
 import { getLogicalVipAllocations, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
+import TemporalScopeBadge from "./TemporalScopeBadge";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -457,8 +458,8 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
 
 // ── VIP Tent Card ─────────────────────────────────────────────────────────────
 
-function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isSelectedByAnotherReq, onClick, readOnly = false }) {
-  const isAssigned  = !!myAllocForTent;
+function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isSelectedByAnotherReq, onClick, readOnly = false, temporalScope = null }) {
+  const isAssigned  = !!myAllocForTent || !!temporalScope;
   const isConfirmed = myAllocForTent?.status === "CONFIRMED";
   const gc          = myAllocForTent ? getGenderCfg(myAllocForTent.gender_group) : null;
 
@@ -494,6 +495,7 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
         </span>
       )}
       <span className="font-bold text-sm text-slate-700">{tent.code}</span>
+      {isAssigned && <TemporalScopeBadge scope={temporalScope} />}
       <span className="text-[10px] text-slate-400">עד 4🛏</span>
 
       {isConfirmed && gc && (
@@ -536,6 +538,7 @@ export default function VipAllocationPanel({
   onPeriodPaxEdit,
   allowPeriodLocationEdit = false,
   onPeriodLocationEdit,
+  tentTemporalScopes = null,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
   // dialogTarget: { reqIndex, tent } — open the assignment dialog
@@ -847,7 +850,8 @@ export default function VipAllocationPanel({
                   isSelecting={selectedReqIndex !== null}
                   onClick={() => handleTentClick(tent)}
                   readOnly={readOnly}
-                />
+                  temporalScope={tentTemporalScopes?.find(item => item.tent_id === tent.id)?.scope}
+                  />
               );
             })}
           </div>

@@ -9,6 +9,7 @@ import AutoAllocationButton from "./AutoAllocationButton";
 import { releaseSleepingNeighborhood } from '@/components/sleeping/seriesActions';
 import { toast } from 'sonner';
 import RoleGate from "@/components/RoleGate";
+import TemporalScopeBadge from "./TemporalScopeBadge";
 
 const GENDER_OPTIONS = [
   { value: "BOYS",  label: "בנים 👦" },
@@ -60,6 +61,7 @@ export default function StudentNeighborhoodPanel({
   onPeriodPaxEdit,
   allowPeriodLocationEdit = false,
   onPeriodLocationEdit,
+  temporalCoverage = null,
 }) {
   const [open, setOpen] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
@@ -153,6 +155,7 @@ export default function StudentNeighborhoodPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm text-slate-800">{neighborhood.name}</span>
+            <TemporalScopeBadge scope={temporalCoverage?.scope} />
             <span className="text-xs text-slate-400">{tents.length} אוהלים · {totalBeds} מיטות</span>
 
             {isLockedByMe && (
@@ -314,6 +317,13 @@ export default function StudentNeighborhoodPanel({
           </div>
         )}
       </div>
+
+      {!readOnly && temporalCoverage?.tents?.length > 0 && (
+        <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">
+          <p className="mb-1 text-[10px] font-semibold text-slate-500">אוהלים לפי תקופות</p>
+          <div className="flex flex-wrap gap-1.5">{temporalCoverage.tents.map(item => <span key={item.tent_id} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"><strong>אוהל {tents.find(tent => tent.id === item.tent_id)?.code || "?"}</strong><TemporalScopeBadge scope={item.scope} /></span>)}</div>
+        </div>
+      )}
 
       {readOnly && logicalNeighborhoodAssignments.length > 0 && (
         <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">

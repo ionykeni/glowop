@@ -20,8 +20,9 @@ import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
 import StayPeriodSelector from "./StayPeriodSelector";
 import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
-import PeriodizedLocationOverview from "./PeriodizedLocationOverview";
+import TemporalScopeBadge from "./TemporalScopeBadge";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
+import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -183,6 +184,10 @@ export default function SleepingAllocationTab({ groupId }) {
   const displayedLogicalSeriesData = useMemo(
     () => isPeriodView ? groupLogicalSleepingAssignments(displayedAllocations) : logicalSeriesData,
     [displayedAllocations, isPeriodView, logicalSeriesData]
+  );
+  const locationCoverage = useMemo(
+    () => isMultiPeriod && !isPeriodView ? buildPeriodizedLocationCoverage(myAllocations, sortedStayPeriods, todayLocal()) : {},
+    [isMultiPeriod, isPeriodView, myAllocations, sortedStayPeriods]
   );
   const { data: remoteSeriesValidation, isFetching: checkingSeries } = useQuery({
     queryKey: ['sleepingSeriesValidation', groupId, myAllocations.map(r => `${r.id}:${r.updated_date}`).join('|'), activeStayPeriods.map(p => `${p.id}:${p.updated_date}`).join('|')],
@@ -567,16 +572,6 @@ export default function SleepingAllocationTab({ groupId }) {
         />
       )}
 
-      {!isPeriodView && isMultiPeriod && (
-        <PeriodizedLocationOverview
-          allocations={myAllocations}
-          periods={sortedStayPeriods}
-          tents={allTents}
-          neighborhoods={neighborhoods}
-          today={todayLocal()}
-        />
-      )}
-
       {/* Requirements summary */}
       <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
@@ -647,7 +642,7 @@ export default function SleepingAllocationTab({ groupId }) {
         )}
         {isMultiPeriod && (
           <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-            בחירת אוהל נשמרת כשיבוץ לוגי אחד ומוחלת אוטומטית על כל תקופות השהייה הפעילות.
+            בתצוגת כל התקופות, תג תאריך ליד שכונה או אוהל מציין בדיוק באילו תקופות הם בשימוש.
             </div>
         )}
 
@@ -688,6 +683,7 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodPaxEdit={setPeriodPaxTarget}
             allowPeriodLocationEdit={isPeriodView && periodState !== "past"}
             onPeriodLocationEdit={setPeriodLocationTarget}
+            temporalCoverage={!isPeriodView ? locationCoverage[hood.id] : null}
             />
           );
         })}
@@ -696,9 +692,9 @@ export default function SleepingAllocationTab({ groupId }) {
       {/* ── VIP ALLOCATION ── */}
       {vipRows.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">שיבוץ VIP</h3>
+          <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-slate-700">שיבוץ VIP</h3>{!isPeriodView && <TemporalScopeBadge scope={locationCoverage[vipNeighborhood?.id]?.scope} />}</div>
           <p className="text-[11px] text-slate-500">
-            {isPeriodView ? "מצב שיבוצי ה-VIP בתקופה שנבחרה." : <>שייך כל דרישת VIP לאוהל ספציפי (80–89). לחץ על דרישה ← לאחר מכן על אוהל.{isMultiPeriod && " אותו אוהל נשמר בכל תקופות השהייה הפעילות."}</>}
+            {isPeriodView ? "מצב שיבוצי ה-VIP בתקופה שנבחרה." : <>שייך כל דרישת VIP לאוהל ספציפי (80–89). לחץ על דרישה ← לאחר מכן על אוהל.{isMultiPeriod && " תג תאריך ליד אוהל מציין שימוש בחלק מהתקופות בלבד."}</>}
           </p>
 
           {isMultiPeriod && !canUseMultiPeriod && (
@@ -730,6 +726,7 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodPaxEdit={setPeriodPaxTarget}
             allowPeriodLocationEdit={isPeriodView && periodState !== "past"}
             onPeriodLocationEdit={setPeriodLocationTarget}
+            tentTemporalScopes={!isPeriodView ? locationCoverage[vipNeighborhood?.id]?.tents : null}
           />
         </section>
       )}
