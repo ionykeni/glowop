@@ -19,8 +19,9 @@ export function planScopedPaxChange(ctx, body) {
   if (!Number.isInteger(pax) || pax < 1) throw new Error('מספר האנשים חייב להיות מספר חיובי');
 
   const mine = rows.filter(row => row.group_id === group.id);
-  const selected = mine.find(row => row.id === body.allocation_id && liveSleeping(row) && row.stay_period_id === selectedPeriodId)
-    || mine.find(row => row.allocation_series_id === body.allocation_series_id && liveSleeping(row) && row.stay_period_id === selectedPeriodId);
+  const isScopedEditCandidate = row => liveSleeping(row) && row.departure_date > today;
+  const selected = mine.find(row => row.id === body.allocation_id && isScopedEditCandidate(row) && row.stay_period_id === selectedPeriodId)
+    || mine.find(row => row.allocation_series_id === body.allocation_series_id && isScopedEditCandidate(row) && row.stay_period_id === selectedPeriodId);
   if (!selected) throw new Error('השיבוץ בתקופה שנבחרה לא נמצא');
   const tent = tents.find(item => item.id === selected.tent_id);
   const operationalCapacity = tent && (tent.tent_type === 'VIP' || tent.is_accessible === true) ? Math.max(Number(tent.capacity || 0), 4) : Number(tent?.capacity || 0);
@@ -28,7 +29,7 @@ export function planScopedPaxChange(ctx, body) {
 
   const affectedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
   const affectedRows = affectedPeriods.map(period => {
-    const matches = mine.filter(row => liveSleeping(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
+    const matches = mine.filter(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
     if (matches.length !== 1) throw new Error('לא נמצא שיבוץ יחיד בכל התקופות שנבחרו');
     return matches[0];
   });
@@ -45,7 +46,7 @@ export function planScopedPaxChange(ctx, body) {
 
   if (mode === PAX_SCOPE.ONLY) {
     for (const period of periods.slice(selectedIndex + 1)) {
-      const template = mine.find(row => liveSleeping(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
+      const template = mine.find(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
       if (!template) throw new Error('לא ניתן לשמור את רצף התקופות שנבחר');
       creates.push({ ...cleanRow(template), status: 'CANCELLED', allocated_pax: pax, allocation_series_id: seriesId, series_effective_from_period_id: selectedPeriodId, series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined, source_allocation_id: selected.id });
     }
