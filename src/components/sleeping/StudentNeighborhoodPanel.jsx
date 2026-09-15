@@ -58,6 +58,8 @@ export default function StudentNeighborhoodPanel({
   readOnly = false,
   allowPeriodPaxEdit = false,
   onPeriodPaxEdit,
+  allowPeriodLocationEdit = false,
+  onPeriodLocationEdit,
 }) {
   const [open, setOpen] = useState(false);
   const [showDistribution, setShowDistribution] = useState(false);
@@ -320,7 +322,7 @@ export default function StudentNeighborhoodPanel({
             {logicalNeighborhoodAssignments.map(assignment => {
               const tent = tents.find(item => item.id === assignment.tent_id);
               const row = assignment.period_rows?.[0] || assignment;
-              return <span key={assignment.logical_key || row.id || assignment.tent_id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodPaxEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">ערוך כמות</button></RoleGate>}</span>;
+              return <span key={assignment.logical_key || row.id || assignment.tent_id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodPaxEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">ערוך כמות</button></RoleGate>}{allowPeriodLocationEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodLocationEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">שנה אוהל</button></RoleGate>}</span>;
             })}
           </div>
         </div>

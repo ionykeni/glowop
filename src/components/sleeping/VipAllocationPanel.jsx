@@ -6,6 +6,7 @@ import { ShieldCheck, AlertTriangle, X, Shield, Car, User, Star, BookOpen, BedDo
 import { toast } from "sonner";
 import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import VipPaxEditDialog from "./VipPaxEditDialog";
+import RoleGate from "@/components/RoleGate";
 import { getLogicalVipAllocations, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -533,6 +534,8 @@ export default function VipAllocationPanel({
   readOnly = false,
   allowPeriodPaxEdit = false,
   onPeriodPaxEdit,
+  allowPeriodLocationEdit = false,
+  onPeriodLocationEdit,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
   // dialogTarget: { reqIndex, tent } — open the assignment dialog
@@ -802,6 +805,13 @@ export default function VipAllocationPanel({
                     <button type="button" onClick={() => handleActiveLocationChange(i)} className="text-[10px] font-semibold text-primary hover:underline">
                       שנה אוהל החל מתאריך
                     </button>
+                  )}
+                  {readOnly && allowPeriodLocationEdit && alloc && (
+                    <RoleGate permission="MANAGE_ALLOCATION">
+                      <button type="button" onClick={() => onPeriodLocationEdit?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-primary hover:underline">
+                        שנה אוהל
+                      </button>
+                    </RoleGate>
                   )}
                 </div>
               );
