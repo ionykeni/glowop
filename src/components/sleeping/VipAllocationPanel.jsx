@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import VipPaxEditDialog from "./VipPaxEditDialog";
 import RoleGate from "@/components/RoleGate";
-import { getLogicalVipAllocations, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
+import { getLogicalVipAllocations, getVipRequirementReadModel, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -563,12 +563,13 @@ export default function VipAllocationPanel({
     [logicalAssignments]
   );
 
-  // reqIndex → persisted alloc (via __vip_req_N__ in notes)
-  const vipMarkerCollisions = useMemo(() => {
-    const counts = {};
-    myActiveVipAllocs.forEach(a => { counts[a.requirement_index] = (counts[a.requirement_index] || 0) + 1; });
-    return Object.entries(counts).filter(([, count]) => count > 1).map(([index]) => Number(index));
-  }, [myActiveVipAllocs]);
+  // Requirement identity is the __vip_req_N__ marker. Different non-overlapping
+  // period assignments are valid; only simultaneous [start, end) rows collide.
+  const vipRequirementReadModel = useMemo(
+    () => getVipRequirementReadModel(myActiveVipAllocs.flatMap(item => item.period_rows || [item])),
+    [myActiveVipAllocs]
+  );
+  const vipMarkerCollisions = vipRequirementReadModel.duplicate_requirement_indexes;
 
   const persistedReqToAlloc = useMemo(() => {
     const map = {};
@@ -604,9 +605,10 @@ export default function VipAllocationPanel({
   const hasDraftAllocs = myActiveVipAllocs.some(a => a.status === "DRAFT");
   const hasConflicts   = myActiveVipAllocs.some(a => a.status === "DRAFT" && conflictMap[a.tent_id]);
 
-  // VIP totals: requested (from vipRows) vs allocated (from active allocs)
+  // VIP totals count each __vip_req_N__ identity once across all periods.
   const totalRequestedVipPax = vipRows.reduce((s, r) => s + (Number(r.people_count) || 0), 0);
-  const totalAllocatedVipPax = myActiveVipAllocs.reduce((s, a) => s + (Number(a.allocated_pax) || 0), 0);
+  const totalAllocatedVipPax = vipRequirementReadModel.total_allocated_pax;
+  const vipPaxVariesByPeriod = vipRequirementReadModel.pax_varies_by_period;
   const totalRemainingVipPax = totalRequestedVipPax - totalAllocatedVipPax;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -761,22 +763,24 @@ export default function VipAllocationPanel({
 
       {/* VIP Totals banner */}
       <div className={`rounded-xl border px-4 py-2.5 flex flex-wrap items-center gap-4 text-sm ${
-        totalRemainingVipPax < 0
-          ? "bg-red-50 border-red-300"
-          : totalRemainingVipPax === 0
-            ? "bg-emerald-50 border-emerald-300"
-            : "bg-amber-50 border-amber-200"
+        vipPaxVariesByPeriod
+          ? "bg-blue-50 border-blue-200"
+          : totalRemainingVipPax < 0
+            ? "bg-red-50 border-red-300"
+            : totalRemainingVipPax === 0
+              ? "bg-emerald-50 border-emerald-300"
+              : "bg-amber-50 border-amber-200"
       }`}>
         <span className="text-xs text-slate-500 font-semibold">סה״כ VIP:</span>
         <span className="text-xs">נדרש: <strong>{totalRequestedVipPax}</strong></span>
-        <span className="text-xs">שובצו: <strong className={totalAllocatedVipPax > 0 ? "text-primary" : ""}>{totalAllocatedVipPax}</strong></span>
-        {totalRemainingVipPax > 0 && (
+        <span className="text-xs">שובצו: <strong className={totalAllocatedVipPax > 0 ? "text-primary" : ""}>{vipPaxVariesByPeriod ? "כמות משתנה לפי תקופה" : totalAllocatedVipPax}</strong></span>
+        {!vipPaxVariesByPeriod && totalRemainingVipPax > 0 && (
           <span className="text-xs font-semibold text-amber-700">נותרו לשיבוץ: {totalRemainingVipPax} אנשי VIP</span>
         )}
-        {totalRemainingVipPax === 0 && totalRequestedVipPax > 0 && (
+        {!vipPaxVariesByPeriod && totalRemainingVipPax === 0 && totalRequestedVipPax > 0 && (
           <span className="text-xs font-semibold text-emerald-700">✓ כל אנשי ה-VIP שובצו</span>
         )}
-        {totalRemainingVipPax < 0 && (
+        {!vipPaxVariesByPeriod && totalRemainingVipPax < 0 && (
           <span className="text-xs font-semibold text-red-700">⚠ שובצו יותר אנשים ממה שנדרש!</span>
         )}
       </div>
@@ -861,7 +865,7 @@ export default function VipAllocationPanel({
 
       {vipMarkerCollisions.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-xs text-red-700">
-          נמצאה זהות דרישת VIP כפולה בשיבוצים לוגיים שונים. פעולות שינוי חסומות.
+          נמצאה דרישת VIP עם שיבוצים חופפים באותה תקופה או בטווחי תאריכים חופפים. פעולות שינוי חסומות.
         </div>
       )}
 

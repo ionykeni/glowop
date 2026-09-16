@@ -9,6 +9,7 @@
  */
 
 import { groupLogicalSleepingAssignments } from "../../base44/shared/logicalSleepingSeries.js";
+import { getVipRequirementReadModel } from "@/lib/vipLogicalAllocations";
 
 const ALT_TENT_MARKER = "__alt_tent__";
 const VIP_REQ_MARKER  = /__vip_req_\d+__/;
@@ -33,7 +34,8 @@ export function computeAllocationCounts(allocations = [], profile = null) {
   );
 
   const studentAllocated   = studentAllocs.reduce((s, a) => s + a.logical_allocated_pax, 0);
-  const vipAllocated       = vipAllocs.reduce((s, a) => s + a.logical_allocated_pax, 0);
+  const vipReadModel       = getVipRequirementReadModel(vipAllocs.flatMap(item => item.period_rows || [item]));
+  const vipAllocated       = vipReadModel.total_allocated_pax;
   const altTentAllocated   = altTentAllocs.reduce((s, a) => s + a.logical_allocated_pax, 0);
   const otherStaffAllocated = otherStaffAllocs.reduce((s, a) => s + a.logical_allocated_pax, 0);
   const staffAllocated     = vipAllocated + altTentAllocated + otherStaffAllocated;
@@ -50,6 +52,8 @@ export function computeAllocationCounts(allocations = [], profile = null) {
     confirmedCount: logical.filter(a => a.all_confirmed).length,
     draftCount: logical.filter(a => a.has_draft).length,
     hasInvalidSeries,
+    vipPaxVariesByPeriod: vipReadModel.pax_varies_by_period,
+    duplicateVipRequirementIndexes: vipReadModel.duplicate_requirement_indexes,
     invalidSeries: seriesData.inconsistent_series.map(a => ({ allocation_series_id: a.allocation_series_id, errors: a.consistency_errors })),
   };
 

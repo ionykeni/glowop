@@ -148,7 +148,7 @@ export default function SleepingRequirementsSummary({ profile, allocations, nhoo
           {(counts.vipAllocated > 0 || counts.altTentAllocated > 0 || counts.otherStaffAllocated > 0) && (
             <div className="text-[10px] text-slate-400 mt-1.5 px-1 space-y-0.5">
               {counts.vipAllocated > 0 && (
-                <p>מתוכם VIP: {counts.vipAllocated} ({counts.vipTentCount} אוהלים)</p>
+                <p>מתוכם VIP: {counts.vipPaxVariesByPeriod ? "כמות משתנה לפי תקופה" : counts.vipAllocated} ({counts.vipTentCount} אוהלים)</p>
               )}
               {counts.altTentAllocated > 0 && (
                 <p>מתוכם אוהל חילופי: {counts.altTentAllocated} ({counts.altTentCount} אוהלים)</p>
