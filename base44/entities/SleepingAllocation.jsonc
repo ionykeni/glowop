@@ -101,6 +101,19 @@
       "type": "string",
       "format": "date",
       "description": "Explicit retained segment end inside a stay period"
+    },
+    "released_helper_dismissed": {
+      "type": "boolean",
+      "default": false,
+      "description": "UI-only marker hiding a released allocation from the period re-add helper"
+    },
+    "released_helper_dismissed_at": {
+      "type": "string",
+      "description": "ISO datetime when the released helper item was dismissed"
+    },
+    "released_helper_dismissed_by": {
+      "type": "string",
+      "description": "Email of the user who dismissed the released helper item"
     }
   },
   "required": [

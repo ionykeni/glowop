@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import RoleGate from "@/components/RoleGate";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
+import { naturalTentCodeCompare } from "./tentCodeSort";
 
 const GENDER_OPTIONS = [
   { value: "BOYS",  label: "בנים 👦" },
@@ -325,7 +326,7 @@ export default function StudentNeighborhoodPanel({
       {!readOnly && temporalCoverage?.tents?.length > 0 && (
         <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">
           <p className="mb-1 text-[10px] font-semibold text-slate-500">אוהלים לפי תקופות</p>
-          <div className="flex flex-wrap gap-1.5">{temporalCoverage.tents.map(item => <span key={item.tent_id} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"><strong>אוהל {tents.find(tent => tent.id === item.tent_id)?.code || "?"}</strong><TemporalScopeBadge scope={item.scope} /></span>)}</div>
+          <div className="flex flex-wrap gap-1.5">{[...temporalCoverage.tents].sort((left, right) => naturalTentCodeCompare(tents.find(tent => tent.id === left.tent_id), tents.find(tent => tent.id === right.tent_id))).map(item => <span key={item.tent_id} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 shadow-sm"><strong>אוהל {tents.find(tent => tent.id === item.tent_id)?.code || "?"}</strong><TemporalScopeBadge scope={item.scope} /></span>)}</div>
         </div>
       )}
 
@@ -336,11 +337,11 @@ export default function StudentNeighborhoodPanel({
             {allowPeriodNeighborhoodRelease && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="destructive" onClick={onPeriodNeighborhoodRelease}>שחרר שכונה</SleepingActionButton></RoleGate>}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {logicalNeighborhoodAssignments.map(assignment => {
+            {[...logicalNeighborhoodAssignments].sort((left, right) => naturalTentCodeCompare(tents.find(tent => tent.id === left.tent_id), tents.find(tent => tent.id === right.tent_id))).map(assignment => {
               const tent = tents.find(item => item.id === assignment.tent_id);
               const row = assignment.period_rows?.[0] || assignment;
               const genderLabel = GENDER_OPTIONS.find(option => option.value === assignment.gender_group)?.label || assignment.gender_group;
-              return <div key={assignment.logical_key || row.id || assignment.tent_id} className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 sm:basis-[calc(50%-0.375rem)]"><div className="min-w-0 flex-1"><span className="font-semibold text-slate-800">אוהל {tent?.code || "?"}</span><span className="mx-1.5 text-slate-300">·</span><span>{assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים</span>{genderLabel && <span className="mr-1.5 text-[10px] text-slate-500">{genderLabel}</span>}</div><div className="flex flex-wrap gap-1">{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodPaxEdit?.(row)}>ערוך כמות</SleepingActionButton></RoleGate>}{allowPeriodLocationEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodLocationEdit?.(row)}>שנה אוהל</SleepingActionButton></RoleGate>}{allowPeriodRelease && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="destructive" onClick={() => onPeriodRelease?.(row)}>שחרר</SleepingActionButton></RoleGate>}</div></div>;
+              return <div key={assignment.logical_key || row.id || assignment.tent_id} className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm sm:basis-[calc(50%-0.375rem)]"><div className="min-w-0 flex-1"><span className="font-semibold text-slate-800">אוהל {tent?.code || "?"}</span><span className="mx-1.5 text-slate-300">·</span><span>{assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים</span>{genderLabel && <span className="mr-1.5 text-[10px] text-slate-500">{genderLabel}</span>}</div><div className="flex flex-wrap gap-1">{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodPaxEdit?.(row)}>ערוך כמות</SleepingActionButton></RoleGate>}{allowPeriodLocationEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodLocationEdit?.(row)}>שנה אוהל</SleepingActionButton></RoleGate>}{allowPeriodRelease && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="destructive" onClick={() => onPeriodRelease?.(row)}>שחרר</SleepingActionButton></RoleGate>}</div></div>;
             })}
           </div>
         </div>

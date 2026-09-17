@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SLEEPING_PERIOD_SCOPE } from "@/lib/sleepingPeriodScope";
 import { toast } from "sonner";
+import { sortTentsNaturally } from "./tentCodeSort";
 
 export default function PeriodAddAllocationDialog({ kind, vipRequirement, requirementIndex, groupId, selectedPeriodId, tents, neighborhoods, hasLaterPeriods, defaultPax, requiredPax, allocatedPax, defaultGender, onClose, onSaved }) {
-  const compatible = useMemo(() => tents.filter(tent => tent.working_status === "WORKING" && (kind === "VIP" ? tent.tent_type === "VIP" : tent.tent_type !== "VIP")), [tents, kind]);
+  const compatible = useMemo(() => sortTentsNaturally(tents.filter(tent => tent.working_status === "WORKING" && (kind === "VIP" ? tent.tent_type === "VIP" : tent.tent_type !== "VIP"))), [tents, kind]);
   const [tentId, setTentId] = useState("");
   const [pax, setPax] = useState("");
   const [paxManuallyEdited, setPaxManuallyEdited] = useState(false);

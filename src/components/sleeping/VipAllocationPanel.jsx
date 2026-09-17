@@ -10,6 +10,7 @@ import RoleGate from "@/components/RoleGate";
 import { getLogicalVipAllocations, getVipRequirementReadModel, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
+import { sortTentsNaturally } from "./tentCodeSort";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,9 @@ const PURPOSE_CFG = {
   VIP:      { label: "VIP",    Icon: Star    },
   GUIDE:    { label: "מדריך",  Icon: BookOpen },
 };
+
+const VIP_PHYSICAL_LAYOUT = ["88", "89", "80", "81", "87", null, null, "82", "86", "85", "84", "83"];
+const vipCode = tent => String(tent?.code || "").trim();
 
 function getGenderCfg(g) { return GENDER_CFG[g] || GENDER_CFG.MEN; }
 function getPurposeCfg(p) {
@@ -467,7 +471,7 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
   const isClickable = isSelecting && !isOccupiedByOther && !isConfirmed;
   const isEditableConfirmed = isConfirmed && !isSelecting;
 
-  let borderCls = "border-slate-200";
+  let borderCls = "border-slate-300";
   let bgCls     = "bg-white";
   let shadow    = "shadow-sm";
   let opacity   = "";
@@ -487,7 +491,7 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
       type="button"
       disabled={readOnly || isOccupiedByOther || (!isSelecting && !isAssigned && !isConfirmed)}
       onClick={onClick}
-      className={`relative flex min-w-[64px] flex-col items-center gap-1 rounded-xl border ${borderCls} ${bgCls} ${shadow} ${opacity} px-2.5 py-2.5 transition-colors ${!readOnly && (isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed) ? "cursor-pointer hover:border-slate-300" : "cursor-default"}`}
+      className={`relative flex min-h-[72px] w-full min-w-0 flex-col items-center gap-1 rounded-xl border ${borderCls} ${bgCls} ${shadow} ${opacity} px-2.5 py-2.5 transition-colors ${!readOnly && (isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed) ? "cursor-pointer hover:border-slate-400" : "cursor-default"}`}
     >
       {isEditableConfirmed && (
         <span className="absolute top-1 left-1">
@@ -840,33 +844,17 @@ export default function VipAllocationPanel({
             אוהלי VIP
             {selectedReqIndex !== null && <span className="text-primary normal-case mr-1.5">← לחץ לשיוך</span>}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {[...vipTents].sort((a, b) => {
-              const na = Number(String(a.code || "").match(/\d+/)?.[0] || 0);
-              const nb = Number(String(b.code || "").match(/\d+/)?.[0] || 0);
-              return nb - na; // descending: 89, 88, 87...
-            }).map(tent => {
-              // A tent occupied by OTHER group (not me) in conflicting dates
-              const occupiedByOther = !!conflictMap[tent.id];
-              // My effective alloc for this tent
+          <div className="grid grid-cols-4 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2" dir="ltr">
+            {VIP_PHYSICAL_LAYOUT.map((code, index) => {
+              if (!code) return <div key={`empty-${index}`} aria-hidden="true" className="min-h-[72px]" />;
+              const tent = vipTents.find(item => vipCode(item) === code);
+              if (!tent) return <div key={`missing-${code}`} aria-hidden="true" className="min-h-[72px]" />;
               const myAllocForTent = tentEffectiveAlloc[tent.id] || null;
-              // Tent is "mine" so override the occupied-by-other flag
-              const isOccupiedByOther = occupiedByOther && !myAllocForTent;
-
-              return (
-                <VipTentCard
-                  key={tent.id}
-                  tent={tent}
-                  isOccupiedByOther={isOccupiedByOther}
-                  myAllocForTent={myAllocForTent}
-                  isSelecting={selectedReqIndex !== null}
-                  onClick={() => handleTentClick(tent)}
-                  readOnly={readOnly}
-                  temporalScope={tentTemporalScopes?.find(item => item.tent_id === tent.id)?.scope}
-                  />
-              );
+              const isOccupiedByOther = !!conflictMap[tent.id] && !myAllocForTent;
+              return <VipTentCard key={tent.id} tent={tent} isOccupiedByOther={isOccupiedByOther} myAllocForTent={myAllocForTent} isSelecting={selectedReqIndex !== null} onClick={() => handleTentClick(tent)} readOnly={readOnly} temporalScope={tentTemporalScopes?.find(item => item.tent_id === tent.id)?.scope} />;
             })}
           </div>
+          {vipTents.some(tent => !VIP_PHYSICAL_LAYOUT.includes(vipCode(tent))) && <div className="flex flex-wrap gap-2">{sortTentsNaturally(vipTents.filter(tent => !VIP_PHYSICAL_LAYOUT.includes(vipCode(tent)))).map(tent => { const myAllocForTent = tentEffectiveAlloc[tent.id] || null; const isOccupiedByOther = !!conflictMap[tent.id] && !myAllocForTent; return <div key={tent.id} className="w-16"><VipTentCard tent={tent} isOccupiedByOther={isOccupiedByOther} myAllocForTent={myAllocForTent} isSelecting={selectedReqIndex !== null} onClick={() => handleTentClick(tent)} readOnly={readOnly} temporalScope={tentTemporalScopes?.find(item => item.tent_id === tent.id)?.scope} /></div>; })}</div>}
           {vipTents.length === 0 && <p className="text-xs text-slate-400">לא נמצאו אוהלי VIP במלאי.</p>}
         </div>
       </div>

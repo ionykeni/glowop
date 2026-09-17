@@ -4,10 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { SLEEPING_PERIOD_SCOPE } from "@/lib/sleepingPeriodScope";
 import { toast } from "sonner";
+import { sortTentsNaturally } from "./tentCodeSort";
 
 export default function PeriodReAddDialog({ target, groupId, tents, onClose, onSaved }) {
   const isVip = /__vip_req_\d+__/i.test(target.notes || "");
-  const compatible = tents.filter(tent => tent.working_status === "WORKING" && (isVip ? tent.tent_type === "VIP" : tent.tent_type !== "VIP"));
+  const compatible = sortTentsNaturally(tents.filter(tent => tent.working_status === "WORKING" && (isVip ? tent.tent_type === "VIP" : tent.tent_type !== "VIP")));
   const [destinationId, setDestinationId] = useState(target.tent_id || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

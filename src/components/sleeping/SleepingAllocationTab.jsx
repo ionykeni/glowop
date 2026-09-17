@@ -773,7 +773,7 @@ export default function SleepingAllocationTab({ groupId }) {
       />
 
       {isPeriodView && periodState !== "past" && (
-        <ReleasedPeriodAllocations allocations={releasedPeriodAllocations} tents={allTents} onReAdd={setPeriodReAddTarget} />
+        <ReleasedPeriodAllocations allocations={releasedPeriodAllocations} tents={allTents} groupId={groupId} onReAdd={setPeriodReAddTarget} onDismissed={invalidate} />
       )}
 
       {periodPaxTarget && selectedPeriod && (

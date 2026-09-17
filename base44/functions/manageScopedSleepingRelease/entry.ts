@@ -15,6 +15,17 @@ export default async function(req) {
     if (!body.group_id) return Response.json({ success: false, error: 'חסרה קבוצה' }, { status: 400 });
     const db = base44.asServiceRole.entities;
     const context = await loadSleepingContext(db, body.group_id);
+    if (body.action === 'DISMISS_RELEASED_HELPER') {
+      const row = context.rows.find(item => item.id === body.allocation_id && item.group_id === context.group.id);
+      if (!row || row.series_action !== 'RELEASE') throw new Error('השיבוץ ששוחרר לא נמצא');
+      writes = sleepingWrites(db);
+      await writes.update('SleepingAllocation', row, {
+        released_helper_dismissed: true,
+        released_helper_dismissed_at: new Date().toISOString(),
+        released_helper_dismissed_by: user.email,
+      });
+      return Response.json({ success: true, action: body.action, allocation_id: row.id, historical_row_deleted: false, occupancy_fields_changed: false });
+    }
     const plan = body.action === 'ADD' ? planScopedAdd(context, body)
       : body.action === 'READD' ? planScopedReAdd(context, body)
       : body.action === 'RELEASE_NEIGHBORHOOD' ? planScopedNeighborhoodRelease(context, body)

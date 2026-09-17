@@ -24,7 +24,7 @@ export function releasedAllocationsForPeriod(rows, periodId, today) {
   const referencedIds = new Set(periodRows.map(row => row.source_allocation_id).filter(Boolean));
   return periodRows.filter(row => {
     const supported = row.allocation_type === "STUDENT" || /__vip_req_\d+__/i.test(row.notes || "");
-    if (!supported || row.series_action !== "RELEASE" || referencedIds.has(row.id)) return false;
+    if (!supported || row.series_action !== "RELEASE" || row.released_helper_dismissed === true || referencedIds.has(row.id)) return false;
     const seriesIds = connectedSeriesIds(rows, row);
     return !periodRows.some(other => live(other) && other.departure_date > today && seriesIds.has(other.allocation_series_id) && other.allocation_type === row.allocation_type && other.gender_group === row.gender_group && marker(other) === marker(row));
   });

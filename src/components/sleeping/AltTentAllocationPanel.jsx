@@ -10,6 +10,7 @@ import { releaseSleepingSeries, actionableSleepingRows } from '@/components/slee
 import RoleGate from "@/components/RoleGate";
 import { getLogicalAltTentAllocations, ALT_TENT_MARKER } from "@/lib/altTentLogicalAllocations";
 import { toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
+import { naturalTentCodeCompare, sortTentsNaturally } from "./tentCodeSort";
 
 const GENDER_OPTIONS = [
   { value: "MEN",   label: "גברים" },
@@ -74,8 +75,8 @@ function TentCard({ tent, selectedPax, maxPax, onChangePax, onRemove }) {
   const isSelected = selectedPax > 0;
 
   return (
-    <div className={`rounded-xl border-2 p-3 transition-all ${
-      isSelected ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white"
+    <div className={`rounded-xl border p-3 shadow-sm transition-all ${
+      isSelected ? "border-amber-300 bg-amber-50" : "border-slate-300 bg-white"
     }`}>
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
@@ -244,7 +245,7 @@ function AltTentAllocationModal({
   // Tents in the selected neighborhood
   const selectedHoodTents = useMemo(() => {
     if (!selectedHoodId) return [];
-    return (availableByHood[selectedHoodId] || []).sort((a, b) => (a.code || "").localeCompare(b.code || "", "he"));
+    return sortTentsNaturally(availableByHood[selectedHoodId] || []);
   }, [selectedHoodId, availableByHood]);
 
   // maxPax for a given tent (considering remaining + what's already selected for that tent)
@@ -406,7 +407,7 @@ function AltTentAllocationModal({
 
   // ── render ─────────────────────────────────────────────────────────────────
   const selectedNeighborhood = neighborhoods.find(n => n.id === selectedHoodId);
-  const selectionEntries = Object.entries(selections);
+  const selectionEntries = Object.entries(selections).sort(([leftId], [rightId]) => naturalTentCodeCompare(allTents.find(tent => tent.id === leftId), allTents.find(tent => tent.id === rightId)));
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -629,6 +630,7 @@ export default function AltTentAllocationPanel({
   const allocatedPax  = altAllocs.reduce((s, a) => s + (a.allocated_pax || 0), 0);
   const remainingPax  = Math.max(altTentPax - allocatedPax, 0);
   const allDone       = altTentPax > 0 && remainingPax === 0;
+  const sortedAltAllocs = useMemo(() => [...altAllocs].sort((left, right) => naturalTentCodeCompare(allTents.find(tent => tent.id === left.tent_id), allTents.find(tent => tent.id === right.tent_id))), [altAllocs, allTents]);
 
   // Tents occupied on overlapping dates — ALL groups including same group.
   // Exception: existing alt-tent allocs for THIS group are shown in the panel with שחרר button,
@@ -739,13 +741,13 @@ export default function AltTentAllocationPanel({
       {/* Compact list of assigned alt tents */}
       {altAllocs.length > 0 && (
         <div className="space-y-2">
-          {altAllocs.map(alloc => {
+          {sortedAltAllocs.map(alloc => {
             const tent      = allTents.find(t => t.id === alloc.tent_id);
             const hoodName  = tent ? (neighborhoods.find(n => n.id === tent.neighborhood_id)?.name || "") : "";
             const isConfirmed = alloc.status === "CONFIRMED";
             const isReleasing = releasingId === alloc.id;
             return (
-              <div key={alloc.id} className={`rounded-xl border-2 px-4 py-2.5 flex items-center gap-3 ${
+              <div key={alloc.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 shadow-sm ${
                 isConfirmed ? "border-emerald-400 bg-emerald-50" : "border-amber-300 bg-amber-50"
               }`}>
                 <BedDouble className={`w-4 h-4 shrink-0 ${isConfirmed ? "text-emerald-600" : "text-amber-600"}`} />

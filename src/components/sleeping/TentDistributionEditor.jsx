@@ -15,6 +15,7 @@ import { AlertTriangle, CheckCircle2, Save, Unlock } from "lucide-react";
 import { toast } from "sonner";
 import { releaseSleepingSeries, actionableSleepingRows } from '@/components/sleeping/seriesActions';
 import { groupLogicalSleepingAssignments } from '@/components/sleeping/logicalSleepingView';
+import { sortTentsNaturally } from './tentCodeSort';
 
 const GENDER_LABEL = { BOYS: "בנים 👦", GIRLS: "בנות 👧", MEN: "גברים 👨", WOMEN: "נשים 👩" };
 
@@ -513,16 +514,7 @@ export default function TentDistributionEditor({
     }
   };
 
-  // Natural numeric sort by tent code
-  const getTentNumber = (tent) => {
-    const raw = String(tent.code || tent.name || "");
-    const match = raw.match(/\d+/);
-    return match ? Number(match[0]) : 9999;
-  };
-  const sortedTents = [...tents].sort((a, b) => {
-    const diff = getTentNumber(a) - getTentNumber(b);
-    return diff !== 0 ? diff : String(a.code).localeCompare(String(b.code));
-  });
+  const sortedTents = sortTentsNaturally(tents);
 
   if (!neighborhood) return null;
 
@@ -571,10 +563,10 @@ export default function TentDistributionEditor({
               ? "bg-amber-50 border-amber-200"
               : pax > 0
               ? "bg-emerald-50 border-emerald-200"
-              : "bg-white border-slate-200";
+              : "bg-white border-slate-300";
 
             return (
-              <div key={tent.id} className={`grid gap-2 items-center border rounded-lg px-3 py-2 ${isMixedReservation ? "grid-cols-[1fr_auto_auto_auto_auto_auto]" : "grid-cols-[1fr_auto_auto_auto_auto]"} ${rowBg}`}>
+              <div key={tent.id} className={`grid items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${isMixedReservation ? "grid-cols-[1fr_auto_auto_auto_auto_auto]" : "grid-cols-[1fr_auto_auto_auto_auto]"} ${rowBg}`}>
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="font-semibold text-sm text-slate-800">{tent.code}</span>
                   {isOverBooked ? (

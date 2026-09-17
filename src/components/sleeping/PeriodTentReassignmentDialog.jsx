@@ -4,10 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { SLEEPING_PERIOD_SCOPE } from "@/lib/sleepingPeriodScope";
 import { toast } from "sonner";
+import { sortTentsNaturally } from "./tentCodeSort";
 
 export default function PeriodTentReassignmentDialog({ target, groupId, tents, hasLaterPeriods, onClose, onSaved }) {
   const isVip = /__vip_req_\d+__/i.test(target.notes || "");
-  const compatible = tents.filter(tent => tent.working_status === "WORKING" && tent.id !== target.tent_id && (isVip ? tent.tent_type === "VIP" : tent.tent_type !== "VIP"));
+  const compatible = sortTentsNaturally(tents.filter(tent => tent.working_status === "WORKING" && tent.id !== target.tent_id && (isVip ? tent.tent_type === "VIP" : tent.tent_type !== "VIP")));
   const [destinationId, setDestinationId] = useState("");
   const [scope, setScope] = useState(SLEEPING_PERIOD_SCOPE.ONLY);
   const [saving, setSaving] = useState(false);
