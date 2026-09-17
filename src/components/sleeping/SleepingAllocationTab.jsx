@@ -22,14 +22,11 @@ import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
 import PeriodReleaseDialog from "./PeriodReleaseDialog";
 import PeriodNeighborhoodReleaseDialog from "./PeriodNeighborhoodReleaseDialog";
-import PeriodReAddDialog from "./PeriodReAddDialog";
 import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
-import ReleasedPeriodAllocations from "./ReleasedPeriodAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
-import { releasedAllocationsForPeriod } from "@/lib/scopedReleasedAllocations";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -78,7 +75,6 @@ export default function SleepingAllocationTab({ groupId }) {
   const [periodLocationTarget, setPeriodLocationTarget] = useState(null);
   const [periodReleaseTarget, setPeriodReleaseTarget] = useState(null);
   const [periodNeighborhoodReleaseTarget, setPeriodNeighborhoodReleaseTarget] = useState(null);
-  const [periodReAddTarget, setPeriodReAddTarget] = useState(null);
   const [periodAddTarget, setPeriodAddTarget] = useState(null);
   // Shared neighborhood override state for confirm flow
   const [pendingSharedOverride, setPendingSharedOverride] = useState(null); // { blockedNeighborhoods, draftIds }
@@ -184,10 +180,6 @@ export default function SleepingAllocationTab({ groupId }) {
     ? myNhoodReservations.filter(row => row.status === "ACTIVE" && periodMatches(row))
     : null;
   const visibleStayPeriods = isPeriodView ? [selectedPeriod] : activeStayPeriods;
-  const releasedPeriodAllocations = useMemo(() => {
-    if (!isPeriodView || periodState === "past") return [];
-    return releasedAllocationsForPeriod(myAllocations, selectedPeriod.id, todayLocal());
-  }, [isPeriodView, periodState, myAllocations, selectedPeriodId]);
   const logicalSeriesData = useMemo(
     () => groupLogicalSleepingAssignments(isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations.filter(a => a.status !== "CANCELLED")),
     [myAllocations, isMultiPeriod]
@@ -772,10 +764,6 @@ export default function SleepingAllocationTab({ groupId }) {
         readOnly={isPeriodView}
       />
 
-      {isPeriodView && periodState !== "past" && (
-        <ReleasedPeriodAllocations allocations={releasedPeriodAllocations} tents={allTents} groupId={groupId} onReAdd={setPeriodReAddTarget} onDismissed={invalidate} />
-      )}
-
       {periodPaxTarget && selectedPeriod && (
         <RoleGate permission="MANAGE_ALLOCATION">
           <PeriodPaxEditDialog
@@ -810,12 +798,6 @@ export default function SleepingAllocationTab({ groupId }) {
       {periodNeighborhoodReleaseTarget && selectedPeriod && (
         <RoleGate permission="MANAGE_ALLOCATION">
           <PeriodNeighborhoodReleaseDialog target={periodNeighborhoodReleaseTarget} groupId={groupId} selectedPeriodId={selectedPeriod.id} hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0} onClose={() => setPeriodNeighborhoodReleaseTarget(null)} onSaved={() => { setPeriodNeighborhoodReleaseTarget(null); invalidate(); }} />
-        </RoleGate>
-      )}
-
-      {periodReAddTarget && selectedPeriod && (
-        <RoleGate permission="MANAGE_ALLOCATION">
-          <PeriodReAddDialog target={periodReAddTarget} groupId={groupId} tents={allTents} onClose={() => setPeriodReAddTarget(null)} onSaved={() => { setPeriodReAddTarget(null); invalidate(); }} />
         </RoleGate>
       )}
 
