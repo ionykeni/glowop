@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Lightbulb, CheckCircle2, Shield, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Lightbulb, CheckCircle2, Shield, Trash2, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
 import RoleGate from "@/components/RoleGate";
 import {
@@ -22,6 +22,7 @@ import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
 import PeriodReleaseDialog from "./PeriodReleaseDialog";
 import PeriodReAddDialog from "./PeriodReAddDialog";
+import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
 import ReleasedPeriodAllocations from "./ReleasedPeriodAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
@@ -75,6 +76,7 @@ export default function SleepingAllocationTab({ groupId }) {
   const [periodLocationTarget, setPeriodLocationTarget] = useState(null);
   const [periodReleaseTarget, setPeriodReleaseTarget] = useState(null);
   const [periodReAddTarget, setPeriodReAddTarget] = useState(null);
+  const [periodAddTarget, setPeriodAddTarget] = useState(null);
   // Shared neighborhood override state for confirm flow
   const [pendingSharedOverride, setPendingSharedOverride] = useState(null); // { blockedNeighborhoods, draftIds }
   const [sharedOverrideReason, setSharedOverrideReason] = useState("");
@@ -603,6 +605,7 @@ export default function SleepingAllocationTab({ groupId }) {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700">שיבוץ לפי שכונות — חניכים</h3>
+          {isPeriodView && periodState !== "past" && <RoleGate permission="MANAGE_ALLOCATION"><Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setPeriodAddTarget({ kind: "STUDENT" })}><Plus className="h-3 w-3" />הוסף אוהל</Button></RoleGate>}
           {!isMultiPeriod && totalTentsNeeded > 0 && suggestion.length > 0 && (
             <Button
               size="sm" variant="outline"
@@ -740,6 +743,8 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodLocationEdit={setPeriodLocationTarget}
             allowPeriodRelease={isPeriodView && periodState !== "past"}
             onPeriodRelease={setPeriodReleaseTarget}
+            allowPeriodAdd={isPeriodView && periodState !== "past"}
+            onPeriodAdd={(requirement, index) => setPeriodAddTarget({ kind: "VIP", requirement, index })}
             tentTemporalScopes={!isPeriodView ? locationCoverage[vipNeighborhood?.id]?.tents : null}
           />
         </section>
@@ -808,6 +813,27 @@ export default function SleepingAllocationTab({ groupId }) {
       {periodReAddTarget && selectedPeriod && (
         <RoleGate permission="MANAGE_ALLOCATION">
           <PeriodReAddDialog target={periodReAddTarget} groupId={groupId} tents={allTents} onClose={() => setPeriodReAddTarget(null)} onSaved={() => { setPeriodReAddTarget(null); invalidate(); }} />
+        </RoleGate>
+      )}
+
+      {periodAddTarget && selectedPeriod && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          <PeriodAddAllocationDialog
+            kind={periodAddTarget.kind}
+            vipRequirement={periodAddTarget.requirement}
+            requirementIndex={periodAddTarget.index}
+            groupId={groupId}
+            selectedPeriodId={selectedPeriod.id}
+            tents={allTents}
+            neighborhoods={neighborhoods}
+            hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0}
+            defaultPax={Math.max(1, (Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)) - displayedAllocations.filter(row => row.allocation_type === "STUDENT").reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0))}
+            requiredPax={periodAddTarget.kind === "VIP" ? vipRows.reduce((sum, row) => sum + Number(row.people_count || 0), 0) : Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)}
+            allocatedPax={displayedAllocations.filter(row => row.allocation_type === (periodAddTarget.kind === "VIP" ? "STAFF" : "STUDENT")).reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0)}
+            defaultGender={defaultGenderGroup}
+            onClose={() => setPeriodAddTarget(null)}
+            onSaved={() => { setPeriodAddTarget(null); invalidate(); }}
+          />
         </RoleGate>
       )}
 

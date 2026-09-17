@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedPaxChange } from '../../shared/sleepingPeriodScope.js';
-// Runtime bundle refreshed for actionable scoped-edit candidate selection.
+// Runtime bundle refreshed for mixed existing/missing scoped PAX rows.
 
 export default async function(req) {
   let writes;

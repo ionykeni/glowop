@@ -540,6 +540,8 @@ export default function VipAllocationPanel({
   onPeriodLocationEdit,
   allowPeriodRelease = false,
   onPeriodRelease,
+  allowPeriodAdd = false,
+  onPeriodAdd,
   tentTemporalScopes = null,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
@@ -826,6 +828,13 @@ export default function VipAllocationPanel({
                     <RoleGate permission="MANAGE_ALLOCATION">
                       <button type="button" onClick={() => onPeriodRelease?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-red-600 hover:underline">
                         שחרר
+                      </button>
+                    </RoleGate>
+                  )}
+                  {readOnly && allowPeriodAdd && !alloc && (
+                    <RoleGate permission="MANAGE_ALLOCATION">
+                      <button type="button" onClick={() => onPeriodAdd?.(req, i)} className="text-[10px] font-semibold text-primary hover:underline">
+                        הוסף
                       </button>
                     </RoleGate>
                   )}

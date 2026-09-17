@@ -3,6 +3,7 @@ import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActio
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedTentReassignment } from '../../shared/sleepingPeriodScope.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
+// Runtime bundle refreshed for mixed existing/missing scoped location rows.
 
 export default async function(req) {
   let writes;

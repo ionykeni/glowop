@@ -42,32 +42,35 @@ export function planScopedPaxChange(ctx, body) {
   const selected = mine.find(row => row.id === body.allocation_id && isScopedEditCandidate(row) && row.stay_period_id === selectedPeriodId)
     || mine.find(row => row.allocation_series_id === body.allocation_series_id && isScopedEditCandidate(row) && row.stay_period_id === selectedPeriodId);
   if (!selected) throw new Error('השיבוץ בתקופה שנבחרה לא נמצא');
+  const lineageSeriesIds = connectedSeriesIds(mine, selected);
   const tent = tents.find(item => item.id === selected.tent_id);
   const operationalCapacity = tent && (tent.tent_type === 'VIP' || tent.is_accessible === true) ? Math.max(Number(tent.capacity || 0), 4) : Number(tent?.capacity || 0);
   if (!tent || tent.working_status !== 'WORKING' || pax > operationalCapacity) throw new Error('מספר האנשים גבוה מקיבולת האוהל');
 
   const affectedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
-  const affectedRows = affectedPeriods.map(period => {
-    const matches = mine.filter(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
-    if (matches.length !== 1) throw new Error('לא נמצא שיבוץ יחיד בכל התקופות שנבחרו');
-    return matches[0];
+  const affectedEntries = affectedPeriods.map(period => {
+    const matches = mine.filter(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameLineageAssignment(row, selected, lineageSeriesIds));
+    if (matches.length > 1) throw new Error('נמצאו שיבוצים כפולים באחת התקופות שנבחרו');
+    return { period, row: matches[0] || null };
   });
   const startsAt = selectedPeriod.start_date < today ? today : selectedPeriod.start_date;
   const seriesId = crypto.randomUUID();
   const updates = [];
-  const creates = affectedRows.map(row => {
-    const arrival = row.arrival_date < startsAt ? startsAt : row.arrival_date;
-    updates.push({ row, data: row.arrival_date < startsAt
-      ? { departure_date: startsAt, segment_end_date: startsAt, series_action: 'REASSIGN', series_action_date: startsAt, replacement_series_id: seriesId }
-      : { status: 'CANCELLED', series_action: 'REASSIGN', series_action_date: startsAt, replacement_series_id: seriesId } });
-    return { ...cleanRow(row), arrival_date: arrival, allocated_pax: pax, allocation_series_id: seriesId, series_effective_from_period_id: selectedPeriodId, source_allocation_id: row.id, housekeeping_status: 'PENDING', series_action: undefined, series_action_date: undefined, replacement_series_id: undefined, segment_end_date: undefined, ...(arrival !== row.arrival_date ? { segment_start_date: arrival } : {}) };
+  const creates = affectedEntries.map(({ period, row }) => {
+    const source = row || selected;
+    const arrival = period.id === selectedPeriodId ? startsAt : period.start_date;
+    if (row) updates.push({ row, data: row.arrival_date < arrival
+      ? { departure_date: arrival, segment_end_date: arrival, series_action: 'REASSIGN', series_action_date: arrival, replacement_series_id: seriesId }
+      : { status: 'CANCELLED', series_action: 'REASSIGN', series_action_date: arrival, replacement_series_id: seriesId } });
+    return { ...cleanRow(source), stay_period_id: period.id, arrival_date: arrival, departure_date: period.end_date, allocated_pax: pax, allocation_series_id: seriesId, series_effective_from_period_id: selectedPeriodId, source_allocation_id: source.id, housekeeping_status: 'PENDING', series_action: undefined, series_action_date: undefined, replacement_series_id: undefined, segment_end_date: undefined, segment_start_date: arrival !== period.start_date ? arrival : undefined };
   });
 
   if (mode === PAX_SCOPE.ONLY) {
     for (const period of periods.slice(selectedIndex + 1)) {
-      const template = mine.find(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameAssignment(row, selected));
-      if (!template) throw new Error('לא ניתן לשמור את רצף התקופות שנבחר');
-      creates.push({ ...cleanRow(template), status: 'CANCELLED', allocated_pax: pax, allocation_series_id: seriesId, series_effective_from_period_id: selectedPeriodId, series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined, source_allocation_id: selected.id });
+      const matches = mine.filter(row => isScopedEditCandidate(row) && row.stay_period_id === period.id && sameLineageAssignment(row, selected, lineageSeriesIds));
+      if (matches.length > 1) throw new Error('נמצאו שיבוצים כפולים באחת התקופות הבאות');
+      const template = matches[0] || selected;
+      creates.push({ ...cleanRow(template), stay_period_id: period.id, arrival_date: period.start_date, departure_date: period.end_date, status: 'CANCELLED', allocated_pax: pax, allocation_series_id: seriesId, series_effective_from_period_id: selectedPeriodId, series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined, source_allocation_id: selected.id, segment_start_date: undefined, segment_end_date: undefined });
     }
   }
 
@@ -116,27 +119,30 @@ export function planScopedTentReassignment(ctx, body) {
   if (Number(selected.allocated_pax) > capacity) throw new Error('מספר האנשים גבוה מקיבולת אוהל היעד');
 
   const affectedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
-  const affectedRows = affectedPeriods.map(period => {
+  const affectedEntries = affectedPeriods.map(period => {
     const matches = actionable.filter(row => row.stay_period_id === period.id && sameLineageAssignment(row, selected, lineageSeriesIds));
-    if (matches.length !== 1) throw new Error('לא נמצא שיבוץ יחיד בכל התקופות שנבחרו');
-    return matches[0];
+    if (matches.length > 1) throw new Error('נמצאו שיבוצים כפולים באחת התקופות שנבחרו');
+    return { period, row: matches[0] || null };
   });
   const startsAt = selectedPeriod.start_date < today ? today : selectedPeriod.start_date;
   const replacementSeriesId = crypto.randomUUID();
   const updates = [];
-  const creates = affectedRows.map(row => {
-    const arrival = row.arrival_date < startsAt ? startsAt : row.arrival_date;
-    const meta = { series_action: 'REASSIGN', series_action_date: startsAt, replacement_series_id: replacementSeriesId };
-    updates.push({ row, data: row.arrival_date < startsAt ? { ...meta, departure_date: startsAt, segment_end_date: startsAt } : { ...meta, status: 'CANCELLED' } });
-    return { ...cleanRow(row), tent_id: destination.id, neighborhood_id: destination.neighborhood_id, arrival_date: arrival, allocation_series_id: replacementSeriesId, series_effective_from_period_id: selectedPeriodId, source_allocation_id: row.id, housekeeping_status: 'PENDING', series_action: undefined, series_action_date: undefined, replacement_series_id: undefined, segment_end_date: undefined, ...(arrival !== row.arrival_date ? { segment_start_date: arrival } : {}) };
+  const creates = affectedEntries.map(({ period, row }) => {
+    const source = row || selected;
+    const arrival = period.id === selectedPeriodId ? startsAt : period.start_date;
+    if (row) {
+      const meta = { series_action: 'REASSIGN', series_action_date: arrival, replacement_series_id: replacementSeriesId };
+      updates.push({ row, data: row.arrival_date < arrival ? { ...meta, departure_date: arrival, segment_end_date: arrival } : { ...meta, status: 'CANCELLED' } });
+    }
+    return { ...cleanRow(source), stay_period_id: period.id, tent_id: destination.id, neighborhood_id: destination.neighborhood_id, arrival_date: arrival, departure_date: period.end_date, allocation_series_id: replacementSeriesId, series_effective_from_period_id: selectedPeriodId, source_allocation_id: source.id, housekeeping_status: 'PENDING', series_action: undefined, series_action_date: undefined, replacement_series_id: undefined, segment_end_date: undefined, segment_start_date: arrival !== period.start_date ? arrival : undefined };
   });
 
   if (mode === PAX_SCOPE.ONLY) {
     for (const period of periods.slice(selectedIndex + 1)) {
       const matches = actionable.filter(row => row.stay_period_id === period.id && sameLineageAssignment(row, selected, lineageSeriesIds));
-      if (matches.length !== 1) throw new Error('לא ניתן לשמור את רצף התקופות שנבחר');
-      const template = matches[0];
-      creates.push({ ...cleanRow(template), tent_id: destination.id, neighborhood_id: destination.neighborhood_id, status: 'CANCELLED', allocation_series_id: replacementSeriesId, series_effective_from_period_id: selectedPeriodId, series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined, source_allocation_id: selected.id });
+      if (matches.length > 1) throw new Error('נמצאו שיבוצים כפולים באחת התקופות הבאות');
+      const template = matches[0] || selected;
+      creates.push({ ...cleanRow(template), stay_period_id: period.id, tent_id: destination.id, neighborhood_id: destination.neighborhood_id, arrival_date: period.start_date, departure_date: period.end_date, status: 'CANCELLED', allocation_series_id: replacementSeriesId, series_effective_from_period_id: selectedPeriodId, series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined, source_allocation_id: selected.id, segment_start_date: undefined, segment_end_date: undefined });
     }
   }
 
@@ -195,54 +201,94 @@ export function planScopedRelease(ctx, body) {
   return { updates, creates: [], warnings: [], affectedPeriods };
 }
 
-export function planScopedReAdd(ctx, body) {
+function planScopedCreation(ctx, body, source = null) {
   const { group, profile, periods, rows, tents, reservations, today } = ctx;
+  const mode = body.edit_scope?.mode;
   const selectedPeriodId = body.edit_scope?.selected_period_id;
+  if (!Object.values(PAX_SCOPE).includes(mode) || !selectedPeriodId) throw new Error('יש לבחור היקף שיבוץ');
   const selectedIndex = periods.findIndex(period => period.id === selectedPeriodId);
   if (selectedIndex < 0) throw new Error('תקופת השהייה לא נמצאה');
   const selectedPeriod = periods[selectedIndex];
-  if (selectedPeriod.end_date <= today) throw new Error('לא ניתן לשבץ מחדש תקופה שהסתיימה');
+  if (selectedPeriod.end_date <= today) throw new Error('לא ניתן להוסיף שיבוץ לתקופה שהסתיימה');
 
   const mine = rows.filter(row => row.group_id === group.id);
+  const destination = tents.find(tent => tent.id === body.destination_tent_id);
+  if (!destination || destination.working_status !== 'WORKING') throw new Error('אוהל היעד אינו זמין');
+  const prototype = source || {
+    operational_group_profile_id: profile.id,
+    group_id: group.id,
+    allocated_pax: Number(body.allocated_pax),
+    allocation_type: body.allocation_type,
+    gender_group: body.gender_group,
+    notes: String(body.notes || ''),
+  };
+  const vipMarker = noteMarker(prototype.notes);
+  const isVip = /^__vip_req_\d+__$/i.test(vipMarker);
+  if (prototype.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בהוספה זו');
+  if (!Number.isInteger(Number(prototype.allocated_pax)) || Number(prototype.allocated_pax) < 1) throw new Error('מספר האנשים חייב להיות מספר חיובי');
+  if (isVip && destination.tent_type !== 'VIP') throw new Error('דרישת VIP חייבת להישאר באוהל VIP');
+  if (prototype.allocation_type === 'STUDENT' && destination.tent_type === 'VIP') throw new Error('שיבוץ חניכים חייב להישאר באוהל רגיל');
+  const capacity = destination.tent_type === 'VIP' || destination.is_accessible === true ? Math.max(Number(destination.capacity || 0), 4) : Number(destination.capacity || 0);
+  if (Number(prototype.allocated_pax) > capacity) throw new Error('מספר האנשים גבוה מקיבולת אוהל היעד');
+
+  const requestedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
+  const active = actionableScopedRows(mine, today);
+  const assignedVipIn = period => isVip && active.some(row => row.stay_period_id === period.id && noteMarker(row.notes) === vipMarker);
+  if (assignedVipIn(selectedPeriod)) throw new Error('דרישת ה-VIP כבר משובצת בתקופה שנבחרה; יש להשתמש בשינוי אוהל');
+  const periodsToCreate = requestedPeriods.filter(period => !assignedVipIn(period));
+  if (!periodsToCreate.length) throw new Error('לא נמצאו תקופות חסרות להוספה');
+
+  const seriesId = crypto.randomUUID();
+  const requestedIds = new Set(requestedPeriods.map(period => period.id));
+  const createIds = new Set(periodsToCreate.map(period => period.id));
+  const creates = periods.slice(selectedIndex).map(period => {
+    const common = {
+      ...cleanRow(prototype), operational_group_profile_id: profile.id, group_id: group.id,
+      tent_id: destination.id, neighborhood_id: destination.neighborhood_id,
+      stay_period_id: period.id, arrival_date: period.start_date, departure_date: period.end_date,
+      allocated_pax: Number(prototype.allocated_pax), allocation_series_id: seriesId,
+      series_effective_from_period_id: selectedPeriodId, source_allocation_id: source?.id,
+      housekeeping_status: 'PENDING', replacement_series_id: undefined, segment_end_date: undefined,
+    };
+    if (requestedIds.has(period.id) && createIds.has(period.id)) {
+      const arrival = period.id === selectedPeriodId && period.start_date < today ? today : period.start_date;
+      return { ...common, arrival_date: arrival, status: 'DRAFT', series_action: undefined,
+        series_action_date: undefined, segment_start_date: arrival !== period.start_date ? arrival : undefined };
+    }
+    return { ...common, status: 'CANCELLED', series_action: 'RELEASE',
+      series_action_date: selectedPeriod.end_date, segment_start_date: undefined };
+  });
+
+  const activeCreates = creates.filter(row => row.status !== 'CANCELLED');
+  for (const replacement of activeCreates) {
+    const conflict = rows.find(other => liveSleeping(other) && other.tent_id === destination.id && overlapSleeping(replacement, other));
+    if (conflict) throw new Error('האוהל תפוס בתאריכים שנבחרו');
+  }
+  const warnings = activeCreates.flatMap(replacement => reservations
+    .filter(item => item.group_id !== group.id && item.neighborhood_id === destination.neighborhood_id && overlapSleeping(replacement, item))
+    .map(() => ({ code: 'SHARED_NEIGHBORHOOD', stay_period_id: replacement.stay_period_id })));
+  const required = prototype.allocation_type === 'STUDENT'
+    ? Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)
+    : Number(profile.staff_count || 0);
+  activeCreates.forEach(replacement => {
+    const assigned = active.filter(row => row.stay_period_id === replacement.stay_period_id && row.allocation_type === prototype.allocation_type)
+      .reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0) + Number(replacement.allocated_pax);
+    if (required > 0 && assigned > required) warnings.push({ code: 'OVER_REQUIRED_PAX', stay_period_id: replacement.stay_period_id, assigned, required });
+  });
+  const projected = mine.concat(creates.map((row, index) => ({ ...row, id: `projected-add-${index}` })));
+  if (!validateLinkedSeriesCompleteness(projected, periods, group.id, today).valid) throw new Error('השיבוץ החדש אינו שומר על רצף השיבוץ');
+  return { updates: [], creates, warnings, affectedPeriods: periodsToCreate };
+}
+
+export function planScopedAdd(ctx, body) {
+  return planScopedCreation(ctx, body);
+}
+
+export function planScopedReAdd(ctx, body) {
+  const selectedPeriodId = body.edit_scope?.selected_period_id;
+  const mine = ctx.rows.filter(row => row.group_id === ctx.group.id);
   const source = mine.find(row => row.id === body.allocation_id && row.stay_period_id === selectedPeriodId && row.series_action === 'RELEASE');
   if (!source) throw new Error('השיבוץ ששוחרר לא נמצא');
   if (mine.some(row => row.source_allocation_id === source.id && row.stay_period_id === selectedPeriodId)) throw new Error('השיבוץ כבר נוסף מחדש; יש לרענן');
-  const isVip = /__vip_req_\d+__/i.test(source.notes || '');
-  if (source.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בשיבוץ מחדש');
-
-  const destination = tents.find(tent => tent.id === body.destination_tent_id);
-  if (!destination || destination.working_status !== 'WORKING') throw new Error('אוהל היעד אינו זמין');
-  if (isVip && destination.tent_type !== 'VIP') throw new Error('דרישת VIP חייבת להישאר באוהל VIP');
-  if (source.allocation_type === 'STUDENT' && destination.tent_type === 'VIP') throw new Error('שיבוץ חניכים חייב להישאר באוהל רגיל');
-  const capacity = destination.tent_type === 'VIP' || destination.is_accessible === true ? Math.max(Number(destination.capacity || 0), 4) : Number(destination.capacity || 0);
-  if (Number(source.allocated_pax) > capacity) throw new Error('מספר האנשים גבוה מקיבולת אוהל היעד');
-
-  const startsAt = selectedPeriod.start_date < today ? today : selectedPeriod.start_date;
-  const replacement = {
-    ...cleanRow(source), operational_group_profile_id: profile.id, tent_id: destination.id,
-    neighborhood_id: destination.neighborhood_id, arrival_date: startsAt, departure_date: selectedPeriod.end_date,
-    status: 'DRAFT', allocation_series_id: crypto.randomUUID(), series_effective_from_period_id: selectedPeriodId,
-    source_allocation_id: source.id, housekeeping_status: 'PENDING', series_action: undefined,
-    series_action_date: undefined, replacement_series_id: undefined, segment_end_date: undefined,
-    ...(startsAt !== selectedPeriod.start_date ? { segment_start_date: startsAt } : {}),
-  };
-  const creates = [replacement];
-  const sourceLineageIds = connectedSeriesIds(mine, source);
-  for (const period of periods.slice(selectedIndex + 1)) {
-    const template = mine.find(row => row.stay_period_id === period.id && sameLineageAssignment(row, source, sourceLineageIds));
-    if (!template) throw new Error('לא ניתן לשמור את רצף התקופות לאחר השיבוץ מחדש');
-    creates.push({ ...cleanRow(template), tent_id: destination.id, neighborhood_id: destination.neighborhood_id,
-      status: 'CANCELLED', allocation_series_id: replacement.allocation_series_id,
-      series_effective_from_period_id: selectedPeriodId, source_allocation_id: source.id,
-      series_action: 'RELEASE', series_action_date: selectedPeriod.end_date, replacement_series_id: undefined });
-  }
-
-  const conflict = rows.find(other => liveSleeping(other) && other.tent_id === destination.id && overlapSleeping(replacement, other));
-  if (conflict) throw new Error('האוהל תפוס בתאריכים שנבחרו');
-  const warnings = reservations
-    .filter(item => item.group_id !== group.id && item.neighborhood_id === destination.neighborhood_id && overlapSleeping(replacement, item))
-    .map(() => ({ code: 'SHARED_NEIGHBORHOOD', stay_period_id: selectedPeriodId }));
-  const projected = mine.concat(creates.map((row, index) => ({ ...row, id: `projected-readd-${index}` })));
-  if (!validateLinkedSeriesCompleteness(projected, periods, group.id, today).valid) throw new Error('השיבוץ מחדש אינו שומר על רצף השיבוץ');
-  return { updates: [], creates, warnings, affectedPeriods: [selectedPeriod] };
+  return planScopedCreation(ctx, { ...body, edit_scope: { ...body.edit_scope, mode: PAX_SCOPE.ONLY } }, source);
 }
