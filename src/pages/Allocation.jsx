@@ -220,7 +220,7 @@ function GroupAllocationCard({ profile, group, allocations }) {
 
       {/* Physical allocation panel */}
       {open && (
-        <div className="border-t border-border px-4 py-5 bg-slate-50/60">
+        <div className="border-t border-border bg-slate-50/70 px-3 py-4 sm:px-4">
           <SleepingAllocationTab groupId={group.id} />
         </div>
       )}

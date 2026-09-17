@@ -696,7 +696,7 @@ export default function AltTentAllocationPanel({
   };
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
         <Home className="w-4 h-4 text-amber-600" />
         אוהל חילופי לצוות

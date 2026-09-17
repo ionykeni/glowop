@@ -26,6 +26,7 @@ import PeriodReAddDialog from "./PeriodReAddDialog";
 import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
 import ReleasedPeriodAllocations from "./ReleasedPeriodAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
+import SleepingActionButton from "./SleepingActionButton";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { releasedAllocationsForPeriod } from "@/lib/scopedReleasedAllocations";
@@ -501,11 +502,11 @@ export default function SleepingAllocationTab({ groupId }) {
     myNhoodReservations.some(r => r.status === "ACTIVE");
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-4" dir="rtl">
 
       {isMultiPeriod && (
         <div className="w-fit rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700" dir="ltr">
-          MP UI BUILD 2026-09-14-A
+          תצוגה רב־תקופתית
         </div>
       )}
 
@@ -524,21 +525,22 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
+      <SleepingRequirementsSummary
+        profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
+        allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
+        nhoodReservations={visibleNhoodReservations}
+        allTents={allTents}
+        neighborhoods={neighborhoods}
+      />
+
       {/* Release all button */}
       {!isPeriodView && (
         <RoleGate permission="MANAGE_ALLOCATION">
           {hasActiveAllocations && (
             <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
-                onClick={() => setShowReleaseAllDialog(true)}
-                disabled={saving}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                שחרר את כל השיבוץ
-              </Button>
+              <SleepingActionButton tone="destructive" onClick={() => setShowReleaseAllDialog(true)} disabled={saving}>
+                <Trash2 className="w-3.5 h-3.5" /> שחרר את כל השיבוץ
+              </SleepingActionButton>
             </div>
           )}
         </RoleGate>
@@ -586,15 +588,6 @@ export default function SleepingAllocationTab({ groupId }) {
         />
       )}
 
-      {/* Requirements summary */}
-      <SleepingRequirementsSummary
-        profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
-        allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
-        nhoodReservations={visibleNhoodReservations}
-        allTents={allTents}
-        neighborhoods={neighborhoods}
-      />
-
       {/* Date range */}
       {!isMultiPeriod && arrivalDate && (
         <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
@@ -604,10 +597,10 @@ export default function SleepingAllocationTab({ groupId }) {
       )}
 
       {/* ── STUDENT NEIGHBORHOODS ── */}
-      <section className="space-y-3">
+      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700">שיבוץ לפי שכונות — חניכים</h3>
-          {isPeriodView && periodState !== "past" && <RoleGate permission="MANAGE_ALLOCATION"><Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setPeriodAddTarget({ kind: "STUDENT" })}><Plus className="h-3 w-3" />הוסף אוהל</Button></RoleGate>}
+          {isPeriodView && periodState !== "past" && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="constructive" onClick={() => setPeriodAddTarget({ kind: "STUDENT" })}><Plus className="h-3 w-3" />הוסף אוהל</SleepingActionButton></RoleGate>}
           {!isMultiPeriod && totalTentsNeeded > 0 && suggestion.length > 0 && (
             <Button
               size="sm" variant="outline"
@@ -710,8 +703,8 @@ export default function SleepingAllocationTab({ groupId }) {
 
       {/* ── VIP ALLOCATION ── */}
       {vipRows.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-slate-700">שיבוץ VIP</h3>{!isPeriodView && <TemporalScopeBadge scope={locationCoverage[vipNeighborhood?.id]?.scope} />}</div>
+        <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-slate-800">שיבוץ VIP</h3>{!isPeriodView && <TemporalScopeBadge scope={locationCoverage[vipNeighborhood?.id]?.scope} />}</div>
           <p className="text-[11px] text-slate-500">
             {isPeriodView ? "מצב שיבוצי ה-VIP בתקופה שנבחרה." : <>שייך כל דרישת VIP לאוהל ספציפי (80–89). לחץ על דרישה ← לאחר מכן על אוהל.{isMultiPeriod && " תג תאריך ליד אוהל מציין שימוש בחלק מהתקופות בלבד."}</>}
           </p>

@@ -10,6 +10,7 @@ import { releaseSleepingNeighborhood } from '@/components/sleeping/seriesActions
 import { toast } from 'sonner';
 import RoleGate from "@/components/RoleGate";
 import TemporalScopeBadge from "./TemporalScopeBadge";
+import SleepingActionButton from "./SleepingActionButton";
 
 const GENDER_OPTIONS = [
   { value: "BOYS",  label: "בנים 👦" },
@@ -81,6 +82,8 @@ export default function StudentNeighborhoodPanel({
 
   const totalBeds = tents.reduce((s, t) => s + (t.capacity || 0), 0);
   const logicalNeighborhoodAssignments = logicalAssignments.filter(a => a.allocation_type === "STUDENT" && a.neighborhood_id === neighborhood.id);
+  const allocatedTentCount = new Set(logicalNeighborhoodAssignments.map(a => a.tent_id)).size;
+  const allocatedPax = logicalNeighborhoodAssignments.reduce((sum, a) => sum + Number(a.logical_allocated_pax ?? a.allocated_pax ?? 0), 0);
   const isLockedByMe = isMultiPeriod ? logicalNeighborhoodAssignments.length > 0 : !!lockByThisGroup;
   const hasNeighborhoodConflict = !!lockByOtherGroup;
   const isLockedByOther = hasNeighborhoodConflict && !isLockedByMe;
@@ -148,9 +151,9 @@ export default function StudentNeighborhoodPanel({
   // ── card color ─────────────────────────────────────────────────────────────
   let borderClass = "border-slate-200";
   let bgClass = "bg-white";
-  if (isLockedByMe && isAlreadyShared) { borderClass = "border-amber-300"; bgClass = "bg-amber-50"; }
-  else if (isLockedByMe) { borderClass = "border-emerald-300"; bgClass = "bg-emerald-50"; }
-  else if (isLockedByOther) { borderClass = "border-amber-300"; bgClass = "bg-amber-50"; }
+  if (isLockedByMe && isAlreadyShared) { borderClass = "border-amber-300"; bgClass = "bg-white"; }
+  else if (isLockedByMe) { borderClass = "border-emerald-300"; bgClass = "bg-white"; }
+  else if (isLockedByOther) { borderClass = "border-amber-300"; bgClass = "bg-amber-50/40"; }
 
   return (
     <div className={`border rounded-xl overflow-hidden ${borderClass} ${bgClass}`}>
@@ -160,7 +163,8 @@ export default function StudentNeighborhoodPanel({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm text-slate-800">{neighborhood.name}</span>
             <TemporalScopeBadge scope={temporalCoverage?.scope} />
-            <span className="text-xs text-slate-400">{tents.length} אוהלים · {totalBeds} מיטות</span>
+            {allocatedTentCount > 0 ? <span className="text-xs font-medium text-slate-600">{allocatedTentCount} אוהלים · {allocatedPax} אנשים</span> : <span className="text-xs text-slate-400">טרם שובצו אוהלים</span>}
+            <span className="text-[10px] text-slate-400">מלאי: {tents.length} אוהלים · {totalBeds} מיטות</span>
 
             {isLockedByMe && (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5">
@@ -194,14 +198,10 @@ export default function StudentNeighborhoodPanel({
           })()}
           {/* Tent-level occupancy by other groups (visible even without a neighborhood reservation) */}
           {occupiedTents.length > 0 && (
-            <div className="mt-1 space-y-0.5">
-              {occupiedTents.map((t, i) => (
-                <p key={i} className="text-[10px] text-red-600 flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5 shrink-0" />
-                  אוהל {t.tent_name} תפוס ע״י {t.group_name} ({t.arrival_date} — {t.departure_date}, {t.pax} איש)
-                </p>
-              ))}
-            </div>
+            <details className="mt-2 rounded-lg border border-red-200 bg-red-50/60 px-3 py-1.5">
+              <summary className="cursor-pointer text-[11px] font-semibold text-red-700">התנגשויות אוהלים חוסמות · {occupiedTents.length} — הצג פרטים</summary>
+              <div className="mt-1.5 space-y-1 border-t border-red-100 pt-1.5">{occupiedTents.map((t, i) => <p key={i} className="flex items-center gap-1 text-[10px] text-red-600"><Lock className="h-2.5 w-2.5 shrink-0" />אוהל {t.tent_name} · {t.group_name} · {t.arrival_date}–{t.departure_date} · {t.pax} איש</p>)}</div>
+            </details>
           )}
           {/* Shared reason display */}
           {isAlreadyShared && lockByThisGroup.shared_neighborhood_reason && (
@@ -333,13 +333,14 @@ export default function StudentNeighborhoodPanel({
         <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">
           <div className="mb-1 flex items-center justify-between gap-2">
             <p className="text-[10px] font-semibold text-slate-500">אוהלים בתקופה זו</p>
-            {allowPeriodNeighborhoodRelease && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={onPeriodNeighborhoodRelease} className="text-[11px] font-semibold text-red-600 hover:underline">שחרר שכונה</button></RoleGate>}
+            {allowPeriodNeighborhoodRelease && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="destructive" onClick={onPeriodNeighborhoodRelease}>שחרר שכונה</SleepingActionButton></RoleGate>}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {logicalNeighborhoodAssignments.map(assignment => {
               const tent = tents.find(item => item.id === assignment.tent_id);
               const row = assignment.period_rows?.[0] || assignment;
-              return <span key={assignment.logical_key || row.id || assignment.tent_id} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">אוהל {tent?.code || "?"} · {assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodPaxEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">ערוך כמות</button></RoleGate>}{allowPeriodLocationEdit && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodLocationEdit?.(row)} className="mr-1 font-semibold text-blue-700 hover:underline">שנה אוהל</button></RoleGate>}{allowPeriodRelease && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={() => onPeriodRelease?.(row)} className="mr-1 font-semibold text-red-600 hover:underline">שחרר</button></RoleGate>}</span>;
+              const genderLabel = GENDER_OPTIONS.find(option => option.value === assignment.gender_group)?.label || assignment.gender_group;
+              return <div key={assignment.logical_key || row.id || assignment.tent_id} className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 sm:basis-[calc(50%-0.375rem)]"><div className="min-w-0 flex-1"><span className="font-semibold text-slate-800">אוהל {tent?.code || "?"}</span><span className="mx-1.5 text-slate-300">·</span><span>{assignment.logical_allocated_pax ?? assignment.allocated_pax ?? 0} אנשים</span>{genderLabel && <span className="mr-1.5 text-[10px] text-slate-500">{genderLabel}</span>}</div><div className="flex flex-wrap gap-1">{allowPeriodPaxEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodPaxEdit?.(row)}>ערוך כמות</SleepingActionButton></RoleGate>}{allowPeriodLocationEdit && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton onClick={() => onPeriodLocationEdit?.(row)}>שנה אוהל</SleepingActionButton></RoleGate>}{allowPeriodRelease && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="destructive" onClick={() => onPeriodRelease?.(row)}>שחרר</SleepingActionButton></RoleGate>}</div></div>;
             })}
           </div>
         </div>

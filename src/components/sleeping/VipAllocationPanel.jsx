@@ -9,6 +9,7 @@ import VipPaxEditDialog from "./VipPaxEditDialog";
 import RoleGate from "@/components/RoleGate";
 import { getLogicalVipAllocations, getVipRequirementReadModel, toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
+import SleepingActionButton from "./SleepingActionButton";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -383,16 +384,16 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
   const isConfirmed = assignedStatus === "CONFIRMED";
   const isDraft     = isAssigned && !isConfirmed;
 
-  let borderCls = gc.border;
-  let bgCls     = gc.bg;
-  let shadow    = "shadow-sm";
+  let borderCls = "border-slate-200";
+  let bgCls     = "bg-white";
+  let shadow    = "shadow-none";
 
   if (isConfirmed) {
-    borderCls = "border-emerald-400"; bgCls = "bg-emerald-50"; shadow = "shadow-md ring-2 ring-emerald-200";
+    borderCls = "border-emerald-300"; bgCls = "bg-emerald-50/50"; shadow = "ring-1 ring-emerald-100";
   } else if (isDraft) {
-    borderCls = "border-amber-400"; bgCls = "bg-amber-50"; shadow = "shadow-md ring-2 ring-amber-200";
+    borderCls = "border-amber-300"; bgCls = "bg-amber-50/50"; shadow = "ring-1 ring-amber-100";
   } else if (isSelected) {
-    borderCls = "border-primary"; bgCls = "bg-blue-50"; shadow = "shadow-lg ring-2 ring-primary/30";
+    borderCls = "border-primary"; bgCls = "bg-blue-50"; shadow = "ring-2 ring-primary/20";
   }
 
   return (
@@ -400,7 +401,7 @@ function VipReqCard({ req, index, assignedTentCode, assignedStatus, assignedActu
       type="button"
       onClick={onClick}
       disabled={readOnly}
-      className={`relative rounded-2xl border-2 ${borderCls} ${bgCls} ${shadow} px-3.5 py-3.5 flex flex-col items-center gap-1.5 min-w-[88px] max-w-[100px] transition-all ${readOnly ? "cursor-default" : "cursor-pointer hover:scale-105 active:scale-100"}`}
+      className={`relative flex min-w-[88px] max-w-[100px] flex-col items-center gap-1 rounded-xl border ${borderCls} ${bgCls} ${shadow} px-3 py-3 transition-colors ${readOnly ? "cursor-default" : "cursor-pointer hover:border-slate-300"}`}
     >
       {/* index top-right */}
       <span className="absolute top-2 right-2 text-[9px] font-bold text-slate-400/80">#{index + 1}</span>
@@ -472,9 +473,9 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
   let opacity   = "";
 
   if (isConfirmed) {
-    borderCls = "border-emerald-400"; bgCls = "bg-emerald-50"; shadow = "shadow-md";
+    borderCls = "border-emerald-300"; bgCls = "bg-emerald-50/50"; shadow = "shadow-none";
   } else if (isAssigned) {
-    borderCls = "border-amber-400"; bgCls = "bg-amber-50"; shadow = "shadow-md";
+    borderCls = "border-amber-300"; bgCls = "bg-amber-50/50"; shadow = "shadow-none";
   } else if (isOccupiedByOther) {
     borderCls = "border-red-200"; bgCls = "bg-red-50/80"; opacity = "opacity-50";
   } else if (isSelecting) {
@@ -486,8 +487,7 @@ function VipTentCard({ tent, isOccupiedByOther, myAllocForTent, isSelecting, isS
       type="button"
       disabled={readOnly || isOccupiedByOther || (!isSelecting && !isAssigned && !isConfirmed)}
       onClick={onClick}
-      className={`rounded-xl border-2 ${borderCls} ${bgCls} ${shadow} ${opacity} px-2.5 py-3 flex flex-col items-center gap-1 min-w-[60px] transition-all relative
-        ${!readOnly && (isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed) ? "cursor-pointer hover:scale-105 active:scale-100" : "cursor-default"}`}
+      className={`relative flex min-w-[64px] flex-col items-center gap-1 rounded-xl border ${borderCls} ${bgCls} ${shadow} ${opacity} px-2.5 py-2.5 transition-colors ${!readOnly && (isClickable || (isAssigned && !isConfirmed) || isEditableConfirmed) ? "cursor-pointer hover:border-slate-300" : "cursor-default"}`}
     >
       {isEditableConfirmed && (
         <span className="absolute top-1 left-1">
@@ -745,7 +745,7 @@ export default function VipAllocationPanel({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5" dir="rtl">
+    <div className="space-y-3" dir="rtl">
 
       {/* Step instruction */}
       {readOnly ? (
@@ -770,7 +770,7 @@ export default function VipAllocationPanel({
         vipPaxVariesByPeriod
           ? "bg-blue-50 border-blue-200"
           : totalRemainingVipPax < 0
-            ? "bg-red-50 border-red-300"
+            ? "bg-amber-50 border-amber-300"
             : totalRemainingVipPax === 0
               ? "bg-emerald-50 border-emerald-300"
               : "bg-amber-50 border-amber-200"
@@ -785,12 +785,12 @@ export default function VipAllocationPanel({
           <span className="text-xs font-semibold text-emerald-700">✓ כל אנשי ה-VIP שובצו</span>
         )}
         {!vipPaxVariesByPeriod && totalRemainingVipPax < 0 && (
-          <span className="text-xs font-semibold text-red-700">⚠ שובצו יותר אנשים ממה שנדרש!</span>
+          <span className="text-xs font-semibold text-amber-700">שובצו יותר אנשים מהדרישה הנוכחית</span>
         )}
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
         {/* LEFT: Requirement cards */}
         <div className="space-y-2">
@@ -812,30 +812,20 @@ export default function VipAllocationPanel({
                     editLocked={isMultiPeriod}
                     readOnly={readOnly && !allowPeriodPaxEdit}
                   />
-                  {isActiveContinuous && alloc?.status === "CONFIRMED" && (
-                    <button type="button" onClick={() => handleActiveLocationChange(i)} className="text-[10px] font-semibold text-primary hover:underline">
-                      שנה אוהל החל מתאריך
-                    </button>
-                  )}
+                  {isActiveContinuous && alloc?.status === "CONFIRMED" && <SleepingActionButton onClick={() => handleActiveLocationChange(i)}>שנה אוהל החל מתאריך</SleepingActionButton>}
                   {readOnly && allowPeriodLocationEdit && alloc && (
                     <RoleGate permission="MANAGE_ALLOCATION">
-                      <button type="button" onClick={() => onPeriodLocationEdit?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-primary hover:underline">
-                        שנה אוהל
-                      </button>
+                      <SleepingActionButton onClick={() => onPeriodLocationEdit?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)}>שנה אוהל</SleepingActionButton>
                     </RoleGate>
                   )}
                   {readOnly && allowPeriodRelease && alloc && (
                     <RoleGate permission="MANAGE_ALLOCATION">
-                      <button type="button" onClick={() => onPeriodRelease?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-red-600 hover:underline">
-                        שחרר
-                      </button>
+                      <SleepingActionButton tone="destructive" onClick={() => onPeriodRelease?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)}>שחרר</SleepingActionButton>
                     </RoleGate>
                   )}
                   {readOnly && allowPeriodAdd && !alloc && (
                     <RoleGate permission="MANAGE_ALLOCATION">
-                      <button type="button" onClick={() => onPeriodAdd?.(req, i)} className="text-[10px] font-semibold text-primary hover:underline">
-                        הוסף
-                      </button>
+                      <SleepingActionButton tone="constructive" onClick={() => onPeriodAdd?.(req, i)}>הוסף</SleepingActionButton>
                     </RoleGate>
                   )}
                 </div>
