@@ -21,6 +21,7 @@ import StayPeriodSelector from "./StayPeriodSelector";
 import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
 import PeriodReleaseDialog from "./PeriodReleaseDialog";
+import PeriodNeighborhoodReleaseDialog from "./PeriodNeighborhoodReleaseDialog";
 import PeriodReAddDialog from "./PeriodReAddDialog";
 import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
 import ReleasedPeriodAllocations from "./ReleasedPeriodAllocations";
@@ -75,6 +76,7 @@ export default function SleepingAllocationTab({ groupId }) {
   const [periodPaxTarget, setPeriodPaxTarget] = useState(null);
   const [periodLocationTarget, setPeriodLocationTarget] = useState(null);
   const [periodReleaseTarget, setPeriodReleaseTarget] = useState(null);
+  const [periodNeighborhoodReleaseTarget, setPeriodNeighborhoodReleaseTarget] = useState(null);
   const [periodReAddTarget, setPeriodReAddTarget] = useState(null);
   const [periodAddTarget, setPeriodAddTarget] = useState(null);
   // Shared neighborhood override state for confirm flow
@@ -698,6 +700,8 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodLocationEdit={setPeriodLocationTarget}
             allowPeriodRelease={isPeriodView && periodState !== "past"}
             onPeriodRelease={setPeriodReleaseTarget}
+            allowPeriodNeighborhoodRelease={isPeriodView && periodState !== "past" && displayedAllocations.some(row => row.neighborhood_id === hood.id && row.allocation_type === "STUDENT" && !/__(?:vip_req_\d+|alt_tent)__/i.test(row.notes || ""))}
+            onPeriodNeighborhoodRelease={() => setPeriodNeighborhoodReleaseTarget({ neighborhood: hood, allocations: displayedAllocations.filter(row => row.neighborhood_id === hood.id && row.allocation_type === "STUDENT" && !/__(?:vip_req_\d+|alt_tent)__/i.test(row.notes || "")) })}
             temporalCoverage={!isPeriodView ? locationCoverage[hood.id] : null}
             />
           );
@@ -807,6 +811,12 @@ export default function SleepingAllocationTab({ groupId }) {
       {periodReleaseTarget && selectedPeriod && (
         <RoleGate permission="MANAGE_ALLOCATION">
           <PeriodReleaseDialog target={periodReleaseTarget} groupId={groupId} hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0} onClose={() => setPeriodReleaseTarget(null)} onSaved={() => { setPeriodReleaseTarget(null); invalidate(); }} />
+        </RoleGate>
+      )}
+
+      {periodNeighborhoodReleaseTarget && selectedPeriod && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          <PeriodNeighborhoodReleaseDialog target={periodNeighborhoodReleaseTarget} groupId={groupId} selectedPeriodId={selectedPeriod.id} hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0} onClose={() => setPeriodNeighborhoodReleaseTarget(null)} onSaved={() => { setPeriodNeighborhoodReleaseTarget(null); invalidate(); }} />
         </RoleGate>
       )}
 

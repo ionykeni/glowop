@@ -201,6 +201,52 @@ export function planScopedRelease(ctx, body) {
   return { updates, creates: [], warnings: [], affectedPeriods };
 }
 
+export function planScopedNeighborhoodRelease(ctx, body) {
+  const { group, periods, rows, neighborhoods, today } = ctx;
+  const mode = body.edit_scope?.mode;
+  const selectedPeriodId = body.edit_scope?.selected_period_id;
+  if (!Object.values(PAX_SCOPE).includes(mode) || !selectedPeriodId) throw new Error('יש לבחור היקף שחרור');
+  const selectedIndex = periods.findIndex(period => period.id === selectedPeriodId);
+  if (selectedIndex < 0) throw new Error('תקופת השהייה לא נמצאה');
+  const selectedPeriod = periods[selectedIndex];
+  if (selectedPeriod.end_date <= today) throw new Error('לא ניתן לשחרר שכונה מתקופה שהסתיימה');
+  const neighborhood = neighborhoods.find(item => item.id === body.neighborhood_id);
+  if (!neighborhood || neighborhood.is_vip) throw new Error('שכונת החניכים לא נמצאה');
+
+  const mine = rows.filter(row => row.group_id === group.id);
+  if (!validateLinkedSeriesCompleteness(mine, periods, group.id, today).valid) throw new Error('השיבוץ הקיים אינו עקבי; נדרשת בדיקה לפני שינוי');
+  const isNormalStudent = row => row.allocation_type === 'STUDENT' && !/__(?:vip_req_\d+|alt_tent)__/i.test(row.notes || '');
+  const actionable = actionableScopedRows(mine, today).filter(row => isNormalStudent(row) && row.neighborhood_id === neighborhood.id);
+  const selectedRows = actionable.filter(row => row.stay_period_id === selectedPeriodId);
+  if (!selectedRows.length) throw new Error('לא נמצאו שיבוצי חניכים פעילים בשכונה בתקופה שנבחרה');
+
+  const requestedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
+  const affectedPeriods = [];
+  const updates = [];
+  for (const period of requestedPeriods) {
+    const matches = actionable.filter(row => row.stay_period_id === period.id);
+    const identities = new Set();
+    for (const row of matches) {
+      const identity = row.allocation_series_id || `tent:${row.tent_id}`;
+      if (identities.has(identity)) throw new Error('נמצאו שיבוצים כפולים בשכונה באחת התקופות שנבחרו');
+      identities.add(identity);
+    }
+    if (!matches.length) continue;
+    affectedPeriods.push(period);
+    const releaseAt = period.id === selectedPeriodId && period.start_date < today ? today : period.start_date;
+    for (const row of matches) {
+      const metadata = { series_action: 'RELEASE', series_action_date: releaseAt };
+      updates.push({ row, data: row.arrival_date < releaseAt
+        ? { ...metadata, departure_date: releaseAt, segment_end_date: releaseAt }
+        : { ...metadata, status: 'CANCELLED' } });
+    }
+  }
+
+  const projected = mine.map(row => ({ ...row, ...updates.find(item => item.row.id === row.id)?.data }));
+  if (!validateLinkedSeriesCompleteness(projected, periods, group.id, today).valid) throw new Error('שחרור השכונה אינו שומר על רצף השיבוץ');
+  return { updates, creates: [], warnings: [], affectedPeriods, affectedRowCount: updates.length };
+}
+
 function planScopedCreation(ctx, body, source = null) {
   const { group, profile, periods, rows, tents, reservations, today } = ctx;
   const mode = body.edit_scope?.mode;

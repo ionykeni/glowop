@@ -63,6 +63,8 @@ export default function StudentNeighborhoodPanel({
   onPeriodLocationEdit,
   allowPeriodRelease = false,
   onPeriodRelease,
+  allowPeriodNeighborhoodRelease = false,
+  onPeriodNeighborhoodRelease,
   temporalCoverage = null,
 }) {
   const [open, setOpen] = useState(false);
@@ -329,7 +331,10 @@ export default function StudentNeighborhoodPanel({
 
       {readOnly && logicalNeighborhoodAssignments.length > 0 && (
         <div className="border-t border-slate-200 bg-slate-50/70 px-4 py-2">
-          <p className="text-[10px] font-semibold text-slate-500 mb-1">אוהלים בתקופה זו</p>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold text-slate-500">אוהלים בתקופה זו</p>
+            {allowPeriodNeighborhoodRelease && <RoleGate permission="MANAGE_ALLOCATION"><button type="button" onClick={onPeriodNeighborhoodRelease} className="text-[11px] font-semibold text-red-600 hover:underline">שחרר שכונה</button></RoleGate>}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {logicalNeighborhoodAssignments.map(assignment => {
               const tent = tents.find(item => item.id === assignment.tent_id);
