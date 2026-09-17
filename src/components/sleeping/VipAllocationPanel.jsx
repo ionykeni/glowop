@@ -538,6 +538,8 @@ export default function VipAllocationPanel({
   onPeriodPaxEdit,
   allowPeriodLocationEdit = false,
   onPeriodLocationEdit,
+  allowPeriodRelease = false,
+  onPeriodRelease,
   tentTemporalScopes = null,
 }) {
   const [selectedReqIndex, setSelectedReqIndex] = useState(null);
@@ -817,6 +819,13 @@ export default function VipAllocationPanel({
                     <RoleGate permission="MANAGE_ALLOCATION">
                       <button type="button" onClick={() => onPeriodLocationEdit?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-primary hover:underline">
                         שנה אוהל
+                      </button>
+                    </RoleGate>
+                  )}
+                  {readOnly && allowPeriodRelease && alloc && (
+                    <RoleGate permission="MANAGE_ALLOCATION">
+                      <button type="button" onClick={() => onPeriodRelease?.(alloc.period_rows?.find(row => row.departure_date > today) || alloc)} className="text-[10px] font-semibold text-red-600 hover:underline">
+                        שחרר
                       </button>
                     </RoleGate>
                   )}

@@ -3,6 +3,7 @@ import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActio
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedReAdd, planScopedRelease } from '../../shared/sleepingPeriodScope.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
+// Runtime bundle refreshed after scoped release/re-add planner update.
 
 export default async function(req) {
   let writes;

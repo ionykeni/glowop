@@ -175,16 +175,19 @@ export function planScopedRelease(ctx, body) {
   const isVip = /__vip_req_\d+__/i.test(selected.notes || '');
   if (selected.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בשחרור זה');
 
-  const affectedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
-  const updates = affectedPeriods.map(period => {
+  const requestedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
+  const affectedPeriods = [];
+  const updates = requestedPeriods.flatMap(period => {
     const matches = actionable.filter(row => row.stay_period_id === period.id && sameLineageAssignment(row, selected, lineageSeriesIds));
-    if (matches.length !== 1) throw new Error('לא נמצא שיבוץ יחיד בכל התקופות שנבחרו');
+    if (matches.length > 1) throw new Error('נמצאו שיבוצים כפולים באחת התקופות שנבחרו');
+    if (!matches.length) return [];
+    affectedPeriods.push(period);
     const row = matches[0];
     const releaseAt = period.id === selectedPeriodId && period.start_date < today ? today : period.start_date;
     const metadata = { series_action: 'RELEASE', series_action_date: releaseAt };
-    return { row, data: row.arrival_date < releaseAt
+    return [{ row, data: row.arrival_date < releaseAt
       ? { ...metadata, departure_date: releaseAt, segment_end_date: releaseAt }
-      : { ...metadata, status: 'CANCELLED' } };
+      : { ...metadata, status: 'CANCELLED' } }];
   });
 
   const projected = mine.map(row => ({ ...row, ...updates.find(item => item.row.id === row.id)?.data }));
@@ -224,8 +227,9 @@ export function planScopedReAdd(ctx, body) {
     ...(startsAt !== selectedPeriod.start_date ? { segment_start_date: startsAt } : {}),
   };
   const creates = [replacement];
+  const sourceLineageIds = connectedSeriesIds(mine, source);
   for (const period of periods.slice(selectedIndex + 1)) {
-    const template = mine.find(row => row.stay_period_id === period.id && sameAssignment(row, source));
+    const template = mine.find(row => row.stay_period_id === period.id && sameLineageAssignment(row, source, sourceLineageIds));
     if (!template) throw new Error('לא ניתן לשמור את רצף התקופות לאחר השיבוץ מחדש');
     creates.push({ ...cleanRow(template), tent_id: destination.id, neighborhood_id: destination.neighborhood_id,
       status: 'CANCELLED', allocation_series_id: replacement.allocation_series_id,

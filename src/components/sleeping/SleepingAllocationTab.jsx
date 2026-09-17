@@ -20,9 +20,13 @@ import EffectiveReassignmentPanel from "./EffectiveReassignmentPanel";
 import StayPeriodSelector from "./StayPeriodSelector";
 import PeriodPaxEditDialog from "./PeriodPaxEditDialog";
 import PeriodTentReassignmentDialog from "./PeriodTentReassignmentDialog";
+import PeriodReleaseDialog from "./PeriodReleaseDialog";
+import PeriodReAddDialog from "./PeriodReAddDialog";
+import ReleasedPeriodAllocations from "./ReleasedPeriodAllocations";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
+import { releasedAllocationsForPeriod } from "@/lib/scopedReleasedAllocations";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -69,6 +73,8 @@ export default function SleepingAllocationTab({ groupId }) {
   const [selectedPeriodId, setSelectedPeriodId] = useState(null);
   const [periodPaxTarget, setPeriodPaxTarget] = useState(null);
   const [periodLocationTarget, setPeriodLocationTarget] = useState(null);
+  const [periodReleaseTarget, setPeriodReleaseTarget] = useState(null);
+  const [periodReAddTarget, setPeriodReAddTarget] = useState(null);
   // Shared neighborhood override state for confirm flow
   const [pendingSharedOverride, setPendingSharedOverride] = useState(null); // { blockedNeighborhoods, draftIds }
   const [sharedOverrideReason, setSharedOverrideReason] = useState("");
@@ -173,6 +179,10 @@ export default function SleepingAllocationTab({ groupId }) {
     ? myNhoodReservations.filter(row => row.status === "ACTIVE" && periodMatches(row))
     : null;
   const visibleStayPeriods = isPeriodView ? [selectedPeriod] : activeStayPeriods;
+  const releasedPeriodAllocations = useMemo(() => {
+    if (!isPeriodView || periodState === "past") return [];
+    return releasedAllocationsForPeriod(myAllocations, selectedPeriod.id, todayLocal());
+  }, [isPeriodView, periodState, myAllocations, selectedPeriodId]);
   const logicalSeriesData = useMemo(
     () => groupLogicalSleepingAssignments(isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations.filter(a => a.status !== "CANCELLED")),
     [myAllocations, isMultiPeriod]
@@ -506,7 +516,7 @@ export default function SleepingAllocationTab({ groupId }) {
 
       {isPeriodView && (
         <div className={`rounded-lg border px-3 py-2 text-xs ${periodState === "past" ? "border-slate-200 bg-slate-50 text-slate-500" : periodState === "current" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}>
-          {periodState === "past" ? "תקופה שהסתיימה — צפייה היסטורית בלבד" : periodState === "current" ? "תקופת השהייה הנוכחית — ניתן לערוך כמות ומיקום בשיבוצים קיימים" : "תקופת שהייה עתידית — ניתן לערוך כמות ומיקום בשיבוצים קיימים"}
+          {periodState === "past" ? "תקופה שהסתיימה — צפייה היסטורית בלבד" : periodState === "current" ? "תקופת השהייה הנוכחית — ניתן לערוך, לשחרר ולשבץ מחדש מהיום והלאה" : "תקופת שהייה עתידית — ניתן לערוך, לשחרר ולשבץ מחדש"}
         </div>
       )}
 
@@ -683,6 +693,8 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodPaxEdit={setPeriodPaxTarget}
             allowPeriodLocationEdit={isPeriodView && periodState !== "past"}
             onPeriodLocationEdit={setPeriodLocationTarget}
+            allowPeriodRelease={isPeriodView && periodState !== "past"}
+            onPeriodRelease={setPeriodReleaseTarget}
             temporalCoverage={!isPeriodView ? locationCoverage[hood.id] : null}
             />
           );
@@ -726,6 +738,8 @@ export default function SleepingAllocationTab({ groupId }) {
             onPeriodPaxEdit={setPeriodPaxTarget}
             allowPeriodLocationEdit={isPeriodView && periodState !== "past"}
             onPeriodLocationEdit={setPeriodLocationTarget}
+            allowPeriodRelease={isPeriodView && periodState !== "past"}
+            onPeriodRelease={setPeriodReleaseTarget}
             tentTemporalScopes={!isPeriodView ? locationCoverage[vipNeighborhood?.id]?.tents : null}
           />
         </section>
@@ -756,6 +770,10 @@ export default function SleepingAllocationTab({ groupId }) {
         readOnly={isPeriodView}
       />
 
+      {isPeriodView && periodState !== "past" && (
+        <ReleasedPeriodAllocations allocations={releasedPeriodAllocations} tents={allTents} onReAdd={setPeriodReAddTarget} />
+      )}
+
       {periodPaxTarget && selectedPeriod && (
         <RoleGate permission="MANAGE_ALLOCATION">
           <PeriodPaxEditDialog
@@ -778,6 +796,18 @@ export default function SleepingAllocationTab({ groupId }) {
             onClose={() => setPeriodLocationTarget(null)}
             onSaved={() => { setPeriodLocationTarget(null); invalidate(); }}
           />
+        </RoleGate>
+      )}
+
+      {periodReleaseTarget && selectedPeriod && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          <PeriodReleaseDialog target={periodReleaseTarget} groupId={groupId} hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0} onClose={() => setPeriodReleaseTarget(null)} onSaved={() => { setPeriodReleaseTarget(null); invalidate(); }} />
+        </RoleGate>
+      )}
+
+      {periodReAddTarget && selectedPeriod && (
+        <RoleGate permission="MANAGE_ALLOCATION">
+          <PeriodReAddDialog target={periodReAddTarget} groupId={groupId} tents={allTents} onClose={() => setPeriodReAddTarget(null)} onSaved={() => { setPeriodReAddTarget(null); invalidate(); }} />
         </RoleGate>
       )}
 
