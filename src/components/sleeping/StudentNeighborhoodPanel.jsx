@@ -217,7 +217,7 @@ export default function StudentNeighborhoodPanel({
           <div className="flex items-center gap-1.5 shrink-0">
             {isLockedByMe ? (
               <>
-                <AutoAllocationButton
+                {!isMultiPeriod && <AutoAllocationButton
                   neighborhood={neighborhood}
                   tents={tents}
                   profile={profile}
@@ -235,7 +235,7 @@ export default function StudentNeighborhoodPanel({
                   logicalAssignments={logicalAssignments}
                   seriesValidation={seriesValidation}
                   sharedNeighborhoods={sharedNeighborhoodIntent}
-                />
+                />}
                 <Button
                   size="sm"
                   variant="outline"
@@ -280,25 +280,6 @@ export default function StudentNeighborhoodPanel({
               </>
             ) : isMultiPeriod ? (
               <>
-                <AutoAllocationButton
-                  neighborhood={neighborhood}
-                  tents={tents}
-                  profile={profile}
-                  groupId={groupId}
-                  profileId={profileId}
-                  arrivalDate={arrivalDate}
-                  departureDate={departureDate}
-                  allConfirmedAllocs={allConfirmedAllocs}
-                  allActiveAllocs={allActiveAllocs}
-                  existingGroupAllocs={existingGroupAllocs}
-                  onSaved={onSaved}
-                  isMultiPeriod
-                  canUseMultiPeriod={canUseMultiPeriod}
-                  activeStayPeriods={activeStayPeriods}
-                  logicalAssignments={logicalAssignments}
-                  seriesValidation={seriesValidation}
-                  sharedNeighborhoods={sharedNeighborhoodIntent}
-                />
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1"

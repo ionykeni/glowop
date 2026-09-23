@@ -16,15 +16,17 @@ export function planScopedAutoSleeping(ctx, editScope) {
   if (mode !== 'ALL' && periods[selectedIndex].end_date <= today) throw new Error('תקופה שהסתיימה אינה ניתנת לשיבוץ');
   const targets = (mode === 'ALL' ? periods : mode === 'SELECTED_ONLY' ? [periods[selectedIndex]] : periods.slice(selectedIndex)).filter(p => p.end_date > today);
   if (!targets.length) throw new Error('אין תקופות נוכחיות או עתידיות לשיבוץ');
-  const boys = Number(profile.boys_beds_needed ?? profile.boys_count ?? 0);
-  const girls = Number(profile.girls_beds_needed ?? profile.girls_count ?? 0);
+  const boys = Number(profile.boys_beds_needed || profile.boys_count || 0);
+  const girls = Number(profile.girls_beds_needed || profile.girls_count || 0);
   const required = boys + girls > 0 ? [['BOYS', boys], ['GIRLS', girls]] : [['MIXED', Number(profile.participant_count || profile.total_pax || 0)]];
   const standard = tents.filter(t => t.working_status === 'WORKING' && t.tent_type !== 'VIP' && !neighborhoods.find(n => n.id === t.neighborhood_id)?.is_vip && maxBeds(t) > 0);
   const occupied = rows.filter(liveSleeping);
+  const groupPreferredHoods = new Set(mine.filter(r => liveSleeping(r) && student(r)).map(r => r.neighborhood_id));
   const created = [];
   const results = [];
   const preferred = new Set();
-  for (const period of targets) {
+  for (let periodIndex = 0; periodIndex < targets.length; periodIndex++) {
+    const period = targets[periodIndex];
     const start = period.start_date < today ? today : period.start_date;
     const interval = { arrival_date: start, departure_date: period.end_date };
     // Existing placements (including manual, VIP and alternative tents) always win.
@@ -38,7 +40,8 @@ export function planScopedAutoSleeping(ctx, editScope) {
       const missing = remaining;
       const proposed = [];
       const candidates = standard.filter(t => !used.has(t.id) && !occupied.some(r => r.tent_id === t.id && overlapSleeping(r, interval)));
-      candidates.sort((a, b) => Number(preferred.has(b.id)) - Number(preferred.has(a.id)) || Number(groupHoods.has(b.neighborhood_id)) - Number(groupHoods.has(a.neighborhood_id)) || String(a.code || '').localeCompare(String(b.code || ''), 'he', { numeric: true }));
+      const availableThroughout = tent => targets.slice(periodIndex + 1).every(next => !occupied.some(r => r.tent_id === tent.id && overlapSleeping(r, { arrival_date: next.start_date < today ? today : next.start_date, departure_date: next.end_date })));
+      candidates.sort((a, b) => Number(availableThroughout(b)) - Number(availableThroughout(a)) || Number(preferred.has(b.id)) - Number(preferred.has(a.id)) || Number(groupHoods.has(b.neighborhood_id)) - Number(groupHoods.has(a.neighborhood_id)) || Number(groupPreferredHoods.has(b.neighborhood_id)) - Number(groupPreferredHoods.has(a.neighborhood_id)) || String(a.code || '').localeCompare(String(b.code || ''), 'he', { numeric: true }));
       for (const tent of candidates) {
         if (!remaining) break;
         const pax = Math.min(remaining, maxBeds(tent));
@@ -73,3 +76,31 @@ export function planScopedAutoSleeping(ctx, editScope) {
 }
 
 export const autoProposalKeys = rows => rows.filter(liveSleeping).map(keyOf).sort();
+
+export function planContinuousAutoSleeping({ group, profile, rows, tents, today }, requested) {
+  if (group.stay_mode === 'MULTI_PERIOD' || group.group_type === 'DAY_USE') throw new Error('שיבוץ לינה רציף אינו זמין לקבוצה זו');
+  if (!Array.isArray(requested) || !requested.length) throw new Error('אין אוהלים לשיבוץ');
+  const start = group.arrival_date < today ? today : group.arrival_date;
+  const end = group.departure_date;
+  if (!start || !end || start >= end) throw new Error('אין תאריכי לינה נוכחיים או עתידיים');
+  const interval = { arrival_date: start, departure_date: end };
+  const active = rows.filter(r => liveSleeping(r) && overlapSleeping(r, interval));
+  const mine = active.filter(r => r.group_id === group.id && student(r));
+  const split = Number(profile.boys_count || 0) + Number(profile.girls_count || 0) > 0;
+  const required = split ? { BOYS: Number(profile.boys_beds_needed || profile.boys_count || 0), GIRLS: Number(profile.girls_beds_needed || profile.girls_count || 0) } : { MIXED: Number(profile.participant_count || profile.total_pax || 0) };
+  const submitted = new Set();
+  const creates = requested.map(item => {
+    const tent = tents.find(t => t.id === item.tent_id);
+    const pax = Number(item.allocated_pax);
+    if (!tent || tent.tent_type === 'VIP' || tent.working_status !== 'WORKING' || tent.neighborhood_id !== item.neighborhood_id || !Number.isInteger(pax) || pax < 1 || pax > maxBeds(tent) || !(item.gender_group in required)) throw new Error('האוהל, המגדר או הקיבולת אינם תקינים');
+    if (submitted.has(tent.id) || active.some(r => r.tent_id === tent.id)) throw new Error('אוהל מוצע תפוס בתאריכים המבוקשים; יש להציג הצעה מחדש');
+    submitted.add(tent.id);
+    return { operational_group_profile_id: profile.id, group_id: group.id, tent_id: tent.id, neighborhood_id: tent.neighborhood_id, arrival_date: start, departure_date: end, allocated_pax: pax, allocation_type: 'STUDENT', gender_group: item.gender_group, status: 'DRAFT', notes: 'שיבוץ אוטומטי' };
+  });
+  for (const [gender, needed] of Object.entries(required)) {
+    const already = mine.filter(r => r.gender_group === gender).reduce((sum, r) => sum + Number(r.allocated_pax || 0), 0);
+    const proposed = creates.filter(r => r.gender_group === gender).reduce((sum, r) => sum + r.allocated_pax, 0);
+    if (proposed > Math.max(0, needed - already)) throw new Error('כמות החניכים השתנתה; יש להציג הצעה מחדש');
+  }
+  return creates;
+}

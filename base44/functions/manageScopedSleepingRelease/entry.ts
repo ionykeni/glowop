@@ -1,10 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
-import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActionCore.js';
+import { assertSleepingAccess, sleepingWrites, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedAdd, planScopedNeighborhoodRelease, planScopedReAdd, planScopedRelease } from '../../shared/sleepingPeriodScope.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
-import { planScopedAutoSleeping } from '../../shared/scopedAutoSleeping.js';
-// Runtime bundle refreshed after released-helper metadata schema deployment.
+import { planScopedAutoSleeping, planContinuousAutoSleeping } from '../../shared/scopedAutoSleeping.js';
+// Scoped auto preview and commit share a fresh global read and continuity-aware planner.
 
 export default async function(req) {
   let writes;
@@ -15,6 +15,14 @@ export default async function(req) {
     const body = await req.json();
     if (!body.group_id) return Response.json({ success: false, error: 'חסרה קבוצה' }, { status: 400 });
     const db = base44.asServiceRole.entities;
+    if (body.action === 'AUTO_CONTINUOUS') {
+      const [group, profiles, rows, tents] = await Promise.all([db.Group.get(body.group_id), readSleepingRows(db.OperationalGroupProfile, { group_id: body.group_id }), readSleepingRows(db.SleepingAllocation), readSleepingRows(db.Tent)]);
+      if (!group || profiles.length !== 1) throw new Error('פרטי הקבוצה אינם זמינים');
+      const creates = planContinuousAutoSleeping({ group, profile: profiles[0], rows, tents, today: sleepingToday() }, body.requested);
+      writes = sleepingWrites(db);
+      for (const row of creates) await writes.create('SleepingAllocation', row);
+      return Response.json({ success: true, action: 'AUTO_CONTINUOUS', allocated: creates.reduce((s, r) => s + r.allocated_pax, 0) });
+    }
     const context = await loadSleepingContext(db, body.group_id);
     if (body.action === 'AUTO_PREVIEW' || body.action === 'AUTO_COMMIT') {
       const plan = planScopedAutoSleeping(context, body.edit_scope);
@@ -23,7 +31,18 @@ export default async function(req) {
       if (!plan.allocated) throw new Error('אין מקומות פנויים לשיבוץ');
       writes = sleepingWrites(db);
       for (const row of plan.creates) await writes.create('SleepingAllocation', row);
-      await syncSleepingNeighborhoods(db, writes, context.group.id, plan.creates.filter(row => row.status === 'DRAFT'), context.today);
+      const active = plan.creates.filter(row => row.status === 'DRAFT');
+      const future = active.filter(row => context.periods.find(p => p.id === row.stay_period_id)?.start_date >= context.today);
+      await syncSleepingNeighborhoods(db, writes, context.group.id, future, context.today);
+      const current = active.filter(row => context.periods.find(p => p.id === row.stay_period_id)?.start_date < context.today);
+      for (const neighborhoodId of new Set(current.map(row => row.neighborhood_id))) {
+        const sample = current.find(row => row.neighborhood_id === neighborhoodId);
+        const alreadyReserved = context.reservations.some(row => row.group_id === context.group.id && row.neighborhood_id === neighborhoodId && row.arrival_date <= context.today && row.departure_date > context.today);
+        if (!alreadyReserved) {
+          const local = current.filter(row => row.neighborhood_id === neighborhoodId);
+          await writes.create('NeighborhoodReservation', { group_id: context.group.id, operational_group_profile_id: context.profile.id, neighborhood_id: neighborhoodId, stay_period_id: sample.stay_period_id, arrival_date: context.today, departure_date: sample.departure_date, gender_group: new Set(local.map(r => r.gender_group)).size === 1 ? sample.gender_group : 'MIXED', planned_tents: local.length, status: 'ACTIVE', source: 'allocation' });
+        }
+      }
       return Response.json({ success: true, action: 'AUTO_COMMIT', allocated: plan.allocated, remaining: plan.remaining, warnings: plan.warnings, historical_rows_unchanged: true });
     }
     if (body.action === 'DISMISS_RELEASED_HELPER') {

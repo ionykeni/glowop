@@ -619,7 +619,7 @@ export default function SleepingAllocationTab({ groupId }) {
           ניתן לפצל קבוצה בין שכונות ולשתף שכונה באישור; אוהל פיזי נשאר בלעדי בכל טווח תאריכים חופף.
         </p>
         {isMultiPeriod && canUseMultiPeriod && periodState !== 'past' && seriesValidation.status === 'VALID' && (
-          <ScopedAutoAllocation groupId={groupId} selectedPeriod={selectedPeriod} hasLaterPeriods={selectedPeriod ? laterStayPeriods(sortedStayPeriods, selectedPeriod.id).some(p => p.end_date > todayLocal()) : false} tents={allTents} neighborhoods={neighborhoods} onSaved={invalidate} />
+          <ScopedAutoAllocation key={selectedPeriod?.id || 'all'} groupId={groupId} selectedPeriod={selectedPeriod} hasLaterPeriods={selectedPeriod ? laterStayPeriods(sortedStayPeriods, selectedPeriod.id).some(p => p.end_date > todayLocal()) : false} tents={allTents} neighborhoods={neighborhoods} onSaved={invalidate} />
         )}
 
         {!isMultiPeriod && showSuggestion && suggestion.length > 0 && (

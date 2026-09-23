@@ -284,25 +284,9 @@ export default function AutoAllocationButton({
         return;
       }
 
-      const ops = [];
-      for (const seg of preview.segments) {
-        for (const { tent, pax } of seg.rows) {
-          ops.push(base44.entities.SleepingAllocation.create({
-            group_id:                     groupId,
-            operational_group_profile_id: profileId,
-            tent_id:                      tent.id,
-            neighborhood_id:              neighborhood.id,
-            arrival_date:                 allocationStartDate,
-            departure_date:               departureDate,
-            allocated_pax:                pax,
-            allocation_type:              "STUDENT",
-            gender_group:                 seg.gender,
-            status:                       "DRAFT",
-            notes:                        "שיבוץ אוטומטי",
-          }));
-        }
-      }
-      await Promise.all(ops);
+      const requested = preview.segments.flatMap(seg => seg.rows.map(({ tent, pax }) => ({ tent_id: tent.id, neighborhood_id: neighborhood.id, allocated_pax: pax, gender_group: seg.gender })));
+      const { data } = await base44.functions.invoke('manageScopedSleepingRelease', { action: 'AUTO_CONTINUOUS', group_id: groupId, requested });
+      if (!data?.success) throw new Error(data?.error || 'שמירת השיבוץ נכשלה');
       const totalTents = preview.segments.reduce((s, sg) => s + sg.rows.length, 0);
       const totalPax   = preview.segments.reduce((s, sg) => s + sg.rows.reduce((ss, r) => ss + r.pax, 0), 0);
       toast.success(`שיבוץ אוטומטי נוצר — ${totalTents} אוהלים · ${totalPax} אנשים — נא לאשר שיבוץ לינה ✓`);
