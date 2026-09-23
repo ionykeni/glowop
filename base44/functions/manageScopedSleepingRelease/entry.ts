@@ -3,6 +3,7 @@ import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActio
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedAdd, planScopedNeighborhoodRelease, planScopedReAdd, planScopedRelease } from '../../shared/sleepingPeriodScope.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
+import { planScopedAutoSleeping } from '../../shared/scopedAutoSleeping.js';
 // Runtime bundle refreshed after released-helper metadata schema deployment.
 
 export default async function(req) {
@@ -15,6 +16,16 @@ export default async function(req) {
     if (!body.group_id) return Response.json({ success: false, error: 'חסרה קבוצה' }, { status: 400 });
     const db = base44.asServiceRole.entities;
     const context = await loadSleepingContext(db, body.group_id);
+    if (body.action === 'AUTO_PREVIEW' || body.action === 'AUTO_COMMIT') {
+      const plan = planScopedAutoSleeping(context, body.edit_scope);
+      if (body.action === 'AUTO_PREVIEW') return Response.json({ success: true, read_only: true, results: plan.results, warnings: plan.warnings, allocated: plan.allocated, remaining: plan.remaining, proposal_keys: plan.proposal_keys });
+      if (!Array.isArray(body.proposal_keys) || JSON.stringify(body.proposal_keys) !== JSON.stringify(plan.proposal_keys)) throw new Error('הזמינות או השיבוץ השתנו; יש להציג הצעה מעודכנת');
+      if (!plan.allocated) throw new Error('אין מקומות פנויים לשיבוץ');
+      writes = sleepingWrites(db);
+      for (const row of plan.creates) await writes.create('SleepingAllocation', row);
+      await syncSleepingNeighborhoods(db, writes, context.group.id, plan.creates.filter(row => row.status === 'DRAFT'), context.today);
+      return Response.json({ success: true, action: 'AUTO_COMMIT', allocated: plan.allocated, remaining: plan.remaining, warnings: plan.warnings, historical_rows_unchanged: true });
+    }
     if (body.action === 'DISMISS_RELEASED_HELPER') {
       const row = context.rows.find(item => item.id === body.allocation_id && item.group_id === context.group.id);
       if (!row || row.series_action !== 'RELEASE') throw new Error('השיבוץ ששוחרר לא נמצא');

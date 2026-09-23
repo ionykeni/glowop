@@ -26,6 +26,7 @@ import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
 import HistoricalSleepingViewer from "./HistoricalSleepingViewer";
+import ScopedAutoAllocation from "./ScopedAutoAllocation";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
@@ -617,6 +618,9 @@ export default function SleepingAllocationTab({ groupId }) {
         <p className="text-[11px] text-slate-500">
           ניתן לפצל קבוצה בין שכונות ולשתף שכונה באישור; אוהל פיזי נשאר בלעדי בכל טווח תאריכים חופף.
         </p>
+        {isMultiPeriod && canUseMultiPeriod && periodState !== 'past' && seriesValidation.status === 'VALID' && (
+          <ScopedAutoAllocation groupId={groupId} selectedPeriod={selectedPeriod} hasLaterPeriods={selectedPeriod ? laterStayPeriods(sortedStayPeriods, selectedPeriod.id).some(p => p.end_date > todayLocal()) : false} tents={allTents} neighborhoods={neighborhoods} onSaved={invalidate} />
+        )}
 
         {!isMultiPeriod && showSuggestion && suggestion.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-1.5">
