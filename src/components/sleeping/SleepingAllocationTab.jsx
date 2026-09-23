@@ -25,6 +25,7 @@ import PeriodNeighborhoodReleaseDialog from "./PeriodNeighborhoodReleaseDialog";
 import PeriodAddAllocationDialog from "./PeriodAddAllocationDialog";
 import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
+import HistoricalSleepingViewer from "./HistoricalSleepingViewer";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
@@ -69,6 +70,7 @@ export default function SleepingAllocationTab({ groupId }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [showReleaseAllDialog, setShowReleaseAllDialog] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState(null);
   const [periodPaxTarget, setPeriodPaxTarget] = useState(null);
@@ -88,30 +90,30 @@ export default function SleepingAllocationTab({ groupId }) {
   });
   const profile = profiles[0];
 
-  const { data: group } = useQuery({
+  const { data: group, isLoading: loadingGroup } = useQuery({
     queryKey: ["group", groupId],
     queryFn: () => base44.entities.Group.filter({ id: groupId }),
     select: r => r[0],
     enabled: !!groupId,
   });
 
-  const { data: activeStayPeriods = [] } = useQuery({
+  const { data: activeStayPeriods = [], isLoading: loadingPeriods } = useQuery({
     queryKey: ["groupStayPeriods", groupId, "active"],
     queryFn: () => base44.entities.GroupStayPeriod.filter({ group_id: groupId, status: "ACTIVE" }, "start_date", 100),
     enabled: !!groupId,
   });
 
-  const { data: neighborhoods = [] } = useQuery({
+  const { data: neighborhoods = [], isLoading: loadingNeighborhoods } = useQuery({
     queryKey: ["neighborhoods"],
     queryFn: () => base44.entities.Neighborhood.list("sort_order"),
   });
 
-  const { data: allTents = [] } = useQuery({
+  const { data: allTents = [], isLoading: loadingTents } = useQuery({
     queryKey: ["tents"],
     queryFn: () => base44.entities.Tent.list(),
   });
 
-  const { data: myAllocations = [] } = useQuery({
+  const { data: myAllocations = [], isLoading: loadingAllocations } = useQuery({
     queryKey: ["sleepingAllocations", groupId],
     queryFn: () => base44.entities.SleepingAllocation.filter({ group_id: groupId }),
     enabled: !!groupId,
@@ -480,6 +482,13 @@ export default function SleepingAllocationTab({ groupId }) {
     );
   }
 
+  if (showHistory) {
+    return loadingGroup || loadingPeriods || loadingNeighborhoods || loadingTents || loadingAllocations
+      ? <div className="py-8 text-center text-sm text-slate-500" dir="rtl">טוען היסטוריית שיבוץ…</div>
+      : !group ? <div className="py-8 text-center text-sm text-slate-500" dir="rtl"><Button variant="outline" onClick={() => setShowHistory(false)}>חזרה לשיבוץ הנוכחי</Button> לא נמצאו פרטי קבוצה.</div>
+      : <HistoricalSleepingViewer group={group} periods={activeStayPeriods} allocations={myAllocations} tents={allTents} neighborhoods={neighborhoods} today={todayLocal()} onClose={() => setShowHistory(false)} />;
+  }
+
   const studentNeighborhoods = neighborhoods.filter(n => !n.is_vip);
   const visibleStudentNeighborhoods = isPeriodView
     ? studentNeighborhoods.filter(hood => myNhoodResById[hood.id] || displayedLogicalSeriesData.logical_assignments.some(a => a.allocation_type === "STUDENT" && a.neighborhood_id === hood.id))
@@ -495,6 +504,7 @@ export default function SleepingAllocationTab({ groupId }) {
 
   return (
     <div className="space-y-4" dir="rtl">
+      <div className="flex justify-end"><Button variant="outline" size="sm" onClick={() => setShowHistory(true)}>הצג היסטוריה</Button></div>
 
       {isMultiPeriod && (
         <div className="w-fit rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700" dir="ltr">
