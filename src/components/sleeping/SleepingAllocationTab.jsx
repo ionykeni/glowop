@@ -530,7 +530,7 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
-      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={async () => { setSelectedPeriodId(null); await invalidate(); }} />}
+      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} allocations={myAllocations} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={async () => { setSelectedPeriodId(null); await Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: ["groupStayPeriods"] })]); }} />}
 
        <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
