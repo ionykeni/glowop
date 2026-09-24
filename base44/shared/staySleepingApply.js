@@ -13,6 +13,16 @@ export async function applyTrims(db, entityName, updates, cancels) {
     await db[entityName].update(row.id,target);
   }
 }
+// Keep-same-sleeping: move one existing row to its period's dates. Idempotent on retry.
+export async function applyKeptSleepingDates(db, planned, data) {
+  const today = todayIL();
+  const row = await db.SleepingAllocation.get(planned.id);
+  if (!row || !activeAllocation(row)) throw new Error('שורת לינה השתנתה מאז הבדיקה');
+  if (row.arrival_date === data.arrival_date && row.departure_date === data.departure_date) return;
+  if (row.updated_date !== planned.updated_date) throw new Error('השיבוץ השתנה מאז הבדיקה');
+  if (row.departure_date <= today || data.departure_date <= today || (row.arrival_date < today && data.arrival_date !== row.arrival_date)) throw new Error('שיבוץ שכבר חל נשמר ללא שינוי; נדרשת בדיקה');
+  await db.SleepingAllocation.update(row.id, data);
+}
 export async function createSafeSleeping(db, template, periodId) {
   const today = todayIL();
   const period = await db.GroupStayPeriod.get(periodId);
