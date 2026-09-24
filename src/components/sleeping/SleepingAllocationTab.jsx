@@ -27,6 +27,7 @@ import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
 import HistoricalSleepingViewer from "./HistoricalSleepingViewer";
 import ScopedAutoAllocation from "./ScopedAutoAllocation";
+import PendingSleepingDecision from "./PendingSleepingDecision";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
@@ -203,17 +204,18 @@ export default function SleepingAllocationTab({ groupId }) {
     queryKey: ['sleepingSeriesValidation', groupId, myAllocations.map(r => `${r.id}:${r.updated_date}`).join('|'), activeStayPeriods.map(p => `${p.id}:${p.updated_date}`).join('|')],
     queryFn: async () => {
       const { data } = await base44.functions.invoke('manageMultiPeriodSleepingSeries', { action: 'inspect', group_id: groupId });
-      return data?.success ? data.validation : { valid: false, errors: [] };
+      return data?.success ? data.validation : { valid: false, status: 'INVALID_SERIES', errors: [] };
     },
     enabled: isMultiPeriod && !!groupId,
   });
   const seriesValidation = !isMultiPeriod
-    ? { status: 'VALID', valid: true, errors: [], loading: false }
+    ? { status: 'COMPLETE', valid: true, errors: [], loading: false }
     : checkingSeries
       ? { status: 'LOADING', valid: undefined, errors: [], loading: true }
       : remoteSeriesValidation?.valid
-        ? { ...remoteSeriesValidation, status: 'VALID', loading: false }
-        : { ...(remoteSeriesValidation || {}), status: 'INVALID', valid: false, errors: remoteSeriesValidation?.errors || [], loading: false };
+        ? { ...remoteSeriesValidation, loading: false }
+        : { ...(remoteSeriesValidation || {}), status: 'INVALID_SERIES', valid: false, errors: remoteSeriesValidation?.errors || [], loading: false };
+  const missingPeriods = sortedStayPeriods.filter(p => seriesValidation.missing_period_ids?.includes(p.id));
 
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
@@ -528,6 +530,8 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
+      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={invalidate} />}
+
       <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
         allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
@@ -600,8 +604,8 @@ export default function SleepingAllocationTab({ groupId }) {
       )}
 
       {/* ── STUDENT NEIGHBORHOODS ── */}
-      <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between">
+      <section id="sleeping-manual-add" className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-700">שיבוץ לפי שכונות — חניכים</h3>
           {isPeriodView && periodState !== "past" && <RoleGate permission="MANAGE_ALLOCATION"><SleepingActionButton tone="constructive" onClick={() => setPeriodAddTarget({ kind: "STUDENT" })}><Plus className="h-3 w-3" />הוסף אוהל</SleepingActionButton></RoleGate>}
           {!isMultiPeriod && totalTentsNeeded > 0 && suggestion.length > 0 && (
@@ -618,7 +622,7 @@ export default function SleepingAllocationTab({ groupId }) {
         <p className="text-[11px] text-slate-500">
           ניתן לפצל קבוצה בין שכונות ולשתף שכונה באישור; אוהל פיזי נשאר בלעדי בכל טווח תאריכים חופף.
         </p>
-        {isMultiPeriod && canUseMultiPeriod && periodState !== 'past' && seriesValidation.status === 'VALID' && (
+        {isMultiPeriod && canUseMultiPeriod && periodState !== 'past' && seriesValidation.valid === true && (
           <ScopedAutoAllocation key={selectedPeriod?.id || 'all'} groupId={groupId} selectedPeriod={selectedPeriod} hasLaterPeriods={selectedPeriod ? laterStayPeriods(sortedStayPeriods, selectedPeriod.id).some(p => p.end_date > todayLocal()) : false} tents={allTents} neighborhoods={neighborhoods} onSaved={invalidate} />
         )}
 
@@ -649,7 +653,7 @@ export default function SleepingAllocationTab({ groupId }) {
             בודק את תקינות השיבוץ הרב־תקופתי…
           </div>
         )}
-        {isMultiPeriod && seriesValidation.status === 'INVALID' && (
+        {isMultiPeriod && seriesValidation.status === 'INVALID_SERIES' && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-300 rounded-lg px-3 py-2">
             השיבוץ הרב־תקופתי הקיים אינו עקבי. נדרשת בדיקה לפני עריכה או אישור; אין לשחרר היסטוריה כדי לתקן אותו.
           </div>
@@ -736,7 +740,7 @@ export default function SleepingAllocationTab({ groupId }) {
             groupId={groupId}
             onInvalidate={invalidate}
             isMultiPeriod={isMultiPeriod}
-            canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID'}
+            canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID_SERIES'}
             logicalAssignments={displayedLogicalSeriesData.logical_assignments}
             group={group}
             readOnly={isPeriodView}
@@ -772,7 +776,7 @@ export default function SleepingAllocationTab({ groupId }) {
         departureDate={departureDate}
         onInvalidate={invalidate}
         isMultiPeriod={isMultiPeriod}
-        canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID'}
+        canUseMultiPeriod={canUseMultiPeriod && !isPeriodView && seriesValidation.status !== 'INVALID_SERIES'}
         logicalAssignments={displayedLogicalSeriesData.logical_assignments}
         activeStayPeriods={visibleStayPeriods}
         readOnly={isPeriodView}

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Users, ChevronLeft, CheckCircle2, Clock, UtensilsCrossed, CalendarDays, StickyNote } from "lucide-react";
 
-export default function DashboardGroupCard({ group, profile, mealsToday = 0, activitiesToday = 0, mode }) {
+export default function DashboardGroupCard({ group, profile, mealsToday = 0, activitiesToday = 0, mode, sleepingPending = false }) {
   // mode: "arriving" | "sleeping" | "departing" | "dayuse"
   const isDayUse = group.group_type === "DAY_USE" || mode === "dayuse";
   const hasDepartureLunch = profile && mode === "departing" &&
@@ -62,6 +62,8 @@ export default function DashboardGroupCard({ group, profile, mealsToday = 0, act
             )}
           </div>
         )}
+
+        {sleepingPending && <span className="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">לינה ממתינה לשיבוץ</span>}
 
         {internalNotes && (
           <div className="flex items-start gap-1 mt-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">

@@ -4,6 +4,8 @@ import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planScopedAdd, planScopedNeighborhoodRelease, planScopedReAdd, planScopedRelease } from '../../shared/sleepingPeriodScope.js';
 import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync.js';
 import { planScopedAutoSleeping, planContinuousAutoSleeping } from '../../shared/scopedAutoSleeping.js';
+import { planReturnToPreviousSleeping } from '../../shared/returnToPreviousSleeping.js';
+import { validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
 // Scoped auto preview and commit share a fresh global read and continuity-aware planner.
 
 export default async function(req) {
@@ -24,6 +26,21 @@ export default async function(req) {
       return Response.json({ success: true, action: 'AUTO_CONTINUOUS', allocated: creates.reduce((s, r) => s + r.allocated_pax, 0) });
     }
     const context = await loadSleepingContext(db, body.group_id);
+    if (body.action === 'RETURN_PREVIEW' || body.action === 'RETURN_COMMIT') {
+      const mine = context.rows.filter(r => r.group_id === context.group.id);
+      if (!validateLinkedSeriesCompleteness(mine, context.periods, context.group.id, context.today).valid) throw new Error('השיבוץ הקיים אינו תקין; נדרשת בדיקה');
+      const plan = planReturnToPreviousSleeping(context, body.selected_period_id);
+      if (body.action === 'RETURN_PREVIEW') return Response.json({ success: true, read_only: true, ...plan });
+      if (!Array.isArray(body.proposal_keys) || JSON.stringify(body.proposal_keys) !== JSON.stringify(plan.proposal_keys)) throw new Error('השיבוץ או הזמינות השתנו; יש להציג תצוגה מקדימה חדשה');
+      if (plan.blocked.length) throw new Error(`אין אפשרות להחזיר את הקבוצה לכל השיבוץ הקודם: ${plan.blocked.join(', ')}`);
+      writes = sleepingWrites(db);
+      for (const row of plan.creates) {
+        const { tent_code, ...saved } = row;
+        await writes.create('SleepingAllocation', saved);
+      }
+      await syncSleepingNeighborhoods(db, writes, context.group.id, plan.creates, context.today);
+      return Response.json({ success: true, action: 'RETURN_COMMIT', created: plan.creates.length, historical_rows_unchanged: true });
+    }
     if (body.action === 'AUTO_PREVIEW' || body.action === 'AUTO_COMMIT') {
       const plan = planScopedAutoSleeping(context, body.edit_scope);
       if (body.action === 'AUTO_PREVIEW') return Response.json({ success: true, read_only: true, results: plan.results, warnings: plan.warnings, allocated: plan.allocated, remaining: plan.remaining, proposal_keys: plan.proposal_keys });

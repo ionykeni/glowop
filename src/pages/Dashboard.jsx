@@ -19,6 +19,7 @@ import { useRoleContext } from "@/lib/RoleContext";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 import { isGroupArrivalOnDate, isGroupDepartureOnDate, isGroupOnDashboardDate, isGroupSleepingNightOnDate } from "@/lib/groupDateReaders";
 import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
+import { pendingSleepingForDate } from "@/lib/pendingSleepingForDate";
 import YesterdaySnapshotWarning from "@/components/dashboard/YesterdaySnapshotWarning";
 import StaffNotesSection from "@/components/dashboard/StaffNotesSection";
 import DashboardOperationsShifts from "@/components/dashboard/DashboardOperationsShifts";
@@ -230,6 +231,7 @@ export default function Dashboard() {
   const spaceById = useMemo(() => Object.fromEntries(activitySpaces.map(s => [s.id, s])), [activitySpaces]);
   const operationalAllocations = useMemo(() => allocations.filter(a => groupById[a.group_id]), [allocations, groupById]);
   const allocatedGroupIds = useMemo(() => new Set(operationalAllocations.map(a => a.group_id)), [operationalAllocations]);
+  const pendingSleepingIds = useMemo(() => new Set(groups.filter(g => !['CANCELLED','COMPLETED','ARCHIVED'].includes(g.status) && isGroupOnDashboardDate(g, selectedDate, periodsByGroupId[g.id] || []) && pendingSleepingForDate(g, profileByGroupId[g.id], periodsByGroupId[g.id] || [], operationalAllocations, selectedDate)).map(g => g.id)), [groups, selectedDate, periodsByGroupId, profileByGroupId, operationalAllocations]);
 
   // ── Date-filtered data ─────────────────────────────────────────────────
   const EXCLUDED = new Set(["CANCELLED", "COMPLETED", "ARCHIVED"]);
@@ -516,7 +518,8 @@ export default function Dashboard() {
                   group={g}
                   profile={profileByGroupId[g.id]}
                   mode="arriving"
-                />
+                  sleepingPending={pendingSleepingIds.has(g.id)}
+                  />
               ))}
             </div>
           </Section>
@@ -534,7 +537,8 @@ export default function Dashboard() {
                   mealsToday={mealsByGroup[g.id] || 0}
                   activitiesToday={activitiesByGroup[g.id] || 0}
                   mode="sleeping"
-                />
+                  sleepingPending={pendingSleepingIds.has(g.id)}
+                  />
               ))}
             </div>
           </Section>

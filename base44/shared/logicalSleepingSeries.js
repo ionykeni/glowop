@@ -63,9 +63,10 @@ export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], 
   const todayIL = todayDate || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
   const activeRows = rows.filter(row => row.status !== 'CANCELLED');
   const linkedRows = activeRows.filter(row => row.stay_period_id || row.allocation_series_id);
-  if (linkedRows.length === 0) return { linked: false, valid: true, errors: [], ...groupLogicalSleepingAssignments(activeRows) };
+  if (linkedRows.length === 0) return { linked: false, valid: true, status: 'COMPLETE', errors: [], missing_coverage: [], ...groupLogicalSleepingAssignments(activeRows) };
 
   const errors = [];
+  const missing_coverage = [];
   if (activeRows.some(row => !row.stay_period_id || !row.allocation_series_id)) errors.push({ code: 'MIXED_OR_MISSING_SERIES_LINKAGE' });
   const grouped = groupLogicalSleepingAssignments(linkedRows, todayDate);
   grouped.inconsistent_series.forEach(series => errors.push({ code: 'INCONSISTENT_LOGICAL_SERIES', allocation_series_id: series.allocation_series_id, details: series.consistency_errors }));
@@ -92,16 +93,26 @@ export function validateLinkedSeriesCompleteness(rows = [], activePeriods = [], 
       seen.add(row.stay_period_id);
       const validStart = period && (row.arrival_date === period.start_date || (row.segment_start_date === row.arrival_date && period.start_date <= row.arrival_date && row.arrival_date < period.end_date));
       const validEnd = period && (row.departure_date === period.end_date || (['REASSIGN', 'RELEASE'].includes(row.series_action) && row.segment_end_date === row.departure_date && row.series_action_date === row.departure_date && period.start_date < row.departure_date && row.departure_date <= period.end_date));
-      if (period && (!validStart || !validEnd || row.arrival_date >= row.departure_date)) errors.push({ code: 'PERIOD_DATE_MISMATCH', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
+      if (period && row.arrival_date >= row.departure_date) errors.push({ code: 'MALFORMED_SEGMENT', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
+      else if (period && (!validStart || !validEnd)) {
+        // A date edit can expose an uncovered prefix/suffix without changing the old physical row.
+        // A row extending outside the actual stay is still an invalid lineage.
+        if (period.start_date <= row.arrival_date && row.departure_date <= period.end_date) missing_coverage.push({ code: 'PERIOD_DATE_GAP', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
+        else errors.push({ code: 'PERIOD_DATE_MISMATCH', allocation_series_id: series.allocation_series_id, stay_period_id: row.stay_period_id });
+      }
     });
     expectedIds.forEach(periodId => {
-      if (!seen.has(periodId)) errors.push({ code: 'MISSING_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: periodId });
+      if (!seen.has(periodId)) missing_coverage.push({ code: 'MISSING_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: periodId });
     });
     seen.forEach(periodId => {
       if (!expectedIds.has(periodId)) errors.push({ code: 'UNEXPECTED_STAY_PERIOD', allocation_series_id: series.allocation_series_id, stay_period_id: periodId });
     });
   });
 
+  for (let i = 0; i < activeRows.length; i++) for (let j = i + 1; j < activeRows.length; j++) {
+    const a = activeRows[i], b = activeRows[j];
+    if (a.tent_id === b.tent_id && a.arrival_date < b.departure_date && b.arrival_date < a.departure_date) errors.push({ code: 'DUPLICATE_ACTIVE_PHYSICAL_ASSIGNMENT', allocation_ids: [a.id, b.id] });
+  }
   if (activePeriods.length === 0) errors.push({ code: 'ACTIVE_PERIODS_REQUIRED' });
-  return { linked: true, valid: errors.length === 0, errors, ...grouped };
+  return { linked: true, valid: errors.length === 0, status: errors.length ? 'INVALID_SERIES' : missing_coverage.length ? 'MISSING_COVERAGE' : 'COMPLETE', errors, missing_coverage, ...grouped };
 }

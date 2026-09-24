@@ -3,6 +3,7 @@ import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActio
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
 import { planSeriesAction, applySeriesAction } from '../../shared/multiPeriodSeriesActions.js';
 import { validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
+import { missingSleepingNights } from '../../shared/sleepingCoverage.js';
 // Runtime bundle refreshed for neighborhood-scoped release.
 export default async function(req) {
   let writes;
@@ -14,7 +15,8 @@ export default async function(req) {
     const db=base44.asServiceRole.entities,ctx=await loadSleepingContext(db,body.group_id);
     if(body.action==='inspect') {
       const validation=validateLinkedSeriesCompleteness(ctx.rows.filter(r=>r.group_id===ctx.group.id),ctx.periods,ctx.group.id,ctx.today);
-      return Response.json({success:true,read_only:true,validation:{valid:validation.valid,errors:validation.errors}});
+      const missing=ctx.periods.filter(p=>p.end_date>ctx.today&&missingSleepingNights(p,ctx.rows.filter(r=>r.group_id===ctx.group.id),ctx.profile,ctx.today).length).map(p=>p.id);
+      return Response.json({success:true,read_only:true,validation:{valid:validation.valid,status:validation.valid?(missing.length?'MISSING_COVERAGE':'COMPLETE'):'INVALID_SERIES',errors:validation.errors,missing_period_ids:missing,missing_coverage:validation.missing_coverage}});
     }
     const plan=planSeriesAction(ctx,body);
     if(body.preview_only===true) return Response.json({success:true,read_only:true,affected_row_ids:plan.updates.map(u=>u.row.id),rows_to_create:plan.creates,warnings:plan.warnings});
