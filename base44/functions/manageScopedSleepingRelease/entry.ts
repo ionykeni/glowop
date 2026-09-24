@@ -6,6 +6,7 @@ import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync
 import { planScopedAutoSleeping, planContinuousAutoSleeping } from '../../shared/scopedAutoSleeping.js';
 import { planReturnToPreviousSleeping } from '../../shared/returnToPreviousSleeping.js';
 import { validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
+import { planApplyToUpdatedDates } from '../../shared/staleSleepingDates.js';
 // Scoped preview and commit revalidate global rows and the historical source on every request.
 
 export default async function(req) {
@@ -28,8 +29,22 @@ export default async function(req) {
     const context = await loadSleepingContext(db, body.group_id);
     if (body.action === 'RETURN_PREVIEW' || body.action === 'RETURN_COMMIT') {
       const mine = context.rows.filter(r => r.group_id === context.group.id);
-      if (!validateLinkedSeriesCompleteness(mine, context.periods, context.group.id, context.today).valid) throw new Error('השיבוץ הקיים אינו תקין; נדרשת בדיקה');
-      const plan = planReturnToPreviousSleeping(context, body.selected_period_id);
+      const check = validateLinkedSeriesCompleteness(mine, context.periods, context.group.id, context.today);
+      // A date edit may leave this period's rows outside its new bounds; only that is tolerated here.
+      if (check.errors.some(e => !(e.code === 'PERIOD_DATE_MISMATCH' && e.stay_period_id === body.selected_period_id))) throw new Error('השיבוץ הקיים אינו תקין; נדרשת בדיקה');
+      const dated = planApplyToUpdatedDates(context, body.selected_period_id);
+      if (dated) {
+        const publicPlan = { ...dated, updates: dated.updates.map(({ row, data, ...rest }) => ({ ...rest, allocation_id: row.id, new_arrival_date: data.arrival_date, new_departure_date: data.departure_date })) };
+        if (body.action === 'RETURN_PREVIEW') return Response.json({ success: true, read_only: true, ...publicPlan });
+        if (!Array.isArray(body.proposal_keys) || JSON.stringify(body.proposal_keys) !== JSON.stringify(dated.proposal_keys)) throw new Error('השיבוץ או הזמינות השתנו; יש להציג תצוגה מקדימה חדשה');
+        if (dated.blocked.length) throw new Error(`אין אפשרות לשמור את כל השיבוץ בתאריכים החדשים: ${dated.blocked.map(b => b.tent_code).join(', ')}`);
+        writes = sleepingWrites(db);
+        for (const u of dated.updates) await writes.update('SleepingAllocation', u.row, u.data);
+        await syncSleepingNeighborhoods(db, writes, context.group.id, dated.updates.map(u => ({ ...u.row, ...u.data })), context.today);
+        return Response.json({ success: true, action: 'RETURN_COMMIT', mode: 'UPDATE_DATES', updated: dated.updates.length, historical_rows_unchanged: true });
+      }
+      if (check.errors.length) throw new Error('השיבוץ הקיים אינו תקין; נדרשת בדיקה');
+      const plan = { mode: 'PREVIOUS_SNAPSHOT', ...planReturnToPreviousSleeping(context, body.selected_period_id) };
       if (body.action === 'RETURN_PREVIEW') return Response.json({ success: true, read_only: true, ...plan });
       if (!Array.isArray(body.proposal_keys) || JSON.stringify(body.proposal_keys) !== JSON.stringify(plan.proposal_keys)) throw new Error('השיבוץ או הזמינות השתנו; יש להציג תצוגה מקדימה חדשה');
       if (plan.blocked.length) throw new Error(`אין אפשרות להחזיר את הקבוצה לכל השיבוץ הקודם: ${plan.blocked.join(', ')}`);
