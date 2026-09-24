@@ -12,6 +12,7 @@ import { fingerprint, periodShape, readAll, todayIL } from './stayReconciliation
 import { planStaySleeping } from './staySleepingPlan.js';
 import { serviceImpacts } from './stayServiceImpacts.js';
 import { sleepingCoverage } from './staySleepingCoverage.js';
+import { planSleepingDecision, publicSleepingDecision } from './staleSleepingDates.js';
 
 const ACTIVE_GROUP_STATUSES = new Set(['CONFIRMED', 'COMPLETED']);
 const ACTIVE_ALLOCATION_STATUSES = new Set(['DRAFT', 'CONFIRMED']);
@@ -169,10 +170,15 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   const myReservations = allReservations.filter(row => row.group_id === groupId);
   if (myReservations.some(row => !row.stay_period_id)) blockingErrors.push(error('LEGACY_NEIGHBORHOOD_LINKAGE_REQUIRED'));
   const sleepingPlan = planStaySleeping({ groupId, current: currentPeriods, proposed, allocations: allAllocations, reservations: allReservations, logical, tents, today });
-  const { allocationUpdates, allocationCreates, allocationCancels, reservationUpdates, reservationCreates, reservationCancels, exactTentConflicts } = sleepingPlan;
-  const neighborhoodConflicts = sleepingPlan.neighborhoodImpacts;
-  if (exactTentConflicts.length) warnings.push(error('SAME_TENT_CONFLICT', { conflicts: exactTentConflicts }));
-  if (neighborhoodConflicts.length) warnings.push(error('NEIGHBORHOOD_CONFLICT'));
+  const { allocationUpdates, allocationCancels, reservationUpdates, reservationCreates, reservationCancels } = sleepingPlan;
+  // New nights are claimed only through the explicit keep-same-sleeping decision (same rows, new dates).
+  const allocationCreates = [];
+  const decision = planSleepingDecision({ group, rows: allAllocations, tents, reservations: allReservations, today }, proposed);
+  const sleepingDecision = publicSleepingDecision(decision, new Set(changedPeriods.map(item => item.current.id)));
+  const exactTentConflicts = decision.blocked;
+  const neighborhoodConflicts = [];
+  if (sleepingDecision.required && exactTentConflicts.length) warnings.push(error('SAME_TENT_CONFLICT', { conflicts: exactTentConflicts }));
+  if (sleepingDecision.required && decision.warnings.length) warnings.push(error('NEIGHBORHOOD_CONFLICT'));
 
   const periodsByGroup = {};
   allPeriods.forEach(period => { (periodsByGroup[period.group_id] ||= []).push(period); });
@@ -223,7 +229,9 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   const uniqueImpacts = [...new Map(impacts.map(item => [`${item.module}:${item.impact_type}:${item.date}:${item.metadata?.record_id || item.metadata?.neighborhood_id || ''}`, item])).entries()].map(([key,item]) => ({ ...item, key }));
   const projected = allAllocations.filter(r => !allocationCancels.some(c => c.id === r.id)).map(r => ({ ...r, ...allocationUpdates.find(u => u.id === r.id) }));
   const coverageWithoutExtension = sleepingCoverage(group, profiles[0], proposed, projected, tents, null, today);
-  const coverageWithExtension = sleepingCoverage(group, profiles[0], proposed, [...projected, ...allocationCreates.map((c,i) => ({ ...c.template, id: `planned:${i}` }))], tents, null, today);
+  const keptById = new Map(decision.updates.map(u => [u.row.id, u.data]));
+  const projectedKept = allAllocations.filter(r => keptById.has(r.id) || !allocationCancels.some(c => c.id === r.id)).map(r => keptById.has(r.id) ? { ...r, ...keptById.get(r.id) } : { ...r, ...allocationUpdates.find(u => u.id === r.id) });
+  const coverageWithExtension = sleepingCoverage(group, profiles[0], proposed, projectedKept, tents, null, today);
   const result = {
     base_version,
     impacts: uniqueImpacts,
@@ -234,7 +242,8 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
     blocking_errors: blockingErrors,
     warnings,
     period_diff: { added: addedPeriods, removed: removedPeriods.map(publicPeriod), changed: changedPeriods.map(item => ({ period_id: item.current.id, before: publicPeriod({ ...item.current, _period_key: `id:${item.current.id}` }), after: item.proposed, changes: item.changes })), added_sleeping_nights: addedNights, removed_sleeping_nights: removedNights },
-    sleeping_impact: { logical_series_count: logical.length, same_tent_policy: true, rows_to_update: allocationUpdates.length, rows_to_create: allocationCreates.length, rows_to_cancel: allocationCancels.length, exact_tent_conflicts: exactTentConflicts },
+    sleeping_impact: { logical_series_count: logical.length, same_tent_policy: true, rows_to_update: allocationUpdates.length, rows_to_create: allocationCreates.length, rows_to_cancel: allocationCancels.length, rows_to_keep_on_new_dates: decision.updates.length, exact_tent_conflicts: exactTentConflicts },
+    sleeping_decision: sleepingDecision,
     neighborhood_impact: { rows_to_update: reservationUpdates.length, rows_to_create: reservationCreates.length, rows_to_cancel: reservationCancels.length, conflicts: neighborhoodConflicts },
     capacity_impact: { configured_capacity: maxSleepingPax, added_nights: capacityNights },
     meal_impact: { cancellations: mealCancellations.map(meal => ({ id: meal.id, date: meal.date, meal_type: meal.meal_type })), newly_eligible_dates: newlyEligibleDates, automatic_creation: false, cancellation_mode: 'STATUS_CANCELLED' },

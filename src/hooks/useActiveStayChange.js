@@ -18,7 +18,7 @@ export default function useActiveStayChange(groupId, onApplied) {
       const response = await base44.functions.invoke(name, { group_id: groupId, periods: payloadPeriods(periods), ...extra });
       return response.data;
     } catch (err) {
-      setError(err?.response?.data?.error || "הפעולה נכשלה");
+      setError(err?.response?.data?.message || err?.response?.data?.error || "הפעולה נכשלה");
       return null;
     } finally { setBusy(false); }
   };
@@ -26,18 +26,23 @@ export default function useActiveStayChange(groupId, onApplied) {
     const data = await run("previewActiveMultiPeriodStayChangeV2", periods);
     if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
   };
-  const applyChange = async periods => {
+  // keepSleeping: true (same sleeping on new dates) | false (leave sleeping) | null (no decision needed)
+  const applyChange = async (periods, keepSleeping = null) => {
     if (!preview?.request_id || !preview?.base_version) {
       setError("יש לבצע תצוגה מקדימה חדשה לפני האישור");
+      return;
+    }
+    if (preview.sleeping_decision?.required && typeof keepSleeping !== "boolean") {
+      setError("יש לבחור האם לשמור את אותו שיבוץ הלינה");
       return;
     }
     const data = await run("applyActiveMultiPeriodStayChange", periods, {
       confirmed: true,
       request_id: preview.request_id,
       base_version: preview.base_version,
-      actions: {},
+      actions: typeof keepSleeping === "boolean" ? { extend_sleeping: keepSleeping } : {},
     });
-    if (data?.success) onApplied?.(data);
+    if (data?.applied) onApplied?.(data);
   };
   const resetPreview = () => setPreview(null);
   return { preview, busy, error, previewChange, applyChange, resetPreview };

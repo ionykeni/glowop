@@ -1,6 +1,8 @@
 import { pick, readAll, todayIL } from './stayReconciliationCore.js';
-import { applyTrims, createSafeSleeping, reconcileNeighborhoods } from './staySleepingApply.js';
+import { applyTrims, applyKeptSleepingDates, reconcileNeighborhoods } from './staySleepingApply.js';
 import { persistImpact, performItemAction } from './stayReconciliationActions.js';
+import { planSleepingDecision } from './staleSleepingDates.js';
+import { trimPeriodRows } from './staySleepingPlan.js';
 const PERIOD_FIELDS = ['start_date','end_date','arrival_time','departure_time','notes','status'];
 const same = (a,b) => PERIOD_FIELDS.every(k => (a?.[k] || '') === (b?.[k] || ''));
 export async function executeStayChange(base44, change, plan, actions, email) {
@@ -8,6 +10,22 @@ export async function executeStayChange(base44, change, plan, actions, email) {
   const periods = await readAll(db.GroupStayPeriod,{group_id:change.group_id});
   const idByKey = new Map();
   let applied = false;
+  const keep = actions.extend_sleeping === true;
+  const ownLive = () => readAll(db.SleepingAllocation,{group_id:change.group_id,status:{$in:['DRAFT','CONFIRMED']}});
+  const decide = async proposed => {
+    const [rows,tents,reservations] = await Promise.all([readAll(db.SleepingAllocation,{status:{$in:['DRAFT','CONFIRMED']}}),readAll(db.Tent),readAll(db.NeighborhoodReservation,{status:'ACTIVE'})]);
+    return planSleepingDecision({group:plan.group,rows,tents,reservations,today:todayIL()},proposed);
+  };
+  const blockedMessage = blocked => `לא ניתן לשמור את אותו שיבוץ בתאריכים החדשים: ${blocked.map(b => b.tent_code || b.message).join(', ')}`;
+  // Fresh global availability check before the FIRST write; never silently choose other tents.
+  if (keep) {
+    const check = await decide(plan.proposed);
+    if (check.blocked.length) {
+      const message = blockedMessage(check.blocked);
+      await db.OperationalStayChange.update(change.id,{state:'PENDING',last_message:message});
+      return {success:false,applied:false,error:'SLEEPING_TENT_CONFLICT',blocked:check.blocked,change_id:change.id,message};
+    }
+  }
   try {
     // Optimistic check: every existing period must still be either before or our intended after.
     for (const before of plan.currentPeriods) {
@@ -48,9 +66,26 @@ export async function executeStayChange(base44, change, plan, actions, email) {
   });
   const tasks = [];
   for (const impact of plan.impacts) await attempt(async () => { tasks.push(await persistImpact(db,change,impact,email)); });
-  await attempt(() => applyTrims(db,'SleepingAllocation',plan.allocationUpdates,plan.allocationCancels));
+  let sleepingFailed = false;
+  const sleepingAttempt = async fn => { const before = failures.length; await attempt(fn); if (failures.length > before) sleepingFailed = true; };
+  if (keep) {
+    // Revalidate against the persisted periods, move the same rows, then trim from fresh state (idempotent on retry).
+    let kept = null;
+    await sleepingAttempt(async () => {
+      const actual = await readAll(db.GroupStayPeriod,{group_id:change.group_id,status:'ACTIVE'});
+      const next = await decide(actual);
+      if (next.blocked.length) throw new Error(blockedMessage(next.blocked));
+      kept = { next, actual };
+    });
+    if (kept) {
+      for (const u of kept.next.updates) await sleepingAttempt(() => applyKeptSleepingDates(db,u.row,u.data));
+      if (!sleepingFailed) await sleepingAttempt(async () => { const t = trimPeriodRows(await ownLive(),kept.actual,todayIL()); await applyTrims(db,'SleepingAllocation',t.updates,t.cancels); });
+    }
+    if (sleepingFailed) await attempt(() => persistImpact(db,change,{key:'SLEEPING:KEEP_FAILED',module:'SLEEPING',impact_type:'KEEP_FAILED',date:todayIL(),summary:'עדכון שיבוץ הלינה לתאריכי השהייה החדשים לא הושלם; נדרשת בדיקה',metadata:{}},email));
+  } else {
+    await sleepingAttempt(() => applyTrims(db,'SleepingAllocation',plan.allocationUpdates,plan.allocationCancels));
+  }
   await attempt(() => applyTrims(db,'NeighborhoodReservation',plan.reservationUpdates,plan.reservationCancels));
-  if (actions.extend_sleeping === true) for (const item of plan.allocationCreates) await attempt(() => createSafeSleeping(db,item.template,idByKey.get(item.period_key)));
   await attempt(() => reconcileNeighborhoods(db,change.group_id,change,email));
   for (let i=0;i<plan.impacts.length;i++) {
     const impact = plan.impacts[i]; const action = actions[impact.key];
@@ -60,5 +95,6 @@ export async function executeStayChange(base44, change, plan, actions, email) {
   }
   await db.OperationalStayChange.update(change.id,{state:failures.length ? 'PENDING' : 'DONE',last_message:failures.join(' · ').slice(0,1500)});
   const open = await readAll(db.OperationalStayReconciliation,{change_id:change.id,status:'OPEN'});
+  if (sleepingFailed) return {success:false,applied,partial:true,change_id:change.id,status:'STAY_CHANGE_APPLIED_SLEEPING_PENDING',pending_count:open.length,failures,message:`תאריכי השהייה עודכנו, אך עדכון שיבוץ הלינה לא הושלם: ${failures.join(' · ')}`};
   return {success:true,applied,change_id:change.id,status:failures.length || open.length ? 'STAY_CHANGE_APPLIED_WITH_PENDING_RECONCILIATION' : 'STAY_CHANGE_APPLIED',pending_count:open.length,failures,message:failures.length || open.length ? 'השהייה עודכנה. פריטים שדורשים טיפול נשמרו בקבוצה.' : 'השהייה עודכנה. מצב הלינה נבדק לפי השיבוץ בפועל.'};
 }

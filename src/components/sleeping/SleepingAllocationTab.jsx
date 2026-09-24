@@ -27,7 +27,6 @@ import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
 import HistoricalSleepingViewer from "./HistoricalSleepingViewer";
 import ScopedAutoAllocation from "./ScopedAutoAllocation";
-import PendingSleepingDecision from "./PendingSleepingDecision";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
@@ -42,6 +41,12 @@ function datesOverlap(a1, a2, b1, b2) {
 // A stay that already ended (departure_date <= today, exclusive) no longer occupies anything
 function todayLocal() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" });
+}
+
+function nextDay(d) {
+  const x = new Date(`${d}T12:00:00Z`);
+  x.setUTCDate(x.getUTCDate() + 1);
+  return x.toISOString().slice(0, 10);
 }
 
 function parseDist(json) {
@@ -204,18 +209,34 @@ export default function SleepingAllocationTab({ groupId }) {
     queryKey: ['sleepingSeriesValidation', groupId, myAllocations.map(r => `${r.id}:${r.updated_date}`).join('|'), activeStayPeriods.map(p => `${p.id}:${p.updated_date}`).join('|')],
     queryFn: async () => {
       const { data } = await base44.functions.invoke('manageMultiPeriodSleepingSeries', { action: 'inspect', group_id: groupId });
-      return data?.success ? data.validation : { valid: false, status: 'INVALID_SERIES', errors: [] };
+      // Unavailable validation is UNKNOWN, never structural corruption.
+      return data?.success && data.validation ? data.validation : { status: 'UNKNOWN', valid: undefined, errors: [] };
     },
     enabled: isMultiPeriod && !!groupId,
   });
+  // Only an explicit backend valid === false is INVALID_SERIES; loading/network/undefined stays neutral.
   const seriesValidation = !isMultiPeriod
     ? { status: 'COMPLETE', valid: true, errors: [], loading: false }
     : checkingSeries
       ? { status: 'LOADING', valid: undefined, errors: [], loading: true }
-      : remoteSeriesValidation?.valid
+      : remoteSeriesValidation?.valid === true
         ? { ...remoteSeriesValidation, loading: false }
-        : { ...(remoteSeriesValidation || {}), status: 'INVALID_SERIES', valid: false, errors: remoteSeriesValidation?.errors || [], loading: false };
-  const missingPeriods = sortedStayPeriods.filter(p => seriesValidation.missing_period_ids?.includes(p.id));
+        : remoteSeriesValidation?.valid === false
+          ? { ...remoteSeriesValidation, status: 'INVALID_SERIES', loading: false }
+          : { status: 'UNKNOWN', valid: undefined, errors: [], loading: false };
+  // Selected-period completeness: every remaining night must carry the required pax.
+  const periodMissingNights = useMemo(() => {
+    if (!isPeriodView || !profile || periodState === "past") return [];
+    const required = computeAllocationCounts(displayedAllocations, profile).totalRequired;
+    if (!required) return [];
+    const out = [];
+    const today = todayLocal();
+    for (let d = selectedPeriod.start_date > today ? selectedPeriod.start_date : today; d < selectedPeriod.end_date; d = nextDay(d)) {
+      const covered = displayedAllocations.filter(r => r.arrival_date <= d && d < r.departure_date).reduce((s, r) => s + Number(r.allocated_pax || 0), 0);
+      if (covered < required) out.push(d);
+    }
+    return out;
+  }, [isPeriodView, profile, periodState, displayedAllocations, selectedPeriod]);
 
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
@@ -530,9 +551,8 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
-      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} allocations={myAllocations} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={async () => { setSelectedPeriodId(null); await Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: ["groupStayPeriods"] })]); }} />}
-
        <SleepingRequirementsSummary
+        missingNights={periodMissingNights}
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
         allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
         nhoodReservations={visibleNhoodReservations}
@@ -651,6 +671,11 @@ export default function SleepingAllocationTab({ groupId }) {
         {isMultiPeriod && seriesValidation.status === 'LOADING' && (
           <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
             בודק את תקינות השיבוץ הרב־תקופתי…
+          </div>
+        )}
+        {isMultiPeriod && seriesValidation.status === 'UNKNOWN' && (
+          <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            בדיקת תקינות השיבוץ אינה זמינה כרגע.
           </div>
         )}
         {isMultiPeriod && seriesValidation.status === 'INVALID_SERIES' && (

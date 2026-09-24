@@ -68,6 +68,13 @@ export default async function(req) {
         return Response.json({ success: false, error: 'PREVIEW_VERSION_STALE', preview: analyzed.result }, { status: 409 });
       }
 
+      const decision = analyzed.result.sleeping_decision;
+      if (decision?.required && typeof actions.extend_sleeping !== 'boolean') {
+        return Response.json({ success: false, error: 'SLEEPING_DECISION_REQUIRED', message: 'יש לבחור האם לשמור את אותו שיבוץ הלינה בתאריכים החדשים', preview: analyzed.result }, { status: 409 });
+      }
+      if (actions.extend_sleeping === true && decision?.blocked?.length) {
+        return Response.json({ success: false, error: 'SLEEPING_TENT_CONFLICT', message: `אוהלים תפוסים בתאריכים החדשים: ${decision.blocked.map(b => b.tent_code || b.message).join(', ')}`, preview: analyzed.result }, { status: 409 });
+      }
       plan = withSleepingReconciliation(analyzed.plan, analyzed.result, actions);
       const planUri = await storePlan(base44, plan, request_id);
       change = await db.OperationalStayChange.create({
@@ -80,7 +87,7 @@ export default async function(req) {
     }
 
     const result = await executeStayChange(base44, change, plan, actions, user.email);
-    return Response.json(result, { status: result.success ? 200 : 409 });
+    return Response.json(result, { status: result.success || result.applied ? 200 : 409 });
   } catch (error) {
     return Response.json({ success: false, error: 'APPLY_FAILED', message: error.message }, { status: 500 });
   }
