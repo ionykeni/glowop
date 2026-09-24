@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Users, ChevronLeft, CheckCircle2, Clock, UtensilsCrossed, CalendarDays, StickyNote } from "lucide-react";
 
-export default function DashboardGroupCard({ group, profile, mealsToday = 0, activitiesToday = 0, mode, sleepingPending = false }) {
+export default function DashboardGroupCard({ group, profile, mealsToday = 0, activitiesToday = 0, mode, sleepingPending = false, stayPeriod = null }) {
   // mode: "arriving" | "sleeping" | "departing" | "dayuse"
   const isDayUse = group.group_type === "DAY_USE" || mode === "dayuse";
   const hasDepartureLunch = profile && mode === "departing" &&
@@ -23,10 +23,10 @@ export default function DashboardGroupCard({ group, profile, mealsToday = 0, act
         </div>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-          {mode === "arriving" && <span>הגעה: {group.arrival_date}</span>}
-          {mode === "departing" && <span>עזיבה: {group.departure_date}</span>}
+          {mode === "arriving" && <span>הגעה: {stayPeriod?.start_date || group.arrival_date}</span>}
+          {mode === "departing" && <span>עזיבה: {stayPeriod?.end_date || group.departure_date}</span>}
           {mode === "sleeping" && (
-            <span>{group.arrival_date} — {group.departure_date}</span>
+            <span>{stayPeriod?.start_date || group.arrival_date} — {stayPeriod?.end_date || group.departure_date}</span>
           )}
 
           {mode === "sleeping" && mealsToday > 0 && (

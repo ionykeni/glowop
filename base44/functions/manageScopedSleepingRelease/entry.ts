@@ -6,7 +6,7 @@ import { syncSleepingNeighborhoods } from '../../shared/sleepingNeighborhoodSync
 import { planScopedAutoSleeping, planContinuousAutoSleeping } from '../../shared/scopedAutoSleeping.js';
 import { planReturnToPreviousSleeping } from '../../shared/returnToPreviousSleeping.js';
 import { validateLinkedSeriesCompleteness } from '../../shared/logicalSleepingSeries.js';
-// Scoped auto preview and commit share a fresh global read and continuity-aware planner.
+// Scoped preview and commit revalidate global rows and the historical source on every request.
 
 export default async function(req) {
   let writes;

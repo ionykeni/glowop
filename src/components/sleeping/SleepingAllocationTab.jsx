@@ -530,9 +530,9 @@ export default function SleepingAllocationTab({ groupId }) {
         </div>
       )}
 
-      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={invalidate} />}
+      {seriesValidation.status === 'MISSING_COVERAGE' && missingPeriods.length > 0 && <PendingSleepingDecision groupId={groupId} periods={missingPeriods} selectedPeriod={selectedPeriod} onSelect={setSelectedPeriodId} onSaved={async () => { setSelectedPeriodId(null); await invalidate(); }} />}
 
-      <SleepingRequirementsSummary
+       <SleepingRequirementsSummary
         profile={{ ...profile, arrival_date: arrivalDate, departure_date: departureDate }}
         allocations={isPeriodView ? displayedAllocations : isMultiPeriod ? actionableSleepingRows(myAllocations) : myAllocations}
         nhoodReservations={visibleNhoodReservations}
@@ -862,20 +862,20 @@ export default function SleepingAllocationTab({ groupId }) {
         if (confirmedAllocs.length > 0 && draftAllocs.length === 0) {
           return (
             <div className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
-              isPartialAlloc
+              isPartialAlloc || seriesValidation.status === 'MISSING_COVERAGE'
                 ? "bg-amber-50 border border-amber-300"
                 : "bg-emerald-50 border border-emerald-300"
             }`}>
-              {isPartialAlloc ? (
+              {isPartialAlloc || seriesValidation.status === 'MISSING_COVERAGE' ? (
                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
               ) : (
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               )}
               <div className="flex-1">
-                <p className={`text-sm font-semibold ${isPartialAlloc ? "text-amber-800" : "text-emerald-800"}`}>
-                  {isPartialAlloc ? "שיבוץ חלקי — מאושר" : "שיבוץ לפי אוהלים — מאושר"}
+                <p className={`text-sm font-semibold ${isPartialAlloc || seriesValidation.status === 'MISSING_COVERAGE' ? "text-amber-800" : "text-emerald-800"}`}>
+                  {seriesValidation.status === 'MISSING_COVERAGE' ? 'לינה ממתינה לשיבוץ' : isPartialAlloc ? "שיבוץ חלקי — מאושר" : "שיבוץ לפי אוהלים — מאושר"}
                 </p>
-                <p className={`text-xs ${isPartialAlloc ? "text-amber-700" : "text-emerald-600"}`}>
+                <p className={`text-xs ${isPartialAlloc || seriesValidation.status === 'MISSING_COVERAGE' ? "text-amber-700" : "text-emerald-600"}`}>
                   {totalAssigned} משתתפים · {tentCount} אוהלים{isMultiPeriod ? ` · ${physicalConfirmedAllocs.length} שורות תקופתיות מאושרות` : ` · ${confirmedAllocs.length} שורות מאושרות`}
                 </p>
                 {isPartialAlloc && (

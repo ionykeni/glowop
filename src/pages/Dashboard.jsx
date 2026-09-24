@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { format, addDays } from "date-fns";
 import { he } from "date-fns/locale";
@@ -101,6 +101,7 @@ function PaxDebugPanel({ activeGroups, profileByGroupId }) {
 }
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [activeFilter, setActiveFilter] = useState(null);
   const [alertNow, setAlertNow] = useState(() => new Date());
@@ -143,6 +144,7 @@ export default function Dashboard() {
   const groups = snapshotData?.groups ?? liveGroups;
 
   const { periodsByGroupId: livePeriodsByGroupId } = useGroupStayPeriods(groups);
+  useEffect(() => base44.entities.GroupStayPeriod.subscribe(() => queryClient.invalidateQueries({ queryKey: ['groupStayPeriods', 'active'] })), [queryClient]);
   const periodsByGroupId = useMemo(() => {
     if (!snapshotData) return livePeriodsByGroupId;
     const index = {};
@@ -519,6 +521,7 @@ export default function Dashboard() {
                   profile={profileByGroupId[g.id]}
                   mode="arriving"
                   sleepingPending={pendingSleepingIds.has(g.id)}
+                  stayPeriod={g.stay_mode === 'MULTI_PERIOD' ? (periodsByGroupId[g.id] || []).find(p => p.status === 'ACTIVE' && p.start_date === selectedDate) : null}
                   />
               ))}
             </div>
@@ -538,6 +541,7 @@ export default function Dashboard() {
                   activitiesToday={activitiesByGroup[g.id] || 0}
                   mode="sleeping"
                   sleepingPending={pendingSleepingIds.has(g.id)}
+                  stayPeriod={g.stay_mode === 'MULTI_PERIOD' ? (periodsByGroupId[g.id] || []).find(p => p.status === 'ACTIVE' && p.start_date <= selectedDate && selectedDate < p.end_date) : null}
                   />
               ))}
             </div>

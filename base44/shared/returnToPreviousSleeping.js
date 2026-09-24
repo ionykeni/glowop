@@ -9,11 +9,12 @@ export function planReturnToPreviousSleeping(ctx, periodId) {
   const index = periods.findIndex(p => p.id === periodId);
   if (index < 1 || periods[index].end_date <= today) throw new Error('אין תקופה נוכחית/עתידית עם תקופה קודמת');
   const period = periods[index], previous = periods[index - 1];
+  if (previous.end_date > today) throw new Error('אין עדיין תקופת שהייה קודמת שהסתיימה');
   // Sample the last actual sleeping night, not the group's current allocation or cancelled attempts.
   const lastNight = new Date(`${previous.end_date}T12:00:00Z`);
   lastNight.setUTCDate(lastNight.getUTCDate() - 1);
   const date = lastNight.toISOString().slice(0, 10);
-  const snapshot = rows.filter(r => r.group_id === group.id && r.stay_period_id === previous.id && r.status === 'CONFIRMED' && (r.segment_start_date || r.arrival_date) <= date && date < (r.segment_end_date || r.departure_date));
+  const snapshot = rows.filter(r => r.group_id === group.id && r.stay_period_id === previous.id && r.status === 'CONFIRMED' && String(r.created_date || '').slice(0,10) <= date && (r.segment_start_date || r.arrival_date) <= date && date < (r.segment_end_date || r.departure_date));
   if (!snapshot.length || new Set(snapshot.map(r => r.tent_id)).size !== snapshot.length || snapshot.some(r => !r.tent_id || !Number.isFinite(Number(r.allocated_pax)) || Number(r.allocated_pax) < 1)) throw new Error('לא נמצא שיבוץ היסטורי מאושר ותקין בתקופה הקודמת');
   const missing = missingSleepingNights(period, rows.filter(r => r.group_id === group.id), profile, today);
   if (!missing.length) throw new Error('אין לילות חסרים לשיבוץ בתקופה שנבחרה');
@@ -28,7 +29,8 @@ export function planReturnToPreviousSleeping(ctx, periodId) {
   const blocked = creates.flatMap(r => {
     const tent = tents.find(t => t.id === r.tent_id);
     const capacity = tent?.tent_type === 'VIP' || tent?.is_accessible ? Math.max(Number(tent?.capacity || 0), 4) : Number(tent?.capacity || 0);
-    const unavailable = !tent || tent.working_status !== 'WORKING' || tent.neighborhood_id !== r.neighborhood_id || r.allocated_pax > capacity;
+    const vip = /__vip_req_\d+__/i.test(r.notes);
+    const unavailable = !tent || tent.working_status !== 'WORKING' || tent.neighborhood_id !== r.neighborhood_id || r.allocated_pax > capacity || (vip && tent.tent_type !== 'VIP') || (r.allocation_type === 'STUDENT' && tent.tent_type === 'VIP');
     const conflict = rows.some(other => liveSleeping(other) && other.tent_id === r.tent_id && overlapSleeping(r, other));
     return unavailable || conflict ? [r.tent_code || r.tent_id] : [];
   });

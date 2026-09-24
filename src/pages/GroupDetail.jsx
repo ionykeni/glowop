@@ -354,7 +354,7 @@ export default function GroupDetail() {
       </div>
 
       {/* Non-commercial modals */}
-      <ActiveStayPeriodsDialog open={editActivePeriods} groupId={id} onClose={() => setEditActivePeriods(false)} onApplied={() => { refetch(); queryClient.invalidateQueries({ queryKey: ["groupStayPeriods", id] }); queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] }); queryClient.invalidateQueries({ queryKey: ["mealReservations"] }); }} />
+      <ActiveStayPeriodsDialog open={editActivePeriods} groupId={id} onClose={() => setEditActivePeriods(false)} onApplied={() => { refetch(); queryClient.invalidateQueries({ queryKey: ["groupStayPeriods"] }); queryClient.invalidateQueries({ queryKey: ["groups"] }); queryClient.invalidateQueries({ queryKey: ["sleepingSeriesValidation", id] }); queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] }); queryClient.invalidateQueries({ queryKey: ["mealReservations"] }); }} />
       {editGroup && <GroupFormModal group={group} initialProfileDiets={operationalProfile?.special_diets || null} onClose={() => setEditGroup(false)} onSaved={() => { refetch(); setEditGroup(false); }} />}
       {reviewSubmission && !showSubmissionForm && (
         <SubmissionReviewModal

@@ -12,6 +12,8 @@ import OperationalMonthlyGroupCalendar from "@/components/calendar/OperationalMo
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
+import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
+import { pendingSleepingForDate } from "@/lib/pendingSleepingForDate";
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -99,7 +101,8 @@ function VipTentGrid({ vipRows }) {
   );
 }
 
-function AllocationStatusBadge({ allocations, profile }) {
+function AllocationStatusBadge({ allocations, profile, pendingCoverage }) {
+  if (pendingCoverage) return <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5"><Clock className="w-3 h-3" /> לינה ממתינה לשיבוץ</span>;
   const active = allocations.filter(a => a.status !== "CANCELLED");
   const confirmed = active.filter(a => a.status === "CONFIRMED");
   const drafts = active.filter(a => a.status === "DRAFT");
@@ -148,7 +151,7 @@ function AllocationStatusBadge({ allocations, profile }) {
   );
 }
 
-function GroupAllocationCard({ profile, group, allocations }) {
+function GroupAllocationCard({ profile, group, allocations, pendingCoverage }) {
   const [open, setOpen] = useState(false);
 
   const boysDist = parseDist(profile.boys_tent_distribution_json);
@@ -166,7 +169,7 @@ function GroupAllocationCard({ profile, group, allocations }) {
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">{group.group_name}</span>
-              <AllocationStatusBadge allocations={allocations} profile={profile} />
+              <AllocationStatusBadge allocations={allocations} profile={profile} pendingCoverage={pendingCoverage} />
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               <span>{group.arrival_date} — {group.departure_date}</span>
@@ -243,6 +246,7 @@ export default function Allocation() {
     select: items => items.filter(isGroupOperationallyEnabled),
   });
 
+  const { periodsByGroupId } = useGroupStayPeriods(groups);
   const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
     queryKey: ["operationalProfiles"],
     queryFn: () => base44.entities.OperationalGroupProfile.list("-accepted_at", 300),
@@ -263,6 +267,8 @@ export default function Allocation() {
     if (!allocationsByGroupId[a.group_id]) allocationsByGroupId[a.group_id] = [];
     allocationsByGroupId[a.group_id].push(a);
   });
+
+  const pendingCoverage = (g, p) => g.stay_mode === 'MULTI_PERIOD' && (periodsByGroupId[g.id] || []).some(period => period.end_date > TODAY && pendingSleepingForDate(g, p, periodsByGroupId[g.id], allocations, period.start_date < TODAY ? TODAY : period.start_date));
 
   // Ready for allocation:
   // - has OperationalGroupProfile
@@ -289,10 +295,11 @@ export default function Allocation() {
 
   // Helper: get allocation status key for a profile
   const getAllocStatus = (p) => {
+    if (pendingCoverage(groupById[p.group_id], p)) return 'pending';
     const allocs = allocationsByGroupId[p.group_id] || [];
     const active = allocs.filter(a => a.status !== "CANCELLED");
     const confirmed = active.filter(a => a.status === "CONFIRMED");
-    if (confirmed.length > 0 && active.length === confirmed.length) return "allocated";
+    if (confirmed.length > 0 && active.length === confirmed.length && !pendingCoverage(groupById[p.group_id], p)) return "allocated";
     if (active.length > 0) return "partial";
     return "pending";
   };
@@ -315,7 +322,7 @@ export default function Allocation() {
       }
       return true;
     });
-  }, [sorted, searchQuery, filterStart, filterEnd, groupById, statusFilter, allocationsByGroupId]);
+  }, [sorted, searchQuery, filterStart, filterEnd, groupById, statusFilter, allocationsByGroupId, periodsByGroupId]);
 
   // Stats
   const totalReady = sorted.length;
@@ -323,7 +330,7 @@ export default function Allocation() {
     const allocs = allocationsByGroupId[p.group_id] || [];
     const active = allocs.filter(a => a.status !== "CANCELLED");
     const confirmed = active.filter(a => a.status === "CONFIRMED");
-    return confirmed.length > 0 && active.length === confirmed.length;
+    return confirmed.length > 0 && active.length === confirmed.length && !pendingCoverage(groupById[p.group_id], p);
   }).length;
   const pendingCount = totalReady - fullyAllocated;
 
@@ -498,7 +505,8 @@ export default function Allocation() {
                     profile={profile}
                     group={group}
                     allocations={allocationsByGroupId[group.id] || []}
-                  />
+                    pendingCoverage={pendingCoverage(group, profile)}
+                    />
                 );
               })}
             </div>
