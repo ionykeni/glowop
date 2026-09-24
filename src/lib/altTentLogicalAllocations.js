@@ -1,4 +1,4 @@
-import { groupLogicalSleepingAssignments } from "../../base44/shared/logicalSleepingSeries.js";
+import { groupLogicalSleepingAssignments } from "@/components/sleeping/logicalSleepingView";
 
 export const ALT_TENT_MARKER = "__alt_tent__";
 

@@ -8,7 +8,7 @@
  * tent capacity, distribution JSON plans, or UI card display.
  */
 
-import { groupLogicalSleepingAssignments } from "../../base44/shared/logicalSleepingSeries.js";
+import { groupLogicalSleepingAssignments } from "@/components/sleeping/logicalSleepingView";
 import { getVipRequirementReadModel } from "@/lib/vipLogicalAllocations";
 
 const ALT_TENT_MARKER = "__alt_tent__";
