@@ -63,7 +63,7 @@ export default function DashboardGroupCard({ group, profile, mealsToday = 0, act
           </div>
         )}
 
-        {sleepingPending && <span className="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">לינה ממתינה לשיבוץ</span>}
+        {sleepingPending && <span className="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">לא שובצה לינה להיום</span>}
 
         {internalNotes && (
           <div className="flex items-start gap-1 mt-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">

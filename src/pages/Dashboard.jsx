@@ -19,7 +19,7 @@ import { useRoleContext } from "@/lib/RoleContext";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 import { isGroupArrivalOnDate, isGroupDepartureOnDate, isGroupOnDashboardDate, isGroupSleepingNightOnDate } from "@/lib/groupDateReaders";
 import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
-import { pendingSleepingForDate } from "@/lib/pendingSleepingForDate";
+import { hasNoSleepingTonight } from "@/lib/pendingSleepingForDate";
 import YesterdaySnapshotWarning from "@/components/dashboard/YesterdaySnapshotWarning";
 import StaffNotesSection from "@/components/dashboard/StaffNotesSection";
 import DashboardOperationsShifts from "@/components/dashboard/DashboardOperationsShifts";
@@ -233,7 +233,11 @@ export default function Dashboard() {
   const spaceById = useMemo(() => Object.fromEntries(activitySpaces.map(s => [s.id, s])), [activitySpaces]);
   const operationalAllocations = useMemo(() => allocations.filter(a => groupById[a.group_id]), [allocations, groupById]);
   const allocatedGroupIds = useMemo(() => new Set(operationalAllocations.map(a => a.group_id)), [operationalAllocations]);
-  const pendingSleepingIds = useMemo(() => new Set(groups.filter(g => !['CANCELLED','COMPLETED','ARCHIVED'].includes(g.status) && isGroupOnDashboardDate(g, selectedDate, periodsByGroupId[g.id] || []) && pendingSleepingForDate(g, profileByGroupId[g.id], periodsByGroupId[g.id] || [], operationalAllocations, selectedDate)).map(g => g.id)), [groups, selectedDate, periodsByGroupId, profileByGroupId, operationalAllocations]);
+  // Live TODAY only: sleeps tonight per stay periods, and zero confirmed allocations cover tonight.
+  const pendingSleepingIds = useMemo(() => {
+    if (selectedDate !== TODAY || snapshotData) return new Set();
+    return new Set(groups.filter(g => !['CANCELLED','COMPLETED','ARCHIVED'].includes(g.status) && isGroupSleepingNightOnDate(g, selectedDate, periodsByGroupId[g.id] || []) && hasNoSleepingTonight(g, profileByGroupId[g.id], operationalAllocations, selectedDate)).map(g => g.id));
+  }, [groups, selectedDate, snapshotData, periodsByGroupId, profileByGroupId, operationalAllocations]);
 
   // ── Date-filtered data ─────────────────────────────────────────────────
   const EXCLUDED = new Set(["CANCELLED", "COMPLETED", "ARCHIVED"]);

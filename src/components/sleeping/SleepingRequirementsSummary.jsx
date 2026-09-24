@@ -30,10 +30,15 @@ const Counter = ({ label, required, allocated }) => {
   );
 };
 
-export default function SleepingRequirementsSummary({ profile, allocations, nhoodReservations = [], neighborhoods = [] }) {
+const fmtNight = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+export default function SleepingRequirementsSummary({ profile, allocations, nhoodReservations = [], neighborhoods = [], missingNights = [] }) {
   if (!profile) return null;
 
-  const counts = computeAllocationCounts(allocations, profile);
+  const paxCounts = computeAllocationCounts(allocations, profile);
+  // "Complete" also requires every remaining night of the selected period to be covered.
+  const nightsMissing = paxCounts.isComplete && missingNights.length > 0;
+  const counts = { ...paxCounts, isComplete: paxCounts.isComplete && !nightsMissing };
 
   const hasStudents = counts.studentRequired > 0;
   const hasStaff    = counts.staffRequired > 0;
@@ -63,8 +68,9 @@ export default function SleepingRequirementsSummary({ profile, allocations, nhoo
     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-800">דרישות מול שיבוץ</h3>
-        {hasAny && <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${overAllocated ? "bg-amber-50 text-amber-700" : counts.isComplete ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{overAllocated ? "חריגה בשיבוץ" : counts.isComplete ? "השיבוץ הושלם" : counts.totalAllocated > 0 ? "שיבוץ חלקי" : "ממתין לשיבוץ"}</span>}
+        {hasAny && <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${overAllocated ? "bg-amber-50 text-amber-700" : counts.isComplete ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{overAllocated ? "חריגה בשיבוץ" : counts.isComplete ? "השיבוץ הושלם" : nightsMissing ? "חסר שיבוץ ללילות" : counts.totalAllocated > 0 ? "שיבוץ חלקי" : "ממתין לשיבוץ"}</span>}
       </div>
+      {nightsMissing && <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">לילות ללא שיבוץ מלא בתקופה זו: <span dir="ltr">{missingNights.map(fmtNight).join(", ")}</span></div>}
 
       {/* ── Overall status banner ─────────────────────────────────────────── */}
       {hasAny && (
