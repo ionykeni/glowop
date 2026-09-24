@@ -15,7 +15,7 @@ import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
 import { pendingSleepingForDate } from "@/lib/pendingSleepingForDate";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
 
 function parseDist(json) {
   if (!json) return [];

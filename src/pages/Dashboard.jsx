@@ -25,7 +25,7 @@ import StaffNotesSection from "@/components/dashboard/StaffNotesSection";
 import DashboardOperationsShifts from "@/components/dashboard/DashboardOperationsShifts";
 
 const toDateStr = (date) => format(date, "yyyy-MM-dd");
-const TODAY = toDateStr(new Date());
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
 const SNAPSHOT_CHUNK_FIELDS = [
   "snapshot_json", "snapshot_json_part_2", "snapshot_json_part_3", "snapshot_json_part_4",
   "snapshot_json_part_5", "snapshot_json_part_6", "snapshot_json_part_7", "snapshot_json_part_8",
@@ -292,7 +292,7 @@ export default function Dashboard() {
     return [...groupActivities, ...standalone];
   }, [activities, standaloneActivities, standaloneAssignments, groupById, spaceById, selectedDate]);
 
-  const realToday = toDateStr(alertNow);
+  const realToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(alertNow);
   const viewingToday = selectedDate === realToday;
   const spaceBlockAlertReference = viewingToday ? alertNow : new Date(`${selectedDate}T00:00:00`);
   const spaceBlockAlertEndDateTime = addDays(spaceBlockAlertReference, 14);
