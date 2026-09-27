@@ -8,12 +8,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { validateDatedOperationalDate } from '../../shared/datedOperationalPeriodValidation.js';
 
-const MEAL_DEFAULTS = {
-  BREAKFAST: { start_time: '08:00', end_time: '10:00' },
-  LUNCH:     { start_time: '12:45', end_time: '14:00' },
-  DINNER:    { start_time: '18:30', end_time: '20:00' },
-  OTHER:     { start_time: '12:00', end_time: '13:00' },
-};
+import { MEAL_DEFAULTS } from '../../shared/mealDefaults.js';
 
 function addMinutes(timeStr, mins) {
   const [h, m] = timeStr.split(':').map(Number);

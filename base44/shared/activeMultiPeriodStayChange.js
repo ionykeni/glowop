@@ -11,6 +11,7 @@ import { isGroupOperationallyEnabled } from './groupOperationalIsolation.js';
 import { fingerprint, periodShape, readAll, todayIL } from './stayReconciliationCore.js';
 import { planStaySleeping } from './staySleepingPlan.js';
 import { serviceImpacts } from './stayServiceImpacts.js';
+import { mealDecisionPlan } from './stayMealDecisions.js';
 import { sleepingCoverage } from './staySleepingCoverage.js';
 import { planSleepingDecision, publicSleepingDecision } from './staleSleepingDates.js';
 
@@ -224,6 +225,8 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
 
   const envelope = deriveStayEnvelope(proposed);
   const impacts = serviceImpacts({ current: currentPeriods, proposed, meals, scheduleItems, coffeeRequests, prisaRequests, today });
+  const allGroupMeals = await readAll(db.MealReservation, { group_id: groupId });
+  const { pattern: _mealPattern, ...mealDecision } = mealDecisionPlan({ current: currentPeriods, proposed, meals: allGroupMeals, today });
   impacts.push(...neighborhoodConflicts);
   capacityNights.filter(n => n.blocked).forEach(n => impacts.push({ module: 'CAPACITY', impact_type: 'EXCEEDED', date: n.night, summary: `חריגה מקיבולת האתר: ${n.total} מתוך ${n.capacity} מקומות`, metadata: n }));
   const uniqueImpacts = [...new Map(impacts.map(item => [`${item.module}:${item.impact_type}:${item.date}:${item.metadata?.record_id || item.metadata?.neighborhood_id || ''}`, item])).entries()].map(([key,item]) => ({ ...item, key }));
@@ -247,6 +250,7 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
     neighborhood_impact: { rows_to_update: reservationUpdates.length, rows_to_create: reservationCreates.length, rows_to_cancel: reservationCancels.length, conflicts: neighborhoodConflicts },
     capacity_impact: { configured_capacity: maxSleepingPax, added_nights: capacityNights },
     meal_impact: { cancellations: mealCancellations.map(meal => ({ id: meal.id, date: meal.date, meal_type: meal.meal_type })), newly_eligible_dates: newlyEligibleDates, automatic_creation: false, cancellation_mode: 'STATUS_CANCELLED' },
+    meal_decision: mealDecision,
     housekeeping_impact: { new_preparation_dates: difference(proposedArrivals, currentArrivals), removed_preparation_dates: difference(currentArrivals, proposedArrivals), new_cleaning_dates: difference(proposedCheckouts, currentCheckouts), removed_cleaning_dates: difference(currentCheckouts, proposedCheckouts) },
     movement_impact: { added_check_ins: difference(proposedArrivals, currentArrivals), removed_check_ins: difference(currentArrivals, proposedArrivals), added_check_outs: difference(proposedCheckouts, currentCheckouts), removed_check_outs: difference(currentCheckouts, proposedCheckouts) },
     other_dated_children_impact: { activities: activityWarnings, coffee_corner_requests: coffeeWarnings, prisa_requests: prisaWarnings, action: 'WARNING_ONLY' },

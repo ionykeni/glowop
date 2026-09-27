@@ -1,7 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { analyzeActiveMultiPeriodStayChange, authorizeActiveStayAdmin } from '../../shared/activeMultiPeriodStayChange.js';
 import { todayIL } from '../../shared/stayReconciliationCore.js';
-// Read-only. Result includes sleeping_decision (keep same sleeping on proposed dates).
+// Read-only. Result includes sleeping_decision (keep same sleeping on proposed dates)
+// and meal_decision (automatic outside-stay cancellations + required per-date meal choices).
 
 function startedPeriodBlockers(currentPeriods, proposedPeriods, today) {
   const proposedById = new Map(proposedPeriods.filter(period => period.id).map(period => [period.id, period]));

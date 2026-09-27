@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { analyzeActiveMultiPeriodStayChange, authorizeActiveStayAdmin } from '../../shared/activeMultiPeriodStayChange.js';
 import { executeStayChange } from '../../shared/stayChangeExecution.js';
 
+// Meals: actions.meals.decisions = [{ date, meal_types }] required for every fresh meal_decision date.
 async function storePlan(base44, plan, requestId) {
   const file = new File(
     [JSON.stringify(plan)],
@@ -74,6 +75,12 @@ export default async function(req) {
       }
       if (actions.extend_sleeping === true && decision?.blocked?.length) {
         return Response.json({ success: false, error: 'SLEEPING_TENT_CONFLICT', message: `אוהלים תפוסים בתאריכים החדשים: ${decision.blocked.map(b => b.tent_code || b.message).join(', ')}`, preview: analyzed.result }, { status: 409 });
+      }
+      const decidedMealDates = new Set((Array.isArray(actions.meals?.decisions) ? actions.meals.decisions : [])
+        .filter(d => d && Array.isArray(d.meal_types)).map(d => d.date));
+      const missingMealDates = (analyzed.result.meal_decision?.dates || []).filter(d => !decidedMealDates.has(d.date)).map(d => d.date);
+      if (missingMealDates.length) {
+        return Response.json({ success: false, error: 'MEAL_DECISION_REQUIRED', message: `יש לבחור ארוחות לכל יום שהשתנה: ${missingMealDates.join(', ')}`, preview: analyzed.result }, { status: 409 });
       }
       plan = withSleepingReconciliation(analyzed.plan, analyzed.result, actions);
       const planUri = await storePlan(base44, plan, request_id);

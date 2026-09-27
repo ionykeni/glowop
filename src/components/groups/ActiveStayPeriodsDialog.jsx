@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import ActiveStayPeriodEditor from "@/components/groups/ActiveStayPeriodEditor";
 import ActiveStayChangeSummary from "@/components/groups/ActiveStayChangeSummary";
 import SleepingDecisionPanel from "@/components/groups/SleepingDecisionPanel";
+import MealDecisionPanel from "@/components/groups/MealDecisionPanel";
 import useActiveStayChange from "@/hooks/useActiveStayChange";
 
 export default function ActiveStayPeriodsDialog({ open, groupId, onClose, onApplied }) {
@@ -14,13 +15,14 @@ export default function ActiveStayPeriodsDialog({ open, groupId, onClose, onAppl
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [keepSleeping, setKeepSleeping] = useState(null);
+  const [mealChoices, setMealChoices] = useState({});
   const flow = useActiveStayChange(groupId, data => {
     if (!data.success) toast.error(data.message || "עדכון הלינה לא הושלם");
     onApplied?.(data); onClose();
   });
   useEffect(() => {
     if (!open) return;
-    setLoading(true); setConfirmed(false); setKeepSleeping(null); flow.resetPreview();
+    setLoading(true); setConfirmed(false); setKeepSleeping(null); setMealChoices({}); flow.resetPreview();
     base44.entities.GroupStayPeriod.filter({ group_id: groupId, status: "ACTIVE" }, "start_date", 100).then(rows => {
       const loaded = rows.map(row => ({
         ...row,
@@ -41,9 +43,13 @@ export default function ActiveStayPeriodsDialog({ open, groupId, onClose, onAppl
       flow.previewChange(loaded);
     }).finally(() => setLoading(false));
   }, [open, groupId]);
-  const changePeriods = next => { setPeriods(next); setConfirmed(false); setKeepSleeping(null); flow.resetPreview(); };
+  const changePeriods = next => { setPeriods(next); setConfirmed(false); setKeepSleeping(null); setMealChoices({}); flow.resetPreview(); };
   const decision = flow.preview?.sleeping_decision;
   const needsDecision = decision?.required && keepSleeping === null;
+  const mealDecision = flow.preview?.meal_decision;
+  const mealDates = mealDecision?.dates || [];
+  const needsMeals = mealDates.some(d => !Array.isArray(mealChoices[d.date]));
+  const mealDecisions = mealDates.map(d => ({ date: d.date, meal_types: mealChoices[d.date] }));
   return (
     <Dialog open={open} onOpenChange={value => !value && onClose()}>
       <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -52,8 +58,9 @@ export default function ActiveStayPeriodsDialog({ open, groupId, onClose, onAppl
         {flow.error && <p className="text-sm text-red-600">{flow.error}</p>}
         <ActiveStayChangeSummary preview={flow.preview} />
         {flow.preview?.allowed && <SleepingDecisionPanel decision={decision} value={keepSleeping} onChange={setKeepSleeping} />}
+        {flow.preview?.allowed && <MealDecisionPanel decision={mealDecision} value={mealChoices} onChange={setMealChoices} />}
         {flow.preview?.allowed && <label className="flex items-start gap-2 rounded-lg border border-border p-3 text-sm"><Checkbox checked={confirmed} onCheckedChange={value => setConfirmed(value === true)} /><span>בדקתי את ההשפעות ואני מאשר/ת להחיל את השינוי המבוקר.</span></label>}
-        <div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose} disabled={flow.busy}>ביטול</Button><Button variant="outline" onClick={() => { setKeepSleeping(null); flow.previewChange(periods); }} disabled={flow.busy || loading}>{flow.busy ? "בודק..." : "תצוגה מקדימה"}</Button><Button onClick={() => flow.applyChange(periods, decision?.required ? keepSleeping : null)} disabled={flow.busy || !flow.preview?.allowed || !confirmed || needsDecision}>אישור והחלת השינוי</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose} disabled={flow.busy}>ביטול</Button><Button variant="outline" onClick={() => { setKeepSleeping(null); setMealChoices({}); flow.previewChange(periods); }} disabled={flow.busy || loading}>{flow.busy ? "בודק..." : "תצוגה מקדימה"}</Button><Button onClick={() => flow.applyChange(periods, decision?.required ? keepSleeping : null, mealDecisions)} disabled={flow.busy || !flow.preview?.allowed || !confirmed || needsDecision || needsMeals}>אישור והחלת השינוי</Button></div>
       </DialogContent>
     </Dialog>
   );

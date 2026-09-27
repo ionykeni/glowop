@@ -3,6 +3,7 @@ import { applyTrims, applyKeptSleepingDates, reconcileNeighborhoods } from './st
 import { persistImpact, performItemAction } from './stayReconciliationActions.js';
 import { planSleepingDecision } from './staleSleepingDates.js';
 import { trimPeriodRows } from './staySleepingPlan.js';
+import { applyStayMealDecisions } from './stayMealApply.js';
 const PERIOD_FIELDS = ['start_date','end_date','arrival_time','departure_time','notes','status'];
 const same = (a,b) => PERIOD_FIELDS.every(k => (a?.[k] || '') === (b?.[k] || ''));
 export async function executeStayChange(base44, change, plan, actions, email) {
@@ -87,6 +88,7 @@ export async function executeStayChange(base44, change, plan, actions, email) {
   }
   await attempt(() => applyTrims(db,'NeighborhoodReservation',plan.reservationUpdates,plan.reservationCancels));
   await attempt(() => reconcileNeighborhoods(db,change.group_id,change,email));
+  await attempt(() => applyStayMealDecisions(db,change,plan,actions.meals?.decisions,email));
   for (let i=0;i<plan.impacts.length;i++) {
     const impact = plan.impacts[i]; const action = actions[impact.key];
     if (!action || !impact.action || action !== impact.action) continue;

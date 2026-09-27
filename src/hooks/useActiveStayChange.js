@@ -27,7 +27,8 @@ export default function useActiveStayChange(groupId, onApplied) {
     if (data) setPreview({ ...data, request_id: crypto.randomUUID() });
   };
   // keepSleeping: true (same sleeping on new dates) | false (leave sleeping) | null (no decision needed)
-  const applyChange = async (periods, keepSleeping = null) => {
+  // mealDecisions: [{ date, meal_types: [] | ["BREAKFAST", ...] }] — one per preview.meal_decision.dates
+  const applyChange = async (periods, keepSleeping = null, mealDecisions = []) => {
     if (!preview?.request_id || !preview?.base_version) {
       setError("יש לבצע תצוגה מקדימה חדשה לפני האישור");
       return;
@@ -36,11 +37,16 @@ export default function useActiveStayChange(groupId, onApplied) {
       setError("יש לבחור האם לשמור את אותו שיבוץ הלינה");
       return;
     }
+    const decided = new Set(mealDecisions.filter(d => Array.isArray(d.meal_types)).map(d => d.date));
+    if ((preview.meal_decision?.dates || []).some(d => !decided.has(d.date))) {
+      setError("יש לבחור ארוחות לכל יום שנוסף או השתנה");
+      return;
+    }
     const data = await run("applyActiveMultiPeriodStayChange", periods, {
       confirmed: true,
       request_id: preview.request_id,
       base_version: preview.base_version,
-      actions: typeof keepSleeping === "boolean" ? { extend_sleeping: keepSleeping } : {},
+      actions: { ...(typeof keepSleeping === "boolean" ? { extend_sleeping: keepSleeping } : {}), meals: { decisions: mealDecisions } },
     });
     if (data?.applied) onApplied?.(data);
   };
