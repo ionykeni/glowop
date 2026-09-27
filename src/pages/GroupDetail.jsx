@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import QuoteInternalNotesBox from "@/components/groups/QuoteInternalNotesBox";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, Calendar, Users, Phone, Mail, Pencil, Plus, ClipboardList, Check, Printer, Link2 } from "lucide-react";
 import { format } from "date-fns";
@@ -337,6 +338,7 @@ export default function GroupDetail() {
             <p className="text-sm text-amber-900">{group.internal_notes}</p>
           </section>
         )}
+        <QuoteInternalNotesBox quotes={quotes} profile={operationalProfile} />
 
         {/* Mechina Users — admin only */}
         <RoleGate roles={["SUPER_ADMIN", "ADMIN", "OPERATIONS"]}>
