@@ -28,7 +28,8 @@ export default function useActiveStayChange(groupId, onApplied) {
   };
   // keepSleeping: true (same sleeping on new dates) | false (leave sleeping) | null (no decision needed)
   // mealDecisions: [{ date, meal_types: [] | ["BREAKFAST", ...] }] — one per preview.meal_decision.dates
-  const applyChange = async (periods, keepSleeping = null, mealDecisions = []) => {
+  // prisaDecisions: [{ date, add: false } | { date, add: true, type, quantity, pickup_slot }]
+  const applyChange = async (periods, keepSleeping = null, mealDecisions = [], prisaDecisions = []) => {
     if (!preview?.request_id || !preview?.base_version) {
       setError("יש לבצע תצוגה מקדימה חדשה לפני האישור");
       return;
@@ -46,7 +47,7 @@ export default function useActiveStayChange(groupId, onApplied) {
       confirmed: true,
       request_id: preview.request_id,
       base_version: preview.base_version,
-      actions: { ...(typeof keepSleeping === "boolean" ? { extend_sleeping: keepSleeping } : {}), meals: { decisions: mealDecisions } },
+      actions: { ...(typeof keepSleeping === "boolean" ? { extend_sleeping: keepSleeping } : {}), meals: { decisions: mealDecisions }, prisa: { decisions: prisaDecisions } },
     });
     if (data?.applied) onApplied?.(data);
   };

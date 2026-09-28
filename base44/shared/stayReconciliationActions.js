@@ -22,7 +22,7 @@ export async function performItemAction(db, item, email, action) {
   }
   const periods = await readAll(db.GroupStayPeriod,{group_id:item.group_id,status:'ACTIVE'});
   const meta = item.metadata || {};
-  if (action === 'CANCEL' && meta.action === 'CANCEL' && ['MealReservation','PrisaRequest'].includes(meta.entity)) {
+  if (action === 'CANCEL' && meta.action === 'CANCEL' && ['MealReservation','PrisaRequest','CoffeeCornerRequest'].includes(meta.entity)) {
     const row = await db[meta.entity].get(meta.record_id);
     if (!row || row.group_id !== item.group_id) throw new Error('לא נמצאה הרשומה המקושרת');
     if (row.status === 'CANCELLED') { await resolveItem(db,item,email,'הרשומה כבר בוטלה'); return; }

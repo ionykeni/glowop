@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { analyzeActiveMultiPeriodStayChange, authorizeActiveStayAdmin } from '../../shared/activeMultiPeriodStayChange.js';
 import { executeStayChange } from '../../shared/stayChangeExecution.js';
+import { validPrisaChoice } from '../../shared/stayServiceDecisions.js';
 
 // Meals: actions.meals.decisions = [{ date, meal_types }] required for every fresh meal_decision date.
 async function storePlan(base44, plan, requestId) {
@@ -81,6 +82,11 @@ export default async function(req) {
       const missingMealDates = (analyzed.result.meal_decision?.dates || []).filter(d => !decidedMealDates.has(d.date)).map(d => d.date);
       if (missingMealDates.length) {
         return Response.json({ success: false, error: 'MEAL_DECISION_REQUIRED', message: `יש לבחור ארוחות לכל יום שהשתנה: ${missingMealDates.join(', ')}`, preview: analyzed.result }, { status: 409 });
+      }
+      const decidedPrisa = new Set((Array.isArray(actions.prisa?.decisions) ? actions.prisa.decisions : []).filter(validPrisaChoice).map(d => d.date));
+      const missingPrisa = (analyzed.result.service_decision?.prisa?.added_dates || []).filter(d => !decidedPrisa.has(d.date)).map(d => d.date);
+      if (missingPrisa.length) {
+        return Response.json({ success: false, error: 'PRISA_DECISION_REQUIRED', message: `יש לבחור החלטת פריסה לכל תאריך חדש: ${missingPrisa.join(', ')}`, preview: analyzed.result }, { status: 409 });
       }
       plan = withSleepingReconciliation(analyzed.plan, analyzed.result, actions);
       const planUri = await storePlan(base44, plan, request_id);

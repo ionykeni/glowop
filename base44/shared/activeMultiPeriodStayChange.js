@@ -12,6 +12,7 @@ import { fingerprint, periodShape, readAll, todayIL } from './stayReconciliation
 import { planStaySleeping } from './staySleepingPlan.js';
 import { serviceImpacts } from './stayServiceImpacts.js';
 import { mealDecisionPlan } from './stayMealDecisions.js';
+import { serviceDecisionPlan } from './stayServiceDecisions.js';
 import { sleepingCoverage } from './staySleepingCoverage.js';
 import { planSleepingDecision, publicSleepingDecision } from './staleSleepingDates.js';
 
@@ -220,8 +221,7 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
   const coffeeWarnings = outside(coffeeRequests);
   const prisaWarnings = outside(prisaRequests);
   if (activityWarnings.length) warnings.push({ code: 'ACTIVITIES_IN_PROPOSED_GAP', count: activityWarnings.length });
-  if (coffeeWarnings.length) warnings.push({ code: 'COFFEE_REQUESTS_IN_PROPOSED_GAP', count: coffeeWarnings.length });
-  if (prisaWarnings.length) warnings.push({ code: 'PRISA_REQUESTS_IN_PROPOSED_GAP', count: prisaWarnings.length });
+  const serviceDecision = serviceDecisionPlan({ current: currentPeriods, proposed, coffee: await readAll(db.CoffeeCornerRequest, { group_id: groupId }), prisa: await readAll(db.PrisaRequest, { group_id: groupId }), today });
 
   const envelope = deriveStayEnvelope(proposed);
   const impacts = serviceImpacts({ current: currentPeriods, proposed, meals, scheduleItems, coffeeRequests, prisaRequests, today });
@@ -251,6 +251,7 @@ export async function analyzeActiveMultiPeriodStayChange(base44, groupId, rawPro
     capacity_impact: { configured_capacity: maxSleepingPax, added_nights: capacityNights },
     meal_impact: { cancellations: mealCancellations.map(meal => ({ id: meal.id, date: meal.date, meal_type: meal.meal_type })), newly_eligible_dates: newlyEligibleDates, automatic_creation: false, cancellation_mode: 'STATUS_CANCELLED' },
     meal_decision: mealDecision,
+    service_decision: serviceDecision,
     housekeeping_impact: { new_preparation_dates: difference(proposedArrivals, currentArrivals), removed_preparation_dates: difference(currentArrivals, proposedArrivals), new_cleaning_dates: difference(proposedCheckouts, currentCheckouts), removed_cleaning_dates: difference(currentCheckouts, proposedCheckouts) },
     movement_impact: { added_check_ins: difference(proposedArrivals, currentArrivals), removed_check_ins: difference(currentArrivals, proposedArrivals), added_check_outs: difference(proposedCheckouts, currentCheckouts), removed_check_outs: difference(currentCheckouts, proposedCheckouts) },
     other_dated_children_impact: { activities: activityWarnings, coffee_corner_requests: coffeeWarnings, prisa_requests: prisaWarnings, action: 'WARNING_ONLY' },
