@@ -1,8 +1,15 @@
 import MealDayChoice from "@/components/groups/MealDayChoice";
+import { Button } from "@/components/ui/button";
 
 const fmt = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+const ALL_TYPES = ["BREAKFAST", "LUNCH", "DINNER"];
 const TYPE = { BREAKFAST: "ארוחת בוקר", LUNCH: "ארוחת צהריים", DINNER: "ארוחת ערב", COFFEE_CORNER: "פינת קפה", OTHER: "אחר" };
 const line = m => `${fmt(m.date)} — ${TYPE[m.meal_type] || m.meal_type}${m.start_time ? ` (${m.start_time})` : ""}`;
+
+// A date is eligible for "כל הארוחות" only if none of the three meal types are blocked.
+const allEligible = day => ALL_TYPES.every(type =>
+  !day.needs_review?.includes(type) && !(day.elapsed?.includes(type) && !day.existing_active?.includes(type))
+);
 
 // Meal consequences of a stay change. Cancellations are automatic on confirm; changed dates need explicit choice.
 export default function MealDecisionPanel({ decision, value, onChange }) {
@@ -10,6 +17,15 @@ export default function MealDecisionPanel({ decision, value, onChange }) {
   const preserved = decision?.preserved_today || [];
   const dates = decision?.dates || [];
   if (!cancellations.length && !preserved.length && !dates.length) return null;
+
+  const undecidedEligible = dates.filter(day => !Array.isArray(value[day.date]) && allEligible(day));
+
+  const selectAllForNewDates = () => {
+    const next = { ...value };
+    undecidedEligible.forEach(day => { next[day.date] = [...ALL_TYPES]; });
+    onChange(next);
+  };
+
   return (
     <div className="space-y-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
       <p className="font-semibold">השפעה על ארוחות</p>
@@ -26,6 +42,9 @@ export default function MealDecisionPanel({ decision, value, onChange }) {
         </div>
       )}
       {dates.length > 0 && <p className="text-xs font-semibold">יש לבחור ארוחות לכל יום שנוסף או השתנה (לא ייווצרו ארוחות ללא בחירה):</p>}
+      {undecidedEligible.length >= 2 && (
+        <Button size="sm" variant="outline" onClick={selectAllForNewDates}>בחר כל הארוחות לכל הימים החדשים</Button>
+      )}
       {dates.map(day => (
         <MealDayChoice key={day.date} day={day} value={value[day.date]} onChange={v => onChange({ ...value, [day.date]: v })} />
       ))}

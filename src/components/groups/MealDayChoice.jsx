@@ -1,6 +1,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 
 const OPTIONS = [["BREAKFAST", "ארוחת בוקר"], ["LUNCH", "ארוחת צהריים"], ["DINNER", "ארוחת ערב"]];
+const ALL_TYPES = ["BREAKFAST", "LUNCH", "DINNER"];
 const fmt = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 const title = day => day.is_checkout ? "יום עזיבה — ארוחות ביום העזיבה" : day.is_arrival ? "יום הגעה" : "יום שהייה שנוסף/השתנה";
 
@@ -13,6 +14,15 @@ export default function MealDayChoice({ day, value, onChange }) {
     onChange(next.length ? next : undefined);
   };
   const dropped = Array.isArray(value) ? day.existing_active.filter(t => !value.includes(t)) : [];
+
+  // כל הארוחות: selectable only when all three meal types are individually eligible.
+  // Never silently overrides blocked / manual-review meal types.
+  const blockedTypes = ALL_TYPES.filter(type =>
+    day.needs_review.includes(type) || (day.elapsed.includes(type) && !day.existing_active.includes(type))
+  );
+  const allEligible = blockedTypes.length === 0;
+  const allSelected = ALL_TYPES.every(type => selected.includes(type));
+
   return (
     <div className="space-y-1.5 rounded border border-sky-200 bg-card p-2 text-xs">
       <div className="flex items-center justify-between gap-2">
@@ -32,6 +42,14 @@ export default function MealDayChoice({ day, value, onChange }) {
             </label>
           );
         })}
+        <label className={`flex items-center gap-1.5 ${allEligible ? "" : "opacity-60"}`} title={allEligible ? undefined : "לא ניתן לבחור — חלק מהארוחות חסומות לבדיקה ידנית"}>
+          <Checkbox
+            checked={allSelected}
+            disabled={!allEligible}
+            onCheckedChange={v => onChange(v === true ? [...ALL_TYPES] : undefined)}
+          />
+          <span>כל הארוחות</span>
+        </label>
         <label className="flex items-center gap-1.5">
           <Checkbox checked={none} onCheckedChange={v => onChange(v === true ? [] : undefined)} />
           <span>ללא ארוחות</span>
