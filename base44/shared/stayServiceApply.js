@@ -1,6 +1,6 @@
 import { readAll, todayIL } from './stayReconciliationCore.js';
 import { performItemAction, persistImpact, resolveItem } from './stayReconciliationActions.js';
-import { serviceDecisionPlan, validPrisaChoice } from './stayServiceDecisions.js';
+import { prisaEffectiveQuantity, serviceDecisionPlan, validPrisaChoice } from './stayServiceDecisions.js';
 
 const SUMMARY = { COFFEE: 'פינת קפה מחוץ לתקופת השהייה החדשה', PRISA: 'פריסה מחוץ לתקופת השהייה החדשה' };
 const outsideImpact = (module, entity, r) => ({ key: `${module}:OUTSIDE_STAY:${r.date}:${r.id}`, module, impact_type: 'OUTSIDE_STAY', date: r.date, summary: SUMMARY[module], metadata: { entity, record_id: r.id }, action: 'CANCEL' });
@@ -48,7 +48,7 @@ export async function applyStayServiceDecisions(db, change, plan, decisions, ema
     await db.PrisaRequest.create({
       group_id: change.group_id, operational_group_profile_id: profile.id, date: day.date,
       quantity, type: choice.type, pickup_slot: choice.pickup_slot,
-      effective_quantity: choice.type === 'DOUBLE' ? quantity * 2 : quantity,
+      effective_quantity: prisaEffectiveQuantity(quantity, choice.type),
       notes: `נוסף בעקבות שינוי תקופת שהייה (${change.id})`, source: 'MANUAL', status: 'ACTIVE',
     });
     await resolveItem(db, task, email, 'החלטת מנהל: נוספה פריסה');

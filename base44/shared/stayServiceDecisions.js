@@ -2,7 +2,9 @@ import { getOperationalStayDates, isDateInsideStayPeriods } from './groupStayPer
 import { futureService } from './stayReconciliationActions.js';
 
 // Coffee + Prisa use INCLUSIVE service dates [start_date, end_date] — checkout day is a service day.
-export const PRISA_TYPES = ['REGULAR', 'DOUBLE'];
+export const PRISA_TYPES = ['REGULAR', 'ONE_AND_HALF', 'DOUBLE'];
+const PRISA_MULTIPLIER = { REGULAR: 1, ONE_AND_HALF: 1.5, DOUBLE: 2 };
+export const prisaEffectiveQuantity = (quantity, type) => Number(quantity) * (PRISA_MULTIPLIER[type] ?? 1);
 export const PRISA_SLOTS = ['AFTER_BREAKFAST', 'AFTER_LUNCH', 'AFTER_DINNER'];
 const live = periods => (periods || []).filter(p => p.status !== 'CANCELLED');
 const slimCoffee = r => ({ id: r.id, date: r.date, start_time: r.start_time || null, end_time: r.end_time || null, coffee_corner_type: r.coffee_corner_type || null, location_name_snapshot: r.location_name_snapshot || null, pax: r.pax ?? null });

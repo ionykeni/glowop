@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 
 const fmt = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 export const SLOT = { AFTER_BREAKFAST: "אחרי ארוחת בוקר", AFTER_LUNCH: "אחרי ארוחת צהריים", AFTER_DINNER: "אחרי ארוחת ערב" };
-export const PTYPE = { REGULAR: "רגיל", DOUBLE: "כפול" };
+export const PTYPE = { REGULAR: "רגיל", ONE_AND_HALF: "1.5", DOUBLE: "כפול" };
 const sel = "h-8 rounded-md border border-input bg-card px-2 text-xs";
 
 export default function PrisaDayChoice({ day, template, value, onChange }) {

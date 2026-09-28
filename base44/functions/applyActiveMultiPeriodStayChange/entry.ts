@@ -3,6 +3,7 @@ import { analyzeActiveMultiPeriodStayChange, authorizeActiveStayAdmin } from '..
 import { executeStayChange } from '../../shared/stayChangeExecution.js';
 import { validPrisaChoice } from '../../shared/stayServiceDecisions.js';
 
+// Prisa types: REGULAR | ONE_AND_HALF | DOUBLE.
 // Meals: actions.meals.decisions = [{ date, meal_types }] required for every fresh meal_decision date.
 async function storePlan(base44, plan, requestId) {
   const file = new File(
