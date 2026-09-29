@@ -47,10 +47,10 @@ function SummaryGroup({ color, borderColor, title, children }) {
  * person_type is an operational label only — it does NOT create a separate required bucket.
  * אוהל חילופי pax also counts toward the same staff total.
  */
-export default function PeopleSummaryCard({ profile, vipRows = [], boysDist = [], girlsDist = [], staffAltTentPax, staffAltTentNotes }) {
+export default function PeopleSummaryCard({ profile, vipRows = [], boysDist = [], girlsDist = [], staffAltTentPax, staffAltTentNotes, staffMenCount, staffWomenCount }) {
   const staffTotal = profile.staff_count ?? null;
-  const staffBoys  = profile.staff_men_count   ?? null;
-  const staffGirls = profile.staff_women_count ?? null;
+  const staffBoys  = staffMenCount  != null ? staffMenCount  : (profile.staff_men_count   ?? null);
+  const staffGirls = staffWomenCount != null ? staffWomenCount : (profile.staff_women_count ?? null);
   const staffGenderKnown = staffBoys != null || staffGirls != null;
 
   // ALL vip rows count toward staff total — no distinction by person type

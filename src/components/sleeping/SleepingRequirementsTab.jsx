@@ -7,6 +7,7 @@ import { Save, CheckCircle2, Clock, AlertTriangle, Users, Star, ShieldAlert, Pen
 import GroupFormModal from "@/components/groups/GroupFormModal";
 import { toast } from "sonner";
 import PeopleSummaryCard from "./PeopleSummaryCard";
+import StaffGenderCounter from "./StaffGenderCounter";
 import StudentTentPlanningEditor from "./StudentTentPlanningEditor";
 import VipRequirementsEditor from "./VipRequirementsEditor";
 import RoleGate from "@/components/RoleGate";
@@ -85,6 +86,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
     housekeeping_sleeping_notes: "",
     sleeping_requirements_completed: false,
     staff_alt_tent_notes: "",
+    staff_men_count: null,
+    staff_women_count: null,
   });
 
   const [boysDist,    setBoysDist]  = useState([]);
@@ -107,6 +110,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
       housekeeping_sleeping_notes:  profile.housekeeping_sleeping_notes  ?? "",
       sleeping_requirements_completed: !!profile.sleeping_requirements_completed,
       staff_alt_tent_notes: profile.staff_alt_tent_notes ?? "",
+      staff_men_count:   profile.staff_men_count   ?? null,
+      staff_women_count: profile.staff_women_count ?? null,
     });
     setBoysDist( parseDist(profile.boys_tent_distribution_json));
     setGirlsDist(parseDist(profile.girls_tent_distribution_json));
@@ -174,6 +179,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
         girls_tent_distribution_json: JSON.stringify(girlsDist),
         vip_tent_requirements_json:   JSON.stringify(vipRows),
         staff_alt_tent_pax:           computedAltPax,
+        staff_men_count:              form.staff_men_count,
+        staff_women_count:            form.staff_women_count,
       };
       if (markComplete !== null) payload.sleeping_requirements_completed = markComplete;
 
@@ -297,6 +304,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
         girlsDist={girlsDist}
         staffAltTentPax={liveAltTentPax}
         staffAltTentNotes={form.staff_alt_tent_notes}
+        staffMenCount={form.staff_men_count}
+        staffWomenCount={form.staff_women_count}
       />
 
       {/* Part B+C+D — Students */}
@@ -412,6 +421,13 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
             </div>
           );
         })()}
+        <StaffGenderCounter
+          staffTotal={profile.staff_count ?? null}
+          maleStaff={form.staff_men_count}
+          femaleStaff={form.staff_women_count}
+          onMaleChange={v => set("staff_men_count", v)}
+          onFemaleChange={v => set("staff_women_count", v)}
+        />
         <VipRequirementsEditor
           rows={vipRows}
           onChange={setVipRows}
