@@ -210,7 +210,7 @@ export default function AppNav() {
   // Primary links: main daily-use modules kept in the top bar
   const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
-    .filter(l => PRIMARY_KEYS.includes(l.key) && allowedKeys.includes(l.key))
+    .filter(l => PRIMARY_KEYS.includes(l.key) && (allowedKeys.includes(l.key) || (l.key === "logistics-assistant" && showLogisticsAssistant)))
     .sort((a, b) => role === "QUOTES_MANAGER"
       ? ["dashboard", "groups", "calendar", "quotes"].indexOf(a.key) - ["dashboard", "groups", "calendar", "quotes"].indexOf(b.key)
       : 0);

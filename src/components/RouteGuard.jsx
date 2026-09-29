@@ -5,6 +5,7 @@
 import { useRoleContext } from "@/lib/RoleContext";
 import { useAuth } from "@/lib/AuthContext";
 import { canAccessRoute } from "@/lib/roles";
+import { isLogisticsManager } from "@/lib/logisticsAssistantConfig";
 import { useLocation } from "react-router-dom";
 import { ShieldOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,18 @@ export default function RouteGuard({ children }) {
             נסה שוב
           </Button>
           <p className="text-xs text-muted-foreground font-mono">{user.email}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 3.8 Private logistics assistant — authorization is the exact authenticated email only.
+  if (pathname.startsWith("/logistics-assistant")) {
+    return isLogisticsManager(user.email) ? children : (
+      <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
+        <div className="text-center space-y-3 max-w-sm">
+          <ShieldOff className="w-12 h-12 text-muted-foreground mx-auto" />
+          <h1 className="text-xl font-bold text-foreground">אין הרשאה לצפייה בדף זה</h1>
         </div>
       </div>
     );
