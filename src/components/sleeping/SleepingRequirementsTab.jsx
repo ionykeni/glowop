@@ -7,7 +7,6 @@ import { Save, CheckCircle2, Clock, AlertTriangle, Users, Star, ShieldAlert, Pen
 import GroupFormModal from "@/components/groups/GroupFormModal";
 import { toast } from "sonner";
 import PeopleSummaryCard from "./PeopleSummaryCard";
-import StaffGenderCounter from "./StaffGenderCounter";
 import StudentTentPlanningEditor from "./StudentTentPlanningEditor";
 import VipRequirementsEditor from "./VipRequirementsEditor";
 import RoleGate from "@/components/RoleGate";
@@ -306,6 +305,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
         staffAltTentNotes={form.staff_alt_tent_notes}
         staffMenCount={form.staff_men_count}
         staffWomenCount={form.staff_women_count}
+        onStaffMaleChange={v => set("staff_men_count", v)}
+        onStaffFemaleChange={v => set("staff_women_count", v)}
       />
 
       {/* Part B+C+D — Students */}
@@ -421,13 +422,6 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
             </div>
           );
         })()}
-        <StaffGenderCounter
-          staffTotal={profile.staff_count ?? null}
-          maleStaff={form.staff_men_count}
-          femaleStaff={form.staff_women_count}
-          onMaleChange={v => set("staff_men_count", v)}
-          onFemaleChange={v => set("staff_women_count", v)}
-        />
         <VipRequirementsEditor
           rows={vipRows}
           onChange={setVipRows}

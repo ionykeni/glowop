@@ -1,3 +1,5 @@
+import StaffGenderCounter from "./StaffGenderCounter";
+
 function StatRow({ label, value, sub }) {
   return (
     <div className="flex items-center justify-between py-0.5">
@@ -47,11 +49,8 @@ function SummaryGroup({ color, borderColor, title, children }) {
  * person_type is an operational label only — it does NOT create a separate required bucket.
  * אוהל חילופי pax also counts toward the same staff total.
  */
-export default function PeopleSummaryCard({ profile, vipRows = [], boysDist = [], girlsDist = [], staffAltTentPax, staffAltTentNotes, staffMenCount, staffWomenCount }) {
+export default function PeopleSummaryCard({ profile, vipRows = [], boysDist = [], girlsDist = [], staffAltTentPax, staffAltTentNotes, staffMenCount, staffWomenCount, onStaffMaleChange, onStaffFemaleChange }) {
   const staffTotal = profile.staff_count ?? null;
-  const staffBoys  = staffMenCount  != null ? staffMenCount  : (profile.staff_men_count   ?? null);
-  const staffGirls = staffWomenCount != null ? staffWomenCount : (profile.staff_women_count ?? null);
-  const staffGenderKnown = staffBoys != null || staffGirls != null;
 
   // ALL vip rows count toward staff total — no distinction by person type
   const vipPeopleAssigned = vipRows.reduce((s, r) => s + (Number(r.people_count) || 0), 0);
@@ -137,20 +136,13 @@ export default function PeopleSummaryCard({ profile, vipRows = [], boysDist = []
         {/* Staff / VIP — ALL person types count together toward staff_count */}
         <SummaryGroup color="bg-violet-50" borderColor="border-violet-200" title="צוות / מורים / VIP">
           <StatRow label='סה״כ צוות / מלווים' value={staffTotal} />
-          {staffGenderKnown ? (
-            <div className="flex gap-2 mt-1">
-              <div className="flex-1 bg-emerald-100 border border-emerald-300 rounded-lg px-2 py-1.5 text-center">
-                <p className="text-[10px] text-emerald-700 font-semibold">גברים</p>
-                <p className="text-base font-bold text-emerald-800">{staffBoys ?? "—"}</p>
-              </div>
-              <div className="flex-1 bg-orange-100 border border-orange-300 rounded-lg px-2 py-1.5 text-center">
-                <p className="text-[10px] text-orange-700 font-semibold">נשים</p>
-                <p className="text-base font-bold text-orange-800">{staffGirls ?? "—"}</p>
-              </div>
-            </div>
-          ) : staffTotal != null ? (
-            <p className="text-[11px] text-slate-400 pr-1 mt-1">מגדר לא הוגדר</p>
-          ) : null}
+          <StaffGenderCounter
+            staffTotal={staffTotal}
+            maleStaff={staffMenCount}
+            femaleStaff={staffWomenCount}
+            onMaleChange={onStaffMaleChange}
+            onFemaleChange={onStaffFemaleChange}
+          />
 
           {/* Single countdown: only VIP rows count as "real" allocation */}
           {vipPeopleAssigned > 0 ? (
