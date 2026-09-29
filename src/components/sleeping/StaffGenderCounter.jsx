@@ -21,8 +21,8 @@ export default function StaffGenderCounter({ staffTotal, maleStaff, femaleStaff,
   return (
     <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-violet-700">סה״כ צוות / מלווים</span>
-        <span className="text-sm font-bold text-violet-800">{staffTotal}</span>
+        <span className="text-xs font-semibold text-violet-700">נותרו ללא שיוך</span>
+        <span className={`text-sm font-bold ${overAssigned ? "text-red-600" : "text-violet-800"}`}>{remaining}</span>
       </div>
 
       <CounterRow
@@ -42,11 +42,11 @@ export default function StaffGenderCounter({ staffTotal, maleStaff, femaleStaff,
         labelColor="text-orange-700"
       />
 
-      <div className={`text-xs font-medium pt-1.5 border-t border-violet-200 ${overAssigned ? "text-red-600" : "text-slate-500"}`}>
-        {overAssigned
-          ? "⚠️ יש לעדכן את חלוקת הצוות לפי המגדר"
-          : `נותרו ללא שיוך: ${remaining}`}
-      </div>
+      {overAssigned && (
+        <div className="text-xs font-medium pt-1.5 border-t border-violet-200 text-red-600">
+          ⚠️ יש לעדכן את חלוקת הצוות לפי המגדר
+        </div>
+      )}
     </div>
   );
 }
