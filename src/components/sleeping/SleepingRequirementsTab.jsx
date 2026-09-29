@@ -432,6 +432,8 @@ export default function SleepingRequirementsTab({ groupId, profile, group }) {
           altTentPax={liveAltTentPax}
           altTentNotes={form.staff_alt_tent_notes}
           onAltTentNotesChange={v => set("staff_alt_tent_notes", v)}
+          staffMenCount={form.staff_men_count}
+          staffWomenCount={form.staff_women_count}
         />
         <TextArea
           label="הערות לינה — צוות / VIP"

@@ -97,7 +97,7 @@ function VipSummary({ rows }) {
   );
 }
 
-export default function VipRequirementsEditor({ rows, onChange, staffTotal, driversTotal, altTentPax, altTentNotes, onAltTentNotesChange }) {
+export default function VipRequirementsEditor({ rows, onChange, staffTotal, driversTotal, altTentPax, altTentNotes, onAltTentNotesChange, staffMenCount, staffWomenCount }) {
   const addRow    = () => onChange([...rows, EMPTY_ROW()]);
   const removeRow = (i) => onChange(rows.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) => {
@@ -279,6 +279,14 @@ export default function VipRequirementsEditor({ rows, onChange, staffTotal, driv
                 <div className={`border rounded-lg px-2 py-2 ${calcAltPax > 0 ? "bg-amber-100 border-amber-400" : "bg-emerald-50 border-emerald-300"}`}>
                   <p className="text-[10px] text-slate-500 mb-0.5">נותרו לאוהל חילופי</p>
                   <p className={`text-lg font-bold ${calcAltPax > 0 ? "text-amber-800" : "text-emerald-700"}`}>{calcAltPax}</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-lg px-2 py-2">
+                  <p className="text-[10px] text-slate-500 mb-0.5">גברים</p>
+                  <p className="text-lg font-bold text-emerald-700">{Number(staffMenCount) || 0}</p>
+                </div>
+                <div className="bg-white border border-orange-200 rounded-lg px-2 py-2">
+                  <p className="text-[10px] text-slate-500 mb-0.5">נשים</p>
+                  <p className="text-lg font-bold text-orange-700">{Number(staffWomenCount) || 0}</p>
                 </div>
               </div>
             )}
