@@ -129,6 +129,11 @@
     "participant_count": {
       "type": "number"
     },
+    "vip_people": {
+      "type": "number",
+      "default": 0,
+      "description": "Availability planning only: staff expected to sleep in the real VIP tent pool. Option-owned (option A mirror on Quote). Never affects pricing."
+    },
     "includes_prisa": {
       "type": "boolean",
       "default": false

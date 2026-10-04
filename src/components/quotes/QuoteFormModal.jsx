@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, CalendarDays, Users, Coffee, BookOpen, Mic2, Tag, SlidersHorizontal, ChevronDown, ChevronUp, Package } from "lucide-react";
 import CapacityWarningBanner from "./CapacityWarningBanner";
+import VipPeopleField from "./VipPeopleField";
+import AdultLodgingSection from "./AdultLodgingSection";
 import PackageLinesSection from "./PackageLinesSection";
 import AdjustmentsSection, { calcAdjustmentLine, normalizeAdjustmentRow } from "./AdjustmentsSection";
 import { useRoleContext } from "@/lib/RoleContext";
-import { calcAdultLodgingLine, calcStudentLodgingLine, getQuoteNights, priceQuoteParts, repriceOptionPayload } from "@/lib/quotePricing";
+import { calcStudentLodgingLine, getQuoteNights, priceQuoteParts, repriceOptionPayload } from "@/lib/quotePricing";
 import { isQuotePreparationEnabled } from "@/lib/quotePreparationFlow";
 import { getEffectiveQuoteGroupName } from "@/lib/quoteAudience";
 import { isQuoteMultiOptionEnabled } from "@/lib/quoteMultiOption";
@@ -29,10 +31,6 @@ const STUDENT_LODGING_RATES = {
   day_activity:    { label: "יום פעילות",       rate: 125 },
   midweek_lodging: { label: "לינה אמצע שבוע",   rate: 190 },
   weekend_lodging: { label: "לינה סוף שבוע",     rate: 250 },
-};
-const ADULT_TENT_RATES = {
-  BED3:  { label: "אוהל 3 מיטות",   rate: 340, capacity: 3 },
-  BED68: { label: "אוהל 6/8 מיטות", rate: 250, capacity: 6 },
 };
 const WORKSHOP_CATALOG = [
   { name: "ענייני פנים ענייני חוץ", students: 750, adults: 1500 },
@@ -153,73 +151,6 @@ function StudentLodgingSection({ lines, setLines, suggestedRateType, groupType, 
         );
       })}
       <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1.5 text-xs h-7 border-dashed">
-        <Plus className="w-3 h-3" /> הוסף שורה
-      </Button>
-    </div>
-  );
-}
-
-function AdultLodgingSection({ lines, setLines, defaultNights, adultsCount }) {
-  const update = (idx, field, val) => setLines(prev => prev.map((r, i) => i !== idx ? r : { ...r, [field]: val }));
-  const allocatedBeds = lines.reduce((sum, r) => {
-    const cap = r.tent_type === "BED68" ? (r.actual_beds || 6) : (ADULT_TENT_RATES[r.tent_type]?.capacity ?? 0);
-    return sum + (Number(r.tent_count) * cap);
-  }, 0);
-  const remaining = adultsCount - allocatedBeds;
-  return (
-    <div className="space-y-2">
-      {adultsCount > 0 && (
-        <div className={`text-xs px-3 py-1.5 rounded-lg font-medium inline-flex ${
-          remaining > 0 ? "bg-amber-50 text-amber-700 border border-amber-200" :
-          remaining === 0 ? "bg-green-50 text-green-700 border border-green-200" :
-          "bg-blue-50 text-blue-600 border border-blue-200"
-        }`}>
-          {remaining > 0 ? `חסרות ${remaining} מקומות` : remaining === 0 ? `✓ כל ${adultsCount} מקומות מכוסות` : `עודף ${Math.abs(remaining)} מקומות`}
-        </div>
-      )}
-      {lines.map((r, idx) => (
-        <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-slate-50 rounded-xl p-2.5">
-          <div className="col-span-4 space-y-0.5">
-            <FieldLabel>סוג אוהל</FieldLabel>
-            <Select value={r.tent_type} onValueChange={v => update(idx, "tent_type", v)}>
-              <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(ADULT_TENT_RATES).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v.label} — ₪{v.rate}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-2 space-y-0.5">
-            <FieldLabel>אוהלים</FieldLabel>
-            <Input className="h-8 text-xs bg-white" type="number" min="0" value={r.tent_count} onChange={e => update(idx, "tent_count", e.target.value)} />
-          </div>
-          {r.tent_type === "BED68" && (
-            <div className="col-span-2 space-y-0.5">
-              <FieldLabel>מיטות</FieldLabel>
-              <Select value={String(r.actual_beds || 6)} onValueChange={v => update(idx, "actual_beds", Number(v))}>
-                <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="6">6 מיטות</SelectItem>
-                  <SelectItem value="8">8 מיטות</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="col-span-2 space-y-0.5">
-            <FieldLabel>לילות</FieldLabel>
-            <div className="h-8 flex items-center rounded-md border bg-white px-3 text-xs font-semibold">{defaultNights}</div>
-          </div>
-          <div className={r.tent_type === "BED68" ? "col-span-1" : "col-span-3"} />
-          <div className="col-span-1 flex items-center gap-1 justify-end">
-            <RowTotal amount={calcAdultLodgingLine(r, defaultNights)} />
-            <button type="button" onClick={() => setLines(p => p.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-400">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      ))}
-      <Button type="button" variant="outline" size="sm" onClick={() => setLines(p => [...p, { tent_type: "BED3", tent_count: 0, nights: defaultNights || 1 }])} className="gap-1.5 text-xs h-7 border-dashed">
         <Plus className="w-3 h-3" /> הוסף שורה
       </Button>
     </div>
@@ -557,6 +488,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
 
   const [studentLodging, setStudentLodging] = useState(initStudentLodging);
   const [adultLodging,   setAdultLodging]   = useState(parse(quote?.adult_lodging_lines, []));
+  const [vipPeople,      setVipPeople]      = useState(Number(quote?.vip_people || 0));
   const [workshops,      setWorkshops]      = useState(parse(quote?.workshop_lines,       []));
   const [lectures,       setLectures]       = useState(parse(quote?.lecture_lines,        []));
   const [addons,         setAddons]         = useState(parse(quote?.addon_lines,          []));
@@ -598,6 +530,8 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   // A. participantCount is always calculated — never editable
   const participantCount = Math.max(0, estimatedPax - staffCount);
   const nights = getQuoteNights(form.arrival_date, form.departure_date, quoteType);
+  const effectiveVipPeople = quoteType === "day_use" ? 0 : vipPeople;
+  const regularStaff = Math.max(0, staffCount - effectiveVipPeople);
   const staffExceedsTotal = staffCount > estimatedPax && estimatedPax > 0;
   const datesReversed = quoteType !== "day_use" && isValidDateString(form.arrival_date) && isValidDateString(form.departure_date) &&
     form.departure_date < form.arrival_date;
@@ -622,12 +556,12 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
         includes_meals:    includesMeals,
         exclude_quote_id:  quote?.id || undefined,
         exclude_group_id:  group?.id || undefined,
-        adult_lodging_lines: JSON.stringify(adultLodging),
+        vip_people:        Math.min(effectiveVipPeople, staffCount),
       });
       setAvailabilityResult(res.data);
     } catch { /* fail silently */ }
     setCheckingAvailability(false);
-  }, [form.arrival_date, form.departure_date, form.estimated_pax, participantCount, form.staff_count, groupType, quote?.id, group?.id, adultLodging]);
+  }, [form.arrival_date, form.departure_date, form.estimated_pax, participantCount, form.staff_count, groupType, quote?.id, group?.id, effectiveVipPeople, staffCount]);
 
   useEffect(() => {
     const timer = setTimeout(checkAvailability, 700);
@@ -674,7 +608,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     addon_lines: JSON.stringify(addons), adjustment_lines: JSON.stringify(adjustments), surcharge_lines: JSON.stringify([]),
     discount_percent: Number(form.discount_percent || 0), subtotal, discount_amount: discountAmount,
     total_price, advance_payment: advance, balance_payment: balance,
-    payment_terms: form.payment_terms, option_notes: optionNotes,
+    payment_terms: form.payment_terms, option_notes: optionNotes, vip_people: effectiveVipPeople,
   });
 
   const replaceOptionDrafts = drafts => {
@@ -694,7 +628,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     setWorkshops(parse(payload.workshop_lines, [])); setLectures(parse(payload.lecture_lines, []));
     setAddons(parse(payload.addon_lines, [])); setAdjustments(parse(payload.adjustment_lines, []));
     setCoffeeEnabled(Number(payload.coffee_corner_pax || 0) > 0); setCoffeeCornerPax(Number(payload.coffee_corner_pax || 0));
-    setPrisaEnabled(payload.includes_prisa === true);
+    setPrisaEnabled(payload.includes_prisa === true); setVipPeople(Number(payload.vip_people || 0));
     set("discount_percent", payload.discount_percent ?? 0); set("payment_terms", payload.payment_terms || ""); setOptionNotes(payload.option_notes || "");
   };
 
@@ -804,6 +738,11 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
       toast.error(invalidDate[1]);
       return;
     }
+    const draftsForVip = { ...optionDraftsRef.current, [activeOptionKey]: { vip_people: effectiveVipPeople } };
+    if (quoteType !== "day_use" && Object.values(draftsForVip).some(d => Number(d?.vip_people || 0) > staffCount)) {
+      toast.error("מספר האנשים באוהלי VIP גדול ממספר הצוות — נא לתקן לפני שמירה");
+      return;
+    }
     setSaving(true);
     try {
       const usePreparationFlow = preparationFlowEnabled && isNewGroupFlow;
@@ -848,6 +787,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
         version: Number(form.version), estimated_pax: estimatedPax || undefined, staff_count: staffCount || undefined,
         participant_count: participantCount || undefined, coffee_corner_pax: coffeeEnabled ? staffCount : 0,
         nights, includes_prisa: prisaEnabled, discount_percent: Number(form.discount_percent || 0),
+        vip_people: effectiveVipPeople,
       };
       if (hasOptionB) { const legacyOptionA = { ...draftsToSave.A }; delete legacyOptionA.option_notes; quotePayload = applyOptionPayloadToQuote(quotePayload, legacyOptionA); }
       const savedQuote = isEdit
@@ -1121,6 +1061,11 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
                   />
               )}
 
+              {quoteType !== "day_use" && (
+                <VipPeopleField value={vipPeople} onChange={setVipPeople} staffCount={staffCount}
+                  optionLabel={hasOptionB ? (activeOptionKey === "A" ? "אפשרות א׳" : "אפשרות ב׳") : ""} />
+              )}
+
               {/* ── NEW CATALOG PACKAGES ── */}
               <SectionCard icon={Package} title="חבילות ומוצרים" defaultOpen={true}>
                 <PackageLinesSection
@@ -1152,7 +1097,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
                   <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mb-2">
                     שורות מהצעה ישנה — ניתן לערוך או למחוק
                   </div>
-                  <AdultLodgingSection lines={adultLodging} setLines={setAdultLodging} defaultNights={nights} adultsCount={staffCount} />
+                  <AdultLodgingSection lines={adultLodging} setLines={setAdultLodging} defaultNights={nights} adultsCount={regularStaff} />
                 </SectionCard>
               )}
               {workshops.length > 0 && (

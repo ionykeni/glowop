@@ -2,7 +2,7 @@ export const QUOTE_OPTION_FIELDS = [
   "package_lines", "new_addon_lines", "student_lodging_lines", "adult_lodging_lines",
   "workshop_lines", "lecture_lines", "coffee_corner_pax", "includes_prisa", "addon_lines",
   "adjustment_lines", "surcharge_lines", "discount_percent", "subtotal", "discount_amount",
-  "total_price", "advance_payment", "balance_payment", "payment_terms", "option_notes",
+  "total_price", "advance_payment", "balance_payment", "payment_terms", "option_notes", "vip_people",
 ];
 
 export function extractQuoteOptionPayload(quote = {}) {
@@ -27,13 +27,13 @@ export function createEmptyQuoteOption() {
     workshop_lines: "[]", lecture_lines: "[]", coffee_corner_pax: 0, includes_prisa: false,
     addon_lines: "[]", adjustment_lines: "[]", surcharge_lines: "[]", discount_percent: 0,
     subtotal: 0, discount_amount: 0, total_price: 0, advance_payment: 0, balance_payment: 0,
-    payment_terms: "", option_notes: "",
+    payment_terms: "", option_notes: "", vip_people: 0,
   };
 }
 
 const DERIVED_OPTION_FIELDS = new Set(["subtotal", "discount_amount", "total_price", "advance_payment", "balance_payment"]);
 const JSON_OPTION_FIELDS = new Set(QUOTE_OPTION_FIELDS.filter(field => field.endsWith("_lines")));
-const NUMERIC_OPTION_FIELDS = new Set(["coffee_corner_pax", "discount_percent"]);
+const NUMERIC_OPTION_FIELDS = new Set(["coffee_corner_pax", "discount_percent", "vip_people"]);
 const BOOLEAN_OPTION_FIELDS = new Set(["includes_prisa"]);
 const comparableValue = (field, value) => {
   if (JSON_OPTION_FIELDS.has(field)) {

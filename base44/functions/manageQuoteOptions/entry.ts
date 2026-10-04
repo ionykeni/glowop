@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+// Option fields include vip_people (availability planning only).
 import { assertQuoteMultiOptionEnabled, extractQuoteOptionPayload, applyOptionPayloadToQuote, getQuoteOption, getExactQuoteOptions, createEmptyQuoteOption } from '../../shared/quoteOptions.js';
 
 const optionRecord = (quoteId, key, payload, user, sourceId) => ({

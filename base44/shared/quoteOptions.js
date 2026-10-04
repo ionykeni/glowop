@@ -5,7 +5,7 @@ export const QUOTE_OPTION_FIELDS = [
   'package_lines', 'new_addon_lines', 'student_lodging_lines', 'adult_lodging_lines',
   'workshop_lines', 'lecture_lines', 'coffee_corner_pax', 'includes_prisa', 'addon_lines',
   'adjustment_lines', 'surcharge_lines', 'discount_percent', 'subtotal', 'discount_amount',
-  'total_price', 'advance_payment', 'balance_payment', 'payment_terms', 'option_notes',
+  'total_price', 'advance_payment', 'balance_payment', 'payment_terms', 'option_notes', 'vip_people',
 ];
 
 export const SHARED_QUOTE_FIELDS = [

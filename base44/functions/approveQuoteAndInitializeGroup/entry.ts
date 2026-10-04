@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+// Option fields include vip_people (availability planning only).
 import { getEffectiveQuoteGroupName } from '../../shared/quotePreparation.js';
 import { ensureExactlyOneOperationalProfile } from '../../shared/operationalProfile.js';
 import { assertQuoteMultiOptionEnabled, resolveSelectedQuoteOption, buildApprovedOptionSnapshot, markSelectedQuoteOption } from '../../shared/quoteOptions.js';
