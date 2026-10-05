@@ -17,8 +17,9 @@ export default function SleepingFeasibilityCard({ f }) {
   const s = STATUS[f.status] || STATUS.NEEDS_REVIEW;
   const { people, standard, vip, breakdown } = f;
   const std = fitLine(standard.result);
-  const vipShort = vip.status === "VIP_ALTERNATIVE_POSSIBLE" || vip.status === "NOT_FEASIBLE";
+  const vipShort = vip.status === "VIP_OVERFLOW_TO_ALT" || vip.status === "NOT_FEASIBLE";
   const altFromVip = vipShort ? vip.overflow : 0;
+  const vipPlaced = vip.people - altFromVip;
   return (
     <div className={`rounded-xl border px-4 py-3 space-y-2 ${s.box}`} dir="rtl">
       <div className="flex items-baseline justify-between">
@@ -48,7 +49,7 @@ export default function SleepingFeasibilityCard({ f }) {
       {standard.alt_people > 0 && (
         <FeasibilitySection icon="⛺" title={altFromVip > 0 ? "אוהל חילופי" : "צוות בלינה רגילה"}
           lines={[
-            altFromVip > 0 ? `${standard.alt_people} אנשי צוות (${altFromVip} מתוכם יצטרכו לינה חלופית)` : `${standard.alt_people} אנשי צוות`,
+            altFromVip > 0 ? `${standard.alt_people} אנשי צוות (${altFromVip} מתוכם עקב חוסר מקום ב־VIP)` : `${standard.alt_people} אנשי צוות`,
             `דרישה שמרנית: ${standard.alt_estimate.conservative ?? "—"} אוהלים`,
             `זמינים: ${standard.available_tents}`,
           ]}
@@ -58,12 +59,12 @@ export default function SleepingFeasibilityCard({ f }) {
       {vip.people > 0 && (
         <FeasibilitySection icon="🏠" title="VIP"
           lines={[
-            vipShort ? `נדרשו ${vip.people} מקומות · זמינים ${vip.available_capacity}` : `${vip.people} איש`,
+            vipShort ? `${vipPlaced} אנשי צוות (מתוך ${vip.people}) · זמינים ${vip.available_capacity} מקומות` : `${vip.people} אנשי צוות`,
             vip.estimate.minimum !== null && `מינימום: ${vip.estimate.minimum} · לחישוב בטוח: ${vip.estimate.conservative ?? "—"}`,
             `זמינים: ${vip.available_tents} אוהלים (${d(vip.limiting_date)})`,
           ]}
-          status={vip.status === "OK" ? "✓ מספיק" : vip.status === "VIP_ALTERNATIVE_POSSIBLE" ? "⚠️ אין מספיק מקום ב־VIP — ניתן לבדוק לינת צוות באוהל חילופי" : "✕ אין מספיק מקום ב־VIP וגם לא באוהל חילופי"}
-          tone={vip.status === "OK" ? "ok" : vip.status === "VIP_ALTERNATIVE_POSSIBLE" ? "warn" : "bad"} />
+          status={vip.status === "OK" ? "✓ מספיק" : vip.status === "VIP_OVERFLOW_TO_ALT" ? `✓ ${altFromVip} עוברים לאוהל חילופי` : "✕ אין מספיק מקום ב־VIP וגם לא באוהל חילופי"}
+          tone={vip.status === "NOT_FEASIBLE" ? "bad" : "ok"} />
       )}
 
       <p className="text-[10px] text-slate-400 pt-1">מבוסס על קבוצות תפעוליות, תקופות שהייה, שיבוצי לינה ומלאי אוהלים פעיל · אזהרה בלבד</p>

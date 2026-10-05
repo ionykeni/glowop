@@ -488,7 +488,10 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
 
   const [studentLodging, setStudentLodging] = useState(initStudentLodging);
   const [adultLodging,   setAdultLodging]   = useState(parse(quote?.adult_lodging_lines, []));
-  const [vipPeople,      setVipPeople]      = useState(Number(quote?.vip_people || 0));
+  // VIP defaults to staff (staff normally sleeps in VIP). AUTO follows staff_count until edited manually.
+  const inferVipMode = (vip, staff) => (!quote || Number(vip || 0) === Number(staff || 0)) ? "AUTO" : "MANUAL";
+  const [vipPeople,      setVipPeople]      = useState(quote ? Number(quote.vip_people || 0) : Number(group?.staff_count || 0));
+  const [vipMode,        setVipMode]        = useState(() => inferVipMode(quote?.vip_people, quote?.staff_count));
   const [workshops,      setWorkshops]      = useState(parse(quote?.workshop_lines,       []));
   const [lectures,       setLectures]       = useState(parse(quote?.lecture_lines,        []));
   const [addons,         setAddons]         = useState(parse(quote?.addon_lines,          []));
@@ -600,7 +603,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const advance             = Math.round(total_price * 0.3);
   const balance             = total_price - advance;
 
-  const captureCurrentOptionPayload = () => extractQuoteOptionPayload({
+  const captureCurrentOptionPayload = () => ({ vip_people_mode: vipMode, ...extractQuoteOptionPayload({
     package_lines: JSON.stringify(packageLines), new_addon_lines: JSON.stringify(newAddonLines),
     student_lodging_lines: JSON.stringify(studentLodging), adult_lodging_lines: JSON.stringify(adultLodging),
     workshop_lines: JSON.stringify(workshops), lecture_lines: JSON.stringify(lectures),
@@ -609,7 +612,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     discount_percent: Number(form.discount_percent || 0), subtotal, discount_amount: discountAmount,
     total_price, advance_payment: advance, balance_payment: balance,
     payment_terms: form.payment_terms, option_notes: optionNotes, vip_people: effectiveVipPeople,
-  });
+  }) });
 
   const replaceOptionDrafts = drafts => {
     optionDraftsRef.current = drafts;
@@ -629,6 +632,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     setAddons(parse(payload.addon_lines, [])); setAdjustments(parse(payload.adjustment_lines, []));
     setCoffeeEnabled(Number(payload.coffee_corner_pax || 0) > 0); setCoffeeCornerPax(Number(payload.coffee_corner_pax || 0));
     setPrisaEnabled(payload.includes_prisa === true); setVipPeople(Number(payload.vip_people || 0));
+    setVipMode(payload.vip_people_mode || inferVipMode(payload.vip_people, staffCount));
     set("discount_percent", payload.discount_percent ?? 0); set("payment_terms", payload.payment_terms || ""); setOptionNotes(payload.option_notes || "");
   };
 
@@ -650,6 +654,11 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     if (previousStaffRef.current === staffCount) return;
     previousStaffRef.current = staffCount;
     if (coffeeEnabled) setCoffeeCornerPax(staffCount);
+    if (vipMode === "AUTO") setVipPeople(staffCount);
+    // Inactive option drafts follow staff only while still in AUTO mode.
+    const drafts = optionDraftsRef.current;
+    if (Object.keys(drafts).length > 0) replaceOptionDrafts(Object.fromEntries(Object.entries(drafts).map(([k, p]) =>
+      [k, k !== activeOptionKey && p?.vip_people_mode === "AUTO" ? { ...p, vip_people: staffCount } : p])));
   }, [staffCount, coffeeEnabled]);
 
   useEffect(() => {
@@ -686,7 +695,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     optionCreateLockRef.current = true;
     const current = captureActiveOptionDraft();
     if (!quote?.id) {
-      const emptyOptionB = createEmptyQuoteOption("B");
+      const emptyOptionB = { ...createEmptyQuoteOption("B"), vip_people: quoteType === "day_use" ? 0 : staffCount, vip_people_mode: "AUTO" };
       replaceOptionDrafts({ A: current, B: emptyOptionB }); setHasOptionB(true); setActiveOptionKey("B"); setPreviewMode("B"); applyOptionDraft(emptyOptionB);
       toast.success("אפשרות ב׳ נוצרה כאפשרות חדשה וריקה");
       optionCreateLockRef.current = false;
@@ -697,6 +706,8 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
       const res = await base44.functions.invoke("manageQuoteOptions", { action: "materialize", quote_id: quote.id, option_a_payload: current });
       const drafts = Object.fromEntries((res.data?.options || []).map(row => [row.option_key, normalizeOptionPayload(parseOptionPayload(row.option_payload), initEstPax)]));
       if (!drafts.A || !drafts.B) throw new Error("BOTH_OPTIONS_REQUIRED");
+      drafts.B = { ...drafts.B, vip_people: quoteType === "day_use" ? 0 : staffCount, vip_people_mode: "AUTO" };
+      drafts.A = { ...drafts.A, vip_people_mode: current.vip_people_mode };
       replaceOptionDrafts(drafts); setHasOptionB(true); setActiveOptionKey("B"); setPreviewMode("B"); applyOptionDraft(drafts.B);
       toast.success("אפשרות ב׳ נוצרה כאפשרות חדשה וריקה");
     } catch { toast.error("יצירת אפשרות ב׳ נכשלה"); }
@@ -1062,7 +1073,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               )}
 
               {quoteType !== "day_use" && (
-                <VipPeopleField value={vipPeople} onChange={setVipPeople} staffCount={staffCount}
+                <VipPeopleField value={vipPeople} onChange={v => { setVipPeople(v); setVipMode("MANUAL"); }} staffCount={staffCount}
                   optionLabel={hasOptionB ? (activeOptionKey === "A" ? "אפשרות א׳" : "אפשרות ב׳") : ""} />
               )}
 

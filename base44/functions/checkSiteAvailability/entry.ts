@@ -19,7 +19,7 @@ import {
  */
 const NEAR_FULL_PCT = 0.85;
 const RANK = { ALL: 0, SOME: 1, NO: 2 };
-const VIP_RANK = { NONE: 0, OK: 0, VIP_ALTERNATIVE_POSSIBLE: 1, NOT_FEASIBLE: 2 };
+const VIP_RANK = { NONE: 0, OK: 0, VIP_OVERFLOW_TO_ALT: 1, NOT_FEASIBLE: 2 };
 const VIP_MARKER = /__vip_req_\d+__/i;
 const ALT_MARKER = '__alt_tent__';
 const num = v => Number(v) || 0;
@@ -106,6 +106,7 @@ export default async function(req) {
       let existingPeople = 0;
       const occupiedTentIds = new Set();
       const pending = []; // existing demand not represented by allocations
+      const staffVipFirst = []; // existing unresolved staff (VIP-first, overflow to standard)
 
       for (const g of qualifyingGroups) {
         const present = g.stay_mode === "MULTI_PERIOD"
@@ -145,7 +146,18 @@ export default async function(req) {
           : num(profile?.vip_tents_men_needed) + num(profile?.vip_tents_women_needed);
         pending.push({ kind: "vipTents", tents: Math.max(0, vipReqTents - vipAllocTents) });
         // Alternative staff tents (אוהל חילופי).
-        pending.push({ kind: "unknown", people: Math.max(0, num(profile?.staff_alt_tent_pax) - altAllocPax) });
+        const remainingAlt = Math.max(0, num(profile?.staff_alt_tent_pax) - altAllocPax);
+        pending.push({ kind: "unknown", people: remainingAlt });
+        // Unresolved staff (no allocation / explicit requirement): VIP first, overflow → אוהל חילופי.
+        const requiredStaff = num(profile?.staff_count) || num(g.staff_count);
+        const staffAllocPax = staffAllocs.reduce((s, a) => s + num(a.allocated_pax), 0);
+        const vipAllocPax = staffAllocs.filter(isVipRow).reduce((s, a) => s + num(a.allocated_pax), 0);
+        const explicitVipPeople = Array.isArray(vipReq) && vipReq.length > 0
+          ? vipReq.reduce((s, r) => s + num(r.people_count), 0)
+          : num(profile?.staff_men_beds_needed) + num(profile?.staff_women_beds_needed);
+        const remainingVipPeople = Math.max(0, explicitVipPeople - vipAllocPax);
+        const unresolvedStaff = Math.max(0, requiredStaff - staffAllocPax - remainingVipPeople - remainingAlt);
+        if (unresolvedStaff > 0) staffVipFirst.push(unresolvedStaff);
       }
 
       for (const h of relevantHolds) {
@@ -165,6 +177,11 @@ export default async function(req) {
           : reserveTents(vipInv, p.tents);
         if (shortfall > 0) existingOvercommitted = true;
       }
+      for (const n of staffVipFirst) {
+        const safe = maxSafeUnknown(n, vipInv);
+        if (safe > 0) reserveUnknown(vipInv, safe);
+        if (n - safe > 0 && reserveUnknown(stdInv, n - safe) > 0) existingOvercommitted = true;
+      }
 
       // New Quote: VIP first, overflow to alternative staff tents, then joint standard solve.
       const vipCapacity = inventoryCapacity(vipInv);
@@ -176,7 +193,7 @@ export default async function(req) {
       const altPeople = regularStaff + vipOverflow;
       const std = classifySplits([{ total: students, split: studentSplit }, { total: altPeople }], stdInv);
       const vipStatus = vipPeople === 0 ? "NONE" : vipOverflow === 0 ? "OK"
-        : std.result === "NO" ? "NOT_FEASIBLE" : "VIP_ALTERNATIVE_POSSIBLE";
+        : std.result === "NO" ? "NOT_FEASIBLE" : "VIP_OVERFLOW_TO_ALT"; // normal fallback, not a review reason
 
       return {
         night,
@@ -201,7 +218,6 @@ export default async function(req) {
       const red = peopleExceeded || limitingStd.standard.result === "NO" || limitingVip.vip.status === "NOT_FEASIBLE";
       const reasons = [];
       if (limitingStd.standard.result === "SOME") reasons.push("GENDER_SPLIT_DEPENDENT");
-      if (limitingVip.vip.status === "VIP_ALTERNATIVE_POSSIBLE") reasons.push("VIP_ALTERNATIVE_POSSIBLE");
       if (unmodeledHolds) reasons.push("UNMODELED_HOLDS");
       if (dataIncomplete) reasons.push("EXISTING_DATA_INCOMPLETE");
       if (existingOvercommitted) reasons.push("EXISTING_DEMAND_EXCEEDS_INVENTORY");
