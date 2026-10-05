@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import "moment/locale/he";
@@ -556,6 +556,22 @@ export default function OperationalDaySummary({
   };
   const goPrev = () => shiftDate(-1);
   const goNext = () => shiftDate(1);
+
+  // Keyboard navigation: ArrowRight = previous day, ArrowLeft = next day
+  // (matches the on-screen arrow directions in RTL layout).
+  // Ignored when the user is typing in an editable field.
+  useEffect(() => {
+    if (!isOpen || !onNavigateDate) return;
+    const handleKey = (e) => {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      const isEditable = tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable;
+      if (isEditable) return;
+      if (e.key === "ArrowRight") { e.preventDefault(); goPrev(); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); goNext(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isOpen, onNavigateDate, date]);
 
   const dateStr   = date ? fmt(date) : "";
   const dateLabel = date ? moment(date).format("dddd, D בMMMM YYYY") : "";
