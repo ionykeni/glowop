@@ -423,6 +423,10 @@ export default function Calendar() {
     queryKey: ["cal-coffee"],
     queryFn: () => base44.entities.CoffeeCornerRequest.filter({ status: "ACTIVE" })
   });
+  const { data: prisaRequests = [] } = useQuery({
+    queryKey: ["cal-prisa"],
+    queryFn: () => base44.entities.PrisaRequest.filter({ status: "ACTIVE" })
+  });
 
   const { periodsByGroupId } = useGroupStayPeriods(groups);
   const operationalGroupIds = useMemo(() => new Set(groups.map(g => g.id)), [groups]);
@@ -442,6 +446,7 @@ export default function Calendar() {
   }, [scheduleItems, standaloneActivities, standaloneAssignmentsByReservation, operationalGroupIds]);
   const operationalAlerts = useMemo(() => alerts.filter(a => operationalGroupIds.has(a.group_id)), [alerts, operationalGroupIds]);
   const operationalCoffee = useMemo(() => coffeeRequests.filter(r => operationalGroupIds.has(r.group_id)), [coffeeRequests, operationalGroupIds]);
+  const operationalPrisa = useMemo(() => prisaRequests.filter(r => operationalGroupIds.has(r.group_id)), [prisaRequests, operationalGroupIds]);
 
   const dates = useMemo(
     () => view === "week" ? getWeekDatesSunday(pivot) : getMonthDatesSunday(pivot),
@@ -552,7 +557,8 @@ export default function Calendar() {
         allActivities={operationalScheduleItems}
         allSpaces={activitySpaces}
         allAlerts={operationalAlerts}
-        allCoffeeRequests={operationalCoffee} />
+        allCoffeeRequests={operationalCoffee}
+        allPrisaRequests={operationalPrisa} />
       
     </div>);
 

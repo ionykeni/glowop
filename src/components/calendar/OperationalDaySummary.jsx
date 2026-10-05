@@ -4,7 +4,7 @@ import moment from "moment";
 import "moment/locale/he";
 import {
   X, Users, UtensilsCrossed, CalendarDays, AlertTriangle,
-  ArrowDownCircle, ArrowUpCircle, Moon, ChevronDown, ChevronUp, ExternalLink, Sun, Clock
+  ArrowDownCircle, ArrowUpCircle, Moon, ChevronDown, ChevronUp, ExternalLink, Sun, Clock, Coffee, Sandwich
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,15 @@ import ChronologicalDayPdfButton from "./ChronologicalDayPdfButton";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 import { classifyGroupsForDate, isGroupArrivalOnDate, isGroupDepartureOnDate } from "@/lib/groupDateReaders";
 import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
+import { PRISA_TYPE_LABELS, PRISA_SLOT_LABELS } from "@/lib/prisaLabels";
+
+const COFFEE_TYPE_LABELS = {
+  "פינת קפה רגילה": "רגילה",
+  "פינת קפה ועוגיות": "עם עוגיות",
+  "פינת קפה ומאפה": "עם מאפה",
+  "HOT_WATER_THERMOCAN_ONLY": "מים חמים / תרמוס",
+};
+const coffeeTypeLabel = (value) => COFFEE_TYPE_LABELS[value] || value || null;
 
 moment.locale("he");
 
@@ -67,7 +76,7 @@ function DietBadges({ specialDietsSummary }) {
 }
 
 // ── Group card ────────────────────────────────────────────────────────────────
-function GroupCard({ group, dateStr, meals, activities, spaces, alerts, periods = [], defaultOpen, highlightSection }) {
+function GroupCard({ group, dateStr, meals, activities, spaces, alerts, periods = [], defaultOpen, highlightSection, coffeeRequests = [], prisaRequests = [] }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(defaultOpen);
 
@@ -87,6 +96,19 @@ function GroupCard({ group, dateStr, meals, activities, spaces, alerts, periods 
       .filter(a => a.group_id === group.id && a.date === dateStr && a.status === "ACTIVE")
       .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")),
     [activities, group.id, dateStr]
+  );
+
+  const groupCoffee = useMemo(() =>
+    (coffeeRequests || [])
+      .filter(r => r.group_id === group.id && r.date === dateStr && r.status === "ACTIVE")
+      .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "")),
+    [coffeeRequests, group.id, dateStr]
+  );
+
+  const groupPrisa = useMemo(() =>
+    (prisaRequests || [])
+      .filter(r => r.group_id === group.id && r.date === dateStr && r.status === "ACTIVE"),
+    [prisaRequests, group.id, dateStr]
   );
 
   const groupAlerts = useMemo(() =>
@@ -197,6 +219,8 @@ function GroupCard({ group, dateStr, meals, activities, spaces, alerts, periods 
         </div>
         <div className="flex items-center gap-2 shrink-0 text-slate-400">
           {groupMeals.length > 0 && <span className="text-xs flex items-center gap-0.5"><UtensilsCrossed className="w-3 h-3" />{groupMeals.length}</span>}
+          {groupCoffee.length > 0 && <span className="text-xs flex items-center gap-0.5"><Coffee className="w-3 h-3" />{groupCoffee.length}</span>}
+          {groupPrisa.length > 0 && <span className="text-xs flex items-center gap-0.5"><Sandwich className="w-3 h-3" />{groupPrisa.length}</span>}
           {groupActivities.length > 0 && <span className="text-xs flex items-center gap-0.5"><CalendarDays className="w-3 h-3" />{groupActivities.length}</span>}
           {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
@@ -228,6 +252,61 @@ function GroupCard({ group, dateStr, meals, activities, spaces, alerts, periods 
                     {m.notes && <p className="text-xs text-slate-400">{m.notes}</p>}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* פינות קפה */}
+          {groupCoffee.length > 0 && (!highlightSection || highlightSection === "coffee") && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-yellow-600 mb-2">☕ פינות קפה</p>
+              <div className="space-y-2">
+                {groupCoffee.map(c => (
+                  <div key={c.id} className="bg-yellow-50 rounded-lg px-3 py-2 space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {c.start_time && (
+                        <span className="text-xs font-mono bg-white border border-yellow-200 rounded px-1.5 py-0.5 text-yellow-700 shrink-0" dir="ltr">
+                          {c.start_time}{c.end_time ? `–${c.end_time}` : ""}
+                        </span>
+                      )}
+                      <span className="text-xs font-semibold text-slate-800">פינת קפה</span>
+                      {c.pax > 0 && <span className="text-xs text-slate-500">{c.pax} איש</span>}
+                    </div>
+                    {c.coffee_corner_type && <p className="text-xs text-slate-600">{coffeeTypeLabel(c.coffee_corner_type)}</p>}
+                    {c.location_name_snapshot && <p className="text-xs text-slate-400">📍 {c.location_name_snapshot}</p>}
+                    {c.notes && <p className="text-xs text-slate-400">{c.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* פריסות */}
+          {groupPrisa.length > 0 && (!highlightSection || highlightSection === "prisa") && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-orange-600 mb-2">🥪 פריסות</p>
+              <div className="space-y-2">
+                {groupPrisa.map(p => {
+                  const typeLabel = PRISA_TYPE_LABELS[p.type] || p.type || "";
+                  const slotLabel = PRISA_SLOT_LABELS[p.pickup_slot] || p.pickup_slot || "";
+                  const isDouble = p.type === "DOUBLE" || p.type === "ONE_AND_HALF";
+                  const effQty = Number(p.effective_quantity) || 0;
+                  const baseQty = Number(p.quantity) || 0;
+                  return (
+                    <div key={p.id} className="bg-orange-50 rounded-lg px-3 py-2 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-slate-800">פריסה</span>
+                        <span className="text-xs text-slate-600">{slotLabel}</span>
+                        {baseQty > 0 && <span className="text-xs text-slate-500">{baseQty}</span>}
+                        {typeLabel && <span className="text-xs text-slate-600">{typeLabel}</span>}
+                      </div>
+                      {isDouble && effQty && effQty !== baseQty && (
+                        <p className="text-xs text-slate-500">כמות הכנה: {effQty}</p>
+                      )}
+                      {p.notes && <p className="text-xs text-slate-400">{p.notes}</p>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -302,6 +381,8 @@ const FILTER_COLORS = {
   meals:      { inactive: "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100",         active: "bg-amber-500 border-amber-500 text-white shadow-sm" },
   activities: { inactive: "bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100",    active: "bg-purple-600 border-purple-600 text-white shadow-sm" },
   alerts:     { inactive: "bg-red-50 border-red-300 text-red-700 hover:bg-red-100",                active: "bg-red-600 border-red-600 text-white shadow-sm" },
+  coffee:     { inactive: "bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100",     active: "bg-yellow-500 border-yellow-500 text-white shadow-sm" },
+  prisa:      { inactive: "bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100",     active: "bg-orange-500 border-orange-500 text-white shadow-sm" },
   chrono:     { inactive: "bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100",        active: "bg-slate-800 border-slate-800 text-white shadow-sm" },
 };
 
@@ -447,6 +528,8 @@ const FILTER_TITLES = {
   meals:      "ארוחות היום",
   activities: "פעילויות בלו״ז היום",
   alerts:     "התראות היום",
+  coffee:     "פינות קפה היום",
+  prisa:      "פריסות היום",
   chrono:     "סדר יום כרונולוגי",
 };
 
@@ -455,6 +538,7 @@ export default function OperationalDaySummary({
   date, isOpen, onClose,
   allGroups, allMeals, allActivities, allSpaces, allAlerts,
   allCoffeeRequests = [],
+  allPrisaRequests = [],
 }) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -505,6 +589,11 @@ export default function OperationalDaySummary({
     [allCoffeeRequests, dateStr, operationalGroupIds]
   );
 
+  const dayPrisaRequests = useMemo(() =>
+    (allPrisaRequests || []).filter(request => operationalGroupIds.has(request.group_id) && request.status === "ACTIVE" && request.date === dateStr),
+    [allPrisaRequests, dateStr, operationalGroupIds]
+  );
+
   const dayActivities = useMemo(() =>
     (allActivities || []).filter(a => (a.standalone || operationalGroupIds.has(a.group_id)) && a.status === "ACTIVE" && a.date === dateStr)
       .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || "") || (a.end_time || "").localeCompare(b.end_time || "")),
@@ -533,11 +622,13 @@ export default function OperationalDaySummary({
     if (activeFilter === "meals")      return allGroupsOnDay.filter(g => dayMeals.some(m => m.group_id === g.id));
     if (activeFilter === "activities") return allGroupsOnDay.filter(g => dayActivities.some(a => a.group_id === g.id));
     if (activeFilter === "alerts")     return allGroupsOnDay.filter(g => dayAlerts.some(a => a.group_id === g.id));
+    if (activeFilter === "coffee")    return allGroupsOnDay.filter(g => dayCoffeeRequests.some(c => c.group_id === g.id));
+    if (activeFilter === "prisa")     return allGroupsOnDay.filter(g => dayPrisaRequests.some(p => p.group_id === g.id));
     return allGroupsOnDay;
-  }, [activeFilter, lodgingCheckins, lodgingCheckouts, dayUseGroups, allGroupsOnDay, dayMeals, dayActivities, dayAlerts]);
+  },     [activeFilter, lodgingCheckins, lodgingCheckouts, dayUseGroups, allGroupsOnDay, dayMeals, dayActivities, dayAlerts, dayCoffeeRequests, dayPrisaRequests]);
 
   // Group cards for all/checkins/checkouts/dayuse; flat sections for others
-  const useGroupCards = ["all", "checkins", "checkouts", "dayuse"].includes(activeFilter) && activeFilter !== "chrono";
+  const useGroupCards = ["all", "checkins", "checkouts", "dayuse", "coffee", "prisa"].includes(activeFilter) && activeFilter !== "chrono";
 
   if (!isOpen || !date) return null;
 
@@ -594,7 +685,11 @@ export default function OperationalDaySummary({
                   active={activeFilter === "activities"} onClick={() => handleFilter("activities")} filterKey="activities" />
                 <FilterPill label="התראות" count={dayAlerts.length} icon={AlertTriangle}
                   active={activeFilter === "alerts"} onClick={() => handleFilter("alerts")} filterKey="alerts" />
-                <FilterPill label="סדר יום כרונולוגי" count={dayMeals.length + dayCoffeeRequests.length + dayActivities.length + lodgingCheckins.length + lodgingCheckouts.length + dayUseGroups.length} icon={Clock}
+                <FilterPill label="פינות קפה" count={dayCoffeeRequests.length} icon={Coffee}
+                  active={activeFilter === "coffee"} onClick={() => handleFilter("coffee")} filterKey="coffee" />
+                <FilterPill label="פריסות" count={dayPrisaRequests.length} icon={Sandwich}
+                  active={activeFilter === "prisa"} onClick={() => handleFilter("prisa")} filterKey="prisa" />
+                <FilterPill label="סדר יום כרונולוגי" count={dayMeals.length + dayCoffeeRequests.length + dayPrisaRequests.length + dayActivities.length + lodgingCheckins.length + lodgingCheckouts.length + dayUseGroups.length} icon={Clock}
                   active={activeFilter === "chrono"} onClick={() => handleFilter("chrono")} filterKey="chrono" />
               </div>
             </>
@@ -620,7 +715,7 @@ export default function OperationalDaySummary({
             const isCheckout = isGroupDepartureOnDate(group, dateStr, periods);
             const hasAlerts  = (allAlerts || []).some(a => a.group_id === group.id && a.status === "OPEN");
             const defaultOpen = isCheckin || isCheckout || isDayUse(group) || hasAlerts || activeFilter !== "all";
-            return <GroupCard key={group.id} group={group} dateStr={dateStr} meals={allMeals} activities={allActivities} spaces={allSpaces} alerts={allAlerts} periods={periods} defaultOpen={defaultOpen} />;
+            return <GroupCard key={group.id} group={group} dateStr={dateStr} meals={allMeals} activities={allActivities} spaces={allSpaces} alerts={allAlerts} periods={periods} defaultOpen={defaultOpen} coffeeRequests={allCoffeeRequests} prisaRequests={allPrisaRequests} />;
           })}
 
           {activeFilter === "all" && dayActivities.filter((item) => item.standalone).map((item) => (
@@ -656,6 +751,7 @@ export default function OperationalDaySummary({
                   allMeals={allMeals}
                   allActivities={allActivities}
                   allCoffeeRequests={allCoffeeRequests}
+                  allPrisaRequests={allPrisaRequests}
                   allSpaces={allSpaces}
                 />
               </div>
@@ -665,6 +761,7 @@ export default function OperationalDaySummary({
                 allMeals={allMeals}
                 allActivities={allActivities}
                 allCoffeeRequests={allCoffeeRequests}
+                allPrisaRequests={allPrisaRequests}
                 allSpaces={allSpaces}
               />
             </>

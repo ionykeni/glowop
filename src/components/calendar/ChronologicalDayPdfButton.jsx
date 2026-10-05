@@ -6,7 +6,7 @@ import { buildChronologicalDayEvents } from "@/components/calendar/Chronological
 import ChronologicalDayPrintTemplate from "@/components/calendar/ChronologicalDayPrintTemplate";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 
-export default function ChronologicalDayPdfButton({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allSpaces }) {
+export default function ChronologicalDayPdfButton({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, allSpaces }) {
   const [printing, setPrinting] = useState(false);
 
   const groupMap = useMemo(
@@ -24,11 +24,11 @@ export default function ChronologicalDayPdfButton({ dateStr, allGroups, allMeals
   }, [allCoffeeRequests]);
 
   const events = useMemo(
-    () => buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, activeCoffeeKeys }).map((e) => ({
+    () => buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, activeCoffeeKeys }).map((e) => ({
       ...e,
       group_name: e.group_name || groupMap[e.group_id]?.group_name || null,
     })),
-    [dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, activeCoffeeKeys, groupMap]
+    [dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, activeCoffeeKeys, groupMap]
   );
 
   const handlePrint = () => {

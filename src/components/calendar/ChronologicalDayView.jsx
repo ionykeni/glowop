@@ -13,13 +13,21 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDownCircle, ArrowUpCircle, UtensilsCrossed, CalendarDays, Sun, Coffee } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, UtensilsCrossed, CalendarDays, Sun, Coffee, Sandwich } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ActivityEquipmentLine } from "@/components/schedule/LogisticsFields";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
+import { PRISA_TYPE_LABELS, PRISA_SLOT_LABELS, PRISA_SLOT_ORDER } from "@/lib/prisaLabels";
 
 const EXCLUDED = new Set(["CANCELLED", "COMPLETED", "ARCHIVED"]);
-const coffeeTypeLabel = (value) => value === "HOT_WATER_THERMOCAN_ONLY" ? "מיחם וטרמוקן בלבד" : value || null;
+
+const COFFEE_TYPE_LABELS = {
+  "פינת קפה רגילה": "רגילה",
+  "פינת קפה ועוגיות": "עם עוגיות",
+  "פינת קפה ומאפה": "עם מאפה",
+  "HOT_WATER_THERMOCAN_ONLY": "מים חמים / תרמוס",
+};
+const coffeeTypeLabel = (value) => COFFEE_TYPE_LABELS[value] || value || null;
 
 const MEAL_TYPE_HEB = {
   BREAKFAST: "ארוחת בוקר",
@@ -85,10 +93,18 @@ const TYPE_CONFIG = {
     badge: "bg-purple-100 text-purple-700",
     time_color: "text-purple-700",
   },
+  prisa: {
+    label: "פריסה",
+    Icon: Sandwich,
+    bg: "bg-orange-50",
+    border: "border-orange-200",
+    badge: "bg-orange-100 text-orange-700",
+    time_color: "text-orange-700",
+  },
 };
 
 // ── Build normalized chronological events ─────────────────────────────────────
-export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, activeCoffeeKeys }) {
+export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, activeCoffeeKeys }) {
   const events = [];
   const operationalGroupIds = new Set((allGroups || []).filter(isGroupOperationallyEnabled).map(g => g.id));
 
@@ -196,7 +212,36 @@ export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allA
       });
     });
 
-  // 4. Schedule items / activities
+  // 4. Prisa requests (no exact HH:MM — placed logically by pickup_slot)
+  (allPrisaRequests || [])
+    .filter(r => operationalGroupIds.has(r.group_id) && r.status === "ACTIVE" && r.date === dateStr)
+    .forEach(r => {
+      const slotLabel = PRISA_SLOT_LABELS[r.pickup_slot] || r.pickup_slot || "";
+      const typeLabel = PRISA_TYPE_LABELS[r.type] || r.type || "";
+      const isDouble = r.type === "DOUBLE" || r.type === "ONE_AND_HALF";
+      const effQty = Number(r.effective_quantity) || 0;
+      const baseQty = Number(r.quantity) || 0;
+      const qtyDetail = isDouble && effQty && effQty !== baseQty
+        ? `${typeLabel} · כמות הכנה: ${effQty}`
+        : typeLabel;
+      events.push({
+        id: `prisa-${r.id}`,
+        type: "prisa",
+        time: null,
+        end_time: null,
+        sort_hint: PRISA_SLOT_ORDER[r.pickup_slot] ?? 99,
+        group_id: r.group_id,
+        group_name: null,
+        title: "פריסה",
+        location: null,
+        pax: baseQty || null,
+        details: `${slotLabel}${qtyDetail ? " · " + qtyDetail : ""}`,
+        source_entity: "PrisaRequest",
+        source_id: r.id,
+      });
+    });
+
+  // 5. Schedule items / activities
   (allActivities || [])
     .filter(a => (a.standalone || operationalGroupIds.has(a.group_id)) && a.status === "ACTIVE" && a.date === dateStr)
     .forEach(a => {
@@ -224,7 +269,7 @@ export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allA
 // ── Sort events: timed first (ascending), no-time last ────────────────────────
 function sortEvents(events) {
   const timed = events.filter(e => e.time).sort((a, b) => a.time.localeCompare(b.time) || (a.end_time || "").localeCompare(b.end_time || ""));
-  const untimed = events.filter(e => !e.time);
+  const untimed = events.filter(e => !e.time).sort((a, b) => (a.sort_hint ?? 99) - (b.sort_hint ?? 99));
   return { timed, untimed };
 }
 
@@ -338,6 +383,7 @@ export default function ChronologicalDayView({
   allMeals,
   allActivities,
   allCoffeeRequests,
+  allPrisaRequests,
   allSpaces,
   activitiesOnly = false,
 }) {
@@ -357,8 +403,8 @@ export default function ChronologicalDayView({
   }, [allCoffeeRequests]);
 
   const rawEvents = useMemo(() =>
-    buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, activeCoffeeKeys }),
-    [dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, activeCoffeeKeys]
+    buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, activeCoffeeKeys }),
+    [dateStr, allGroups, allMeals, allActivities, allCoffeeRequests, allPrisaRequests, activeCoffeeKeys]
   );
 
   // Resolve group names from groupMap
