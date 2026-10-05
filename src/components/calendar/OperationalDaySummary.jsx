@@ -4,7 +4,8 @@ import moment from "moment";
 import "moment/locale/he";
 import {
   X, Users, UtensilsCrossed, CalendarDays, AlertTriangle,
-  ArrowDownCircle, ArrowUpCircle, Moon, ChevronDown, ChevronUp, ExternalLink, Sun, Clock, Coffee, Sandwich
+  ArrowDownCircle, ArrowUpCircle, Moon, ChevronDown, ChevronUp, ExternalLink, Sun, Clock, Coffee, Sandwich,
+  ChevronRight, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -539,9 +540,22 @@ export default function OperationalDaySummary({
   allGroups, allMeals, allActivities, allSpaces, allAlerts,
   allCoffeeRequests = [],
   allPrisaRequests = [],
+  onNavigateDate,
 }) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
+
+  // Safe date-only arithmetic: parse the YYYY-MM-DD string directly to avoid
+  // any DST / timezone drift from +/- 24 hour operations.
+  const shiftDate = (dir) => {
+    if (!date) return;
+    const dateStr = fmt(date);
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const shifted = moment.utc([y, m - 1, d]).add(dir, "days");
+    if (onNavigateDate) onNavigateDate(shifted);
+  };
+  const goPrev = () => shiftDate(-1);
+  const goNext = () => shiftDate(1);
 
   const dateStr   = date ? fmt(date) : "";
   const dateLabel = date ? moment(date).format("dddd, D בMMMM YYYY") : "";
@@ -640,9 +654,33 @@ export default function OperationalDaySummary({
       >
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50 rounded-t-2xl shrink-0">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">סיכום תפעולי</h2>
-            <p className="text-sm text-muted-foreground">{dateLabel}</p>
+          <div className="flex items-center gap-2">
+            {onNavigateDate && (
+              <button
+                type="button"
+                onClick={goPrev}
+                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors"
+                title="יום קודם"
+              >
+                <ChevronRight className="w-4 h-4" />
+                <span className="hidden sm:inline">יום קודם</span>
+              </button>
+            )}
+            <div className="text-center min-w-0">
+              <h2 className="text-base font-bold text-slate-800">סיכום תפעולי</h2>
+              <p className="text-sm text-muted-foreground">{dateLabel}</p>
+            </div>
+            {onNavigateDate && (
+              <button
+                type="button"
+                onClick={goNext}
+                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg px-2 py-1.5 transition-colors"
+                title="יום הבא"
+              >
+                <span className="hidden sm:inline">יום הבא</span>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors">
             <X className="w-5 h-5" />

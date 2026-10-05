@@ -552,6 +552,7 @@ export default function Calendar() {
         date={selectedDate}
         isOpen={!!selectedDate}
         onClose={() => setSelectedDate(null)}
+        onNavigateDate={(newDate) => setSelectedDate(newDate)}
         allGroups={groups}
         allMeals={operationalMeals}
         allActivities={operationalScheduleItems}

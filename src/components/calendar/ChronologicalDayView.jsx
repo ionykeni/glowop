@@ -230,6 +230,7 @@ export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allA
         time: null,
         end_time: null,
         sort_hint: PRISA_SLOT_ORDER[r.pickup_slot] ?? 99,
+        _prisa_slot: r.pickup_slot,
         group_id: r.group_id,
         group_name: null,
         title: "פריסה",
@@ -266,11 +267,57 @@ export function buildChronologicalDayEvents({ dateStr, allGroups, allMeals, allA
   return events;
 }
 
-// ── Sort events: timed first (ascending), no-time last ────────────────────────
+// ── Sort events ────────────────────────────────────────────────────────────────
+// Prisa has no HH:MM — instead of dumping all untimed events at the end,
+// Prisa is semantically anchored right after its corresponding meal type
+// (AFTER_BREAKFAST → after breakfast meals, etc.). If that meal doesn't exist
+// on this day, the Prisa falls through to a labeled untimed section.
+const SLOT_TO_MEAL_TYPE = {
+  AFTER_BREAKFAST: "BREAKFAST",
+  AFTER_LUNCH: "LUNCH",
+  AFTER_DINNER: "DINNER",
+};
+
 function sortEvents(events) {
-  const timed = events.filter(e => e.time).sort((a, b) => a.time.localeCompare(b.time) || (a.end_time || "").localeCompare(b.end_time || ""));
-  const untimed = events.filter(e => !e.time).sort((a, b) => (a.sort_hint ?? 99) - (b.sort_hint ?? 99));
-  return { timed, untimed };
+  const timed = events
+    .filter(e => e.time)
+    .sort((a, b) => a.time.localeCompare(b.time) || (a.end_time || "").localeCompare(b.end_time || ""));
+  const prisaEvents = events.filter(e => e.type === "prisa");
+  const otherUntimed = events
+    .filter(e => !e.time && e.type !== "prisa")
+    .sort((a, b) => (a.sort_hint ?? 99) - (b.sort_hint ?? 99));
+
+  // Interleave Prisa after the last meal of the corresponding type
+  const sorted = [...timed];
+  const prisaWithoutMeal = [];
+
+  const prisaBySlot = {};
+  prisaEvents.forEach(p => {
+    const slot = p._prisa_slot;
+    if (!prisaBySlot[slot]) prisaBySlot[slot] = [];
+    prisaBySlot[slot].push(p);
+  });
+
+  // Process slots in canonical order (breakfast → lunch → dinner)
+  Object.entries(prisaBySlot)
+    .sort(([a], [b]) => (PRISA_SLOT_ORDER[a] ?? 99) - (PRISA_SLOT_ORDER[b] ?? 99))
+    .forEach(([slot, prisas]) => {
+      const mealType = SLOT_TO_MEAL_TYPE[slot];
+      let lastIdx = -1;
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].type === "meal" && sorted[i]._meal?.meal_type === mealType) {
+          lastIdx = i;
+          break;
+        }
+      }
+      if (lastIdx >= 0) {
+        sorted.splice(lastIdx + 1, 0, ... prisas);
+      } else {
+        prisaWithoutMeal.push(... prisas);
+      }
+    });
+
+  return { sorted, untimed: otherUntimed, prisaUntimed: prisaWithoutMeal };
 }
 
 // ── Single event row ──────────────────────────────────────────────────────────
@@ -414,15 +461,25 @@ export default function ChronologicalDayView({
     [rawEvents, groupMap, activitiesOnly]
   );
 
-  const { timed, untimed } = useMemo(() => sortEvents(events), [events]);
+  const { sorted, untimed, prisaUntimed } = useMemo(() => sortEvents(events), [events]);
 
   if (events.length === 0) {
     return <p className="text-sm text-slate-400 text-center py-8">אין אירועים ביום זה</p>;
   }
 
+  // Group untimed Prisa (no corresponding meal that day) by slot for labeled sections
+  const prisaUntimedBySlot = prisaUntimed.reduce((acc, p) => {
+    const slot = p._prisa_slot;
+    if (!acc[slot]) acc[slot] = [];
+    acc[slot].push(p);
+    return acc;
+  }, {});
+  const prisaUntimedSlots = Object.keys(prisaUntimedBySlot)
+    .sort((a, b) => (PRISA_SLOT_ORDER[a] ?? 99) - (PRISA_SLOT_ORDER[b] ?? 99));
+
   return (
     <div className="space-y-2">
-      {timed.map(event => (
+      {sorted.map(event => (
         <EventRow key={event.id} event={event} groupMap={groupMap} spaceMap={spaceMap} />
       ))}
 
@@ -438,6 +495,19 @@ export default function ChronologicalDayView({
           ))}
         </>
       )}
+
+      {prisaUntimedSlots.map(slot => (
+        <div key={slot}>
+          <div className="flex items-center gap-2 pt-2">
+            <div className="flex-1 border-t border-dashed border-orange-200" />
+            <span className="text-[11px] text-orange-500 font-medium shrink-0">{PRISA_SLOT_LABELS[slot] || slot}</span>
+            <div className="flex-1 border-t border-dashed border-orange-200" />
+          </div>
+          {prisaUntimedBySlot[slot].map(event => (
+            <EventRow key={event.id} event={event} groupMap={groupMap} spaceMap={spaceMap} />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

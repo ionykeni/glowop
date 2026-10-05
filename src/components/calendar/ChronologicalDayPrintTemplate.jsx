@@ -1,8 +1,15 @@
 import moment from "moment";
 import "moment/locale/he";
 import { buildChronologicalDayEvents } from "@/components/calendar/ChronologicalDayView";
+import { PRISA_SLOT_LABELS, PRISA_SLOT_ORDER } from "@/lib/prisaLabels";
 
 moment.locale("he");
+
+const SLOT_TO_MEAL_TYPE = {
+  AFTER_BREAKFAST: "BREAKFAST",
+  AFTER_LUNCH: "LUNCH",
+  AFTER_DINNER: "DINNER",
+};
 
 const TYPE_LABELS = {
   arrival: "הגעה",
@@ -62,7 +69,37 @@ export default function ChronologicalDayPrintTemplate({ dateStr, events, groupMa
   const dateLabel = moment(dateStr).format("dddd, D בMMMM YYYY");
 
   const timed = events.filter((e) => e.time).sort((a, b) => a.time.localeCompare(b.time));
-  const untimed = events.filter((e) => !e.time);
+  const prisaEvents = events.filter((e) => e.type === "prisa");
+  const untimed = events.filter((e) => !e.time && e.type !== "prisa");
+
+  // Interleave Prisa after the last meal of the corresponding type
+  const sorted = [...timed];
+  const prisaWithoutMeal = [];
+  const prisaBySlot = {};
+  prisaEvents.forEach((p) => {
+    const slot = p._prisa_slot;
+    if (!prisaBySlot[slot]) prisaBySlot[slot] = [];
+    prisaBySlot[slot].push(p);
+  });
+  Object.entries(prisaBySlot)
+    .sort(([a], [b]) => (PRISA_SLOT_ORDER[a] ?? 99) - (PRISA_SLOT_ORDER[b] ?? 99))
+    .forEach(([slot, prisas]) => {
+      const mealType = SLOT_TO_MEAL_TYPE[slot];
+      let lastIdx = -1;
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (sorted[i].type === "meal" && sorted[i]._meal?.meal_type === mealType) { lastIdx = i; break; }
+      }
+      if (lastIdx >= 0) sorted.splice(lastIdx + 1, 0, ...prisas);
+      else prisaWithoutMeal.push(...prisas);
+    });
+  const prisaUntimedBySlot = prisaWithoutMeal.reduce((acc, p) => {
+    const slot = p._prisa_slot;
+    if (!acc[slot]) acc[slot] = [];
+    acc[slot].push(p);
+    return acc;
+  }, {});
+  const prisaUntimedSlots = Object.keys(prisaUntimedBySlot)
+    .sort((a, b) => (PRISA_SLOT_ORDER[a] ?? 99) - (PRISA_SLOT_ORDER[b] ?? 99));
 
   const renderRow = (event) => {
     const color = TYPE_COLORS[event.type] || "#475569";
@@ -138,7 +175,7 @@ export default function ChronologicalDayPrintTemplate({ dateStr, events, groupMa
             </tr>
           </thead>
           <tbody>
-            {timed.map(renderRow)}
+            {sorted.map(renderRow)}
             {untimed.length > 0 && (
               <tr>
                 <td colSpan={2} style={{ padding: "10px 8px 4px", fontSize: "11px", color: "#94a3b8", fontWeight: 600, borderTop: "1px dashed #cbd5e1" }}>
@@ -147,6 +184,14 @@ export default function ChronologicalDayPrintTemplate({ dateStr, events, groupMa
               </tr>
             )}
             {untimed.map(renderRow)}
+            {prisaUntimedSlots.map(slot => (
+              <tr key={`label-${slot}`}>
+                <td colSpan={2} style={{ padding: "10px 8px 4px", fontSize: "11px", color: "#ea580c", fontWeight: 600, borderTop: "1px dashed #fed7aa" }}>
+                  {PRISA_SLOT_LABELS[slot] || slot}
+                </td>
+              </tr>
+            ))}
+            {prisaUntimedSlots.flatMap(slot => prisaUntimedBySlot[slot].map((e, i) => renderRow(e, `${slot}-${i}`)))}
           </tbody>
         </table>
       )}
