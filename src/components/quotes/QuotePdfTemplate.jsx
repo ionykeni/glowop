@@ -3,6 +3,7 @@
  * Printable RTL Hebrew via window.print().
  */
 import { getQuoteAudienceContent } from "@/lib/quoteAudience";
+import QuoteLodgingInfoPage from "./QuoteLodgingInfoPage";
 import { PACKAGE_CATALOG, OPERATOR_ADDON_CATALOG, calcAddonLine, calcPackageLine } from "@/lib/quoteCatalog";
 import { calcAdultLodgingLine, calcStudentLodgingLine, getQuoteNights } from "@/lib/quotePricing";
 

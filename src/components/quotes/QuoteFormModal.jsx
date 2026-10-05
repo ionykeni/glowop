@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, CalendarDays, Users, Coffee, BookOpen, Mic2, Tag, SlidersHorizontal, ChevronDown, ChevronUp, Package } from "lucide-react";
 import CapacityWarningBanner from "./CapacityWarningBanner";
 import VipPeopleField from "./VipPeopleField";
+import QuoteNotesEditor from "./QuoteNotesEditor";
+import QuoteAvailabilityCalendar from "./availability/QuoteAvailabilityCalendar";
 import AdultLodgingSection from "./AdultLodgingSection";
 import PackageLinesSection from "./PackageLinesSection";
 import AdjustmentsSection, { calcAdjustmentLine, normalizeAdjustmentRow } from "./AdjustmentsSection";
@@ -526,6 +528,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const [audienceError, setAudienceError] = useState(false);
   const [availabilityResult, setAvailabilityResult] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // ── Live calcs (must be before useCallback that references them) ─────────────
   const estimatedPax     = Number(form.estimated_pax || 0);
@@ -1198,7 +1201,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               {/* Client-visible shared notes */}
               <div className={`${CARD} px-5 py-4`}>
                 <Label className="text-xs text-slate-500 mb-1 block">הערות ללקוח</Label>
-                <Textarea rows={2} value={form.client_notes} onChange={e => set("client_notes", e.target.value)} className="text-sm" placeholder="הערות שיופיעו בהצעת המחיר ללקוח" />
+                <QuoteNotesEditor value={form.client_notes} onChange={v => set("client_notes", v)} />
               </div>
 
               {/* Internal notes */}
@@ -1216,6 +1219,9 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
             {multiOptionFeatureEnabled && <QuoteOptionPreviewSelector mode={previewMode} hasB={hasOptionB} totals={{ A: activeOptionKey === "A" ? total_price : repricedOptionDrafts.A?.total_price, B: activeOptionKey === "B" ? total_price : repricedOptionDrafts.B?.total_price }} onChange={key => key === "COMBINED" ? setPreviewMode(key) : switchOption(key)} />}
 
             <CalendarCard arrival={form.arrival_date} departure={form.departure_date} nights={nights} isDayUse={quoteType === "day_use"} />
+
+            <Button type="button" variant="outline" size="sm" onClick={() => setCalendarOpen(true)} className="w-full text-xs">📅 זמינות</Button>
+            <QuoteAvailabilityCalendar open={calendarOpen} onClose={() => setCalendarOpen(false)} initialDate={form.arrival_date} />
 
             <CapacityWarningBanner availabilityResult={availabilityResult} loading={checkingAvailability} />
 
