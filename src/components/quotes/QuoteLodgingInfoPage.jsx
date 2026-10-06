@@ -1,3 +1,5 @@
+import { LegalFooter } from "./QuotePdfTemplate";
+
 const HEADING_FONT = '"Kav16", "Arial Hebrew", Arial, sans-serif';
 const BODY_FONT = '"SimplerPro", "Arial Hebrew", Arial, sans-serif';
 const BLUE = "#1a56a0";
@@ -6,7 +8,6 @@ const BLUE = "#1a56a0";
 const INFO = [
   ["p", "שלום רב,"],
   ["p", "נשמח לארח את סמינר התלמידים שלכם בבית הדור הבא!"],
-  ["p", "הצעת המחיר כוללת לינה בפנסיון מלא, שלוש סדנאות, רפלקציה וסיכום, ושימוש בחללי הפעילות."],
   ["h", "אירוח ולינה במתחם"],
   ["p", "אוהלי צוות: ממוקמים בשכונה נפרדת ומבודדת בסמוך לחדר האוכל. האוהלים כוללים 3–4 מיטות ותאי שירותים ומקלחת צמודים. צוותי החינוך מקבלים מצעים מלאים, כולל שמיכה וכרית (ללא מגבות)."],
   ["p", "אוהלי תלמידים: כוללים 6–8 מיטות יחיד או קומתיים. כל ארבעה אוהלים מתוכננים כ\"שכונה\", שבמרכזה מעגל ישיבה עם מדורה אקולוגית ותאי שירותים צמודים. האוהלים כוללים מיטה ומזרן בלבד – על התלמידים להביא מצעים מלאים, שמיכה וכרית."],
@@ -23,10 +24,26 @@ const INFO = [
 const headingStyle = { fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, borderBottom: `2px solid ${BLUE}`, paddingBottom: 4, marginTop: 14, marginBottom: 8, breakAfter: "avoid", pageBreakAfter: "avoid" };
 const paraStyle = { margin: "0 0 8px 0", fontSize: 12, lineHeight: 1.7, fontFamily: BODY_FONT, color: "#1a1a1a" };
 
+const pageStyle = {
+  width: "210mm",
+  minHeight: "297mm",
+  padding: "14mm 16mm 36mm 16mm",
+  boxSizing: "border-box",
+  direction: "rtl",
+  background: "#fff",
+  position: "relative",
+  pageBreakBefore: "always",
+  breakBefore: "page",
+  pageBreakAfter: "always",
+  breakAfter: "page",
+  fontFamily: BODY_FONT,
+  color: "#1a1a1a",
+};
+
 /** Page 2 for LODGING Quotes: always starts on a new page; long notes flow onto following pages. */
 export default function QuoteLodgingInfoPage({ clientNotes }) {
   return (
-    <div style={{ width: "210mm", boxSizing: "border-box", padding: "14mm 16mm 16mm 16mm", direction: "rtl", background: "#fff", pageBreakBefore: "always", breakBefore: "page", pageBreakAfter: "always", breakAfter: "page" }}>
+    <div style={pageStyle}>
       {INFO.map(([kind, text], i) => kind === "h"
         ? <div key={i} style={headingStyle}>{text}</div>
         : <p key={i} style={paraStyle}>{text}</p>)}
@@ -34,6 +51,7 @@ export default function QuoteLodgingInfoPage({ clientNotes }) {
         <div style={headingStyle}>הערות</div>
         <div style={{ ...paraStyle, whiteSpace: "pre-wrap" }}>{clientNotes}</div>
       </>}
+      <LegalFooter />
     </div>
   );
 }

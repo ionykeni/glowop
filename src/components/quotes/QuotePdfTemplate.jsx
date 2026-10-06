@@ -262,7 +262,7 @@ const pageStyle = {
   color: "#1a1a1a",
 };
 
-function LegalFooter() {
+export function LegalFooter() {
   return (
     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, direction: "rtl" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 14px", borderTop: "1px solid #dde8f5", fontSize: 9.5, fontFamily: BODY_FONT, color: "#555" }}>
