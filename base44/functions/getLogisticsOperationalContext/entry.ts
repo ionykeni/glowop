@@ -77,7 +77,10 @@ export default async function(req) {
     const includeReminders = body.include_reminders !== false;
 
     const db = base44.asServiceRole.entities;
-    const [allGroups, mechinaAssignments, allPeriods, confirmedAllocs, coffeeAll, maintIssues, scheduleItems, spaces, spaceBlocks, tents] = await Promise.all([
+
+    // Meeting summaries — secondary planning context.
+    // Bounded: latest 8 SAVED summaries on/before the requested date, most recent first.
+    const [allGroups, mechinaAssignments, allPeriods, confirmedAllocs, coffeeAll, maintIssues, scheduleItems, spaces, spaceBlocks, tents, meetingSummariesRaw] = await Promise.all([
       db.Group.list('-created_date', 1000),
       db.MechinaGroupAssignment.filter({ is_active: true }),
       db.GroupStayPeriod.filter({ status: 'ACTIVE' }),
@@ -88,7 +91,25 @@ export default async function(req) {
       db.ActivitySpace.list(),
       db.ActivitySpaceBlock.filter({ status: 'ACTIVE' }),
       db.Tent.list(),
+      db.MeetingSummary.filter({ status: 'SAVED' }),
     ]);
+
+    const meeting_summaries = (meetingSummariesRaw || [])
+      .filter(m => m.meeting_date && m.meeting_date <= date)
+      .sort((a, b) => (b.meeting_date || '').localeCompare(a.meeting_date || ''))
+      .slice(0, 8)
+      .map(m => ({
+        id: m.id,
+        meeting_date: m.meeting_date,
+        title: m.title,
+        relevant_week_start: m.relevant_week_start || null,
+        content: m.meeting_summary_text || null,
+        topics_tags: m.topics_tags || null,
+        mentioned_groups_text: m.mentioned_groups_text || null,
+        mentioned_locations_text: m.mentioned_locations_text || null,
+        related_group_ids: m.related_group_ids || null,
+        created_by: m.created_by || null,
+      }));
 
     const groups = (allGroups || []).filter(g => !EXCLUDED_STATUS.has(g.status) && isGroupOperationallyEnabled(g));
     const groupMap = Object.fromEntries(groups.map(g => [g.id, g]));
@@ -222,6 +243,7 @@ export default async function(req) {
       space_blocks: blocks,
       maintenance_open: maintenance,
       sleeping_missing_allocation: sleepingMissing,
+      meeting_summaries,
       reminders: includeReminders ? ['תזכורת כללית: לבדוק / להזין שעות עובדות המשק (תזכורת בלבד — אין נתון שמוכיח שחסר)'] : [],
     });
   } catch (error) {
