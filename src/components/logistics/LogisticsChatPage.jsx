@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Send, Sparkles } from "lucide-react";
 import MessageBubble from "./MessageBubble";
+import WhatsAppConnectButton from "./WhatsAppConnectButton";
 import { LOGISTICS_AGENT_NAME, isLogisticsManager } from "@/lib/logisticsAssistantConfig";
 
 const SUGGESTIONS = [
@@ -93,6 +94,7 @@ export default function LogisticsChatPage({ userEmail }) {
           <h1 className="text-sm font-bold text-slate-800">עוזר לוגיסטיקה</h1>
           <p className="text-[11px] text-slate-400">קופילוט תפעולי פרטי · קריאה בלבד</p>
         </div>
+        <WhatsAppConnectButton />
       </div>
 
       {/* Messages */}
