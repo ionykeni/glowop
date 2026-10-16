@@ -67,6 +67,14 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
   const departureDate = group?.departure_date || "";
   const groupType     = group?.group_type || "LODGING";
 
+  // A group that already departed (today > departure_date) cannot get NEW activities —
+  // protects analytics from backfilling a group that already left.
+  const todayInJerusalem = () => {
+    try { return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jerusalem" }); }
+    catch { return new Date().toISOString().slice(0, 10); }
+  };
+  const groupDeparted = !!(departureDate && todayInJerusalem() > departureDate);
+
   // Allowed meal date range by group type
   const mealMinDate = arrivalDate || undefined;
   const mealMaxDate = groupType === "DAY_USE" ? arrivalDate : (departureDate || undefined);
@@ -196,6 +204,10 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
 
   // Duplicate an existing activity — opens the add form prefilled (date/time cleared)
   const handleDuplicateActivity = (item) => {
+    if (groupDeparted) {
+      toast.error("לא ניתן להוסיף פעילויות — הקבוצה עזבה את האתר");
+      return;
+    }
     setNewSchedule({
       ...makeEmptySchedule(),
       activity_name: item.activity_name,
@@ -232,6 +244,10 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
 
   // Open Add Activity form, optionally prefilled from a suggestion or quote talk
   const openActivityForm = (prefill = {}) => {
+    if (groupDeparted) {
+      toast.error("לא ניתן להוסיף פעילויות — הקבוצה עזבה את האתר");
+      return;
+    }
     const base = makeEmptySchedule();
     setNewSchedule({
       ...base,
@@ -817,11 +833,16 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
             <CalendarDays className="w-4 h-4" /> לוח פעילויות
           </h3>
           <RoleGate permission="MANAGE_ACTIVITIES">
-            <Button size="sm" variant="outline" onClick={() => addingSchedule ? resetAddActivityForm() : openActivityForm()} className="gap-1">
+            <Button size="sm" variant="outline" onClick={() => addingSchedule ? resetAddActivityForm() : openActivityForm()} disabled={groupDeparted} className="gap-1">
               <Plus className="w-3.5 h-3.5" /> הוסף פעילות
             </Button>
           </RoleGate>
         </div>
+        {groupDeparted && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3">
+            הקבוצה עזבה את האתר — לא ניתן להוסיף פעילויות חדשות
+          </p>
+        )}
 
         {/* ── Unified Add Activity Form ─────────────────────────────────────── */}
         {addingSchedule && (

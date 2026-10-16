@@ -3,6 +3,7 @@ import { assertOperationalGroup, isPreparationGroupOperational } from '../../sha
 import { checkActivitySpaceConflict } from '../../shared/activitySpaceAvailability.js';
 import { ACTIVITY_CALENDAR_ID, calendarDateTime } from '../../shared/activityCalendar.js';
 import { validateDatedOperationalDate } from '../../shared/datedOperationalPeriodValidation.js';
+import { isGroupDeparted, GROUP_ALREADY_DEPARTED_CODE } from '../../shared/activityCreationWindow.js';
 
 const VALID_SPACE_CODES = new Set([
   'bunker_1', 'bunker_2', 'bunker_4', 'bunker_5',
@@ -325,6 +326,13 @@ export default async function(req) {
       }
     }
 
+    // ── Block creating NEW activities for a group that has already departed ──
+    // (today is strictly after departure_date — i.e. the day after checkout or later).
+    // Edits (id present) and cancellations remain allowed.
+    if (!id && status !== 'CANCELLED' && isGroupDeparted(primaryGroup)) {
+      return Response.json({ success: false, error: `הקבוצה "${primaryGroup.group_name || ''}" כבר עזבה את האתר — לא ניתן להוסיף פעילויות`, error_code: GROUP_ALREADY_DEPARTED_CODE }, { status: 400 });
+    }
+
     let resolvedSpaceId = activity_space_id || null;
     let resolvedSpaceCode = null;
 
@@ -412,6 +420,9 @@ export default async function(req) {
         const groupDateValidation = await validateDatedOperationalDate(base44, g, date);
         if (!groupDateValidation.valid) return Response.json({ success: false, error: groupDateValidation.message, error_code: groupDateValidation.code, group_id: gid }, { status: 400 });
         if (!isPreparationGroupOperational(g)) return Response.json({ success: false, error: 'PREPARATION_GROUP_NOT_OPERATIONAL', group_id: gid }, { status: 409 });
+        if (gid !== group_id && isGroupDeparted(g)) {
+          return Response.json({ success: false, error: `הקבוצה "${g.group_name}" כבר עזבה את האתר — לא ניתן להוסיף פעילויות`, error_code: GROUP_ALREADY_DEPARTED_CODE, group_id: gid }, { status: 400 });
+        }
         if (g.arrival_date && g.departure_date) {
           const stayStart = g.arrival_date < g.departure_date ? g.arrival_date : g.departure_date;
           const stayEnd   = g.arrival_date < g.departure_date ? g.departure_date : g.arrival_date;
@@ -663,6 +674,9 @@ export default async function(req) {
       }
       const groupDateValidation = await validateDatedOperationalDate(base44, g, date);
       if (!groupDateValidation.valid) return Response.json({ success: false, error: groupDateValidation.message, error_code: groupDateValidation.code, group_id: gid }, { status: 400 });
+      if (isGroupDeparted(g)) {
+        return Response.json({ success: false, error: `הקבוצה "${g.group_name}" כבר עזבה את האתר — לא ניתן להוסיף פעילויות`, error_code: GROUP_ALREADY_DEPARTED_CODE, group_id: gid }, { status: 400 });
+      }
       if (g.arrival_date && g.departure_date) {
         // Defensive: handle inverted dates by using min/max
         const stayStart = g.arrival_date < g.departure_date ? g.arrival_date : g.departure_date;
