@@ -10,6 +10,9 @@ import MechinaDecisionModal from "@/components/mechina/MechinaDecisionModal";
 import SpaceDeactivationDialog from "@/components/mechina/SpaceDeactivationDialog";
 import { filterRelevantMechinaAssignments } from "@/lib/mechinaGroups";
 import { isBlockVisibleOnCalendarDate } from "@/lib/activitySpaceBlocks";
+import PortalTabs from "@/components/mechina/sleeping-report/PortalTabs";
+import SleepingReportTab from "@/components/mechina/sleeping-report/SleepingReportTab";
+import AdminSleepingReports from "@/components/mechina/sleeping-report/AdminSleepingReports";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
 const SPACE_ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN"];
@@ -158,6 +161,7 @@ export default function MechinaSpaces() {
   const [resolveCancellationModal, setResolveCancellationModal] = useState(null); // request
   const [togglingSpaceId, setTogglingSpaceId] = useState("");
   const [deactivationSpace, setDeactivationSpace] = useState(null);
+  const [portalTab, setPortalTab] = useState("spaces");
 
   const groupMap = Object.fromEntries(groups.map(g => [g.id, g]));
   // Only assignments pointing to real, relevant groups are selectable (old/cancelled/deleted groups excluded)
@@ -391,13 +395,16 @@ export default function MechinaSpaces() {
               </div>
             )}
           </div>
-          {mechinaGroupId && (
+          {mechinaGroupId && portalTab === "spaces" && (
             <Button onClick={() => handleRequestNew()} className="gap-1.5">
               <Plus className="w-4 h-4" /> בקשה חדשה
             </Button>
           )}
         </div>
 
+        <PortalTabs value={portalTab} onChange={setPortalTab} />
+
+        {portalTab === "sleeping" ? <SleepingReportTab groupId={mechinaGroupId} /> : (<>
         <DateNav selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
         <section className="space-y-3">
@@ -453,6 +460,7 @@ export default function MechinaSpaces() {
             </div>
           )}
         </section>
+        </>)}
 
         {actionModal && (
           <ActionConfirmModal
@@ -484,6 +492,9 @@ export default function MechinaSpaces() {
         <p className="text-sm text-slate-500">פורטל מכינות — ניהול בקשות הזמנת מרחבי פעילות</p>
       </div>
 
+      <PortalTabs value={portalTab} onChange={setPortalTab} />
+
+      {portalTab === "sleeping" ? <AdminSleepingReports /> : (<>
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl px-5 py-4 space-y-1">
@@ -625,6 +636,8 @@ export default function MechinaSpaces() {
           </div>
         )}
       </section>
+
+      </>)}
 
       {/* Action confirm modal (admin cancel) */}
       {actionModal && (

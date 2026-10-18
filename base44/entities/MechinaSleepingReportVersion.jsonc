@@ -1,0 +1,116 @@
+{
+  "name": "MechinaSleepingReportVersion",
+  "type": "object",
+  "properties": {
+    "report_key": {
+      "type": "string"
+    },
+    "group_id": {
+      "type": "string"
+    },
+    "group_name": {
+      "type": "string"
+    },
+    "period_key": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "version_number": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING_PDF",
+        "SUBMITTED"
+      ],
+      "default": "PENDING_PDF",
+      "description": "A version counts as submitted only after its PDF is stored"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false
+    },
+    "submitted_at": {
+      "type": "string",
+      "description": "Server ISO timestamp"
+    },
+    "submitted_by_user_id": {
+      "type": "string"
+    },
+    "submitted_by_email": {
+      "type": "string"
+    },
+    "submitted_by_name": {
+      "type": "string"
+    },
+    "expected_students": {
+      "type": "number"
+    },
+    "total_boys": {
+      "type": "number"
+    },
+    "total_girls": {
+      "type": "number"
+    },
+    "total_students": {
+      "type": "number"
+    },
+    "difference": {
+      "type": "number"
+    },
+    "warnings_count": {
+      "type": "number"
+    },
+    "snapshot_json": {
+      "type": "string",
+      "description": "Immutable full tent-level snapshot"
+    },
+    "comparison_json": {
+      "type": "string",
+      "description": "Structured diff vs previous submitted version"
+    },
+    "pdf_file_uri": {
+      "type": "string"
+    },
+    "pdf_attached_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_key",
+    "group_id",
+    "period_key",
+    "version_number",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

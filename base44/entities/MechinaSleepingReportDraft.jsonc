@@ -1,0 +1,57 @@
+{
+  "name": "MechinaSleepingReportDraft",
+  "type": "object",
+  "properties": {
+    "report_key": {
+      "type": "string",
+      "description": "group_id:period_key \u2014 one draft per group + stay period"
+    },
+    "group_id": {
+      "type": "string"
+    },
+    "period_key": {
+      "type": "string",
+      "description": "GroupStayPeriod id, or CONTINUOUS"
+    },
+    "entries_json": {
+      "type": "string",
+      "description": "JSON array of tent entries being edited"
+    },
+    "general_notes": {
+      "type": "string"
+    },
+    "updated_by_email": {
+      "type": "string"
+    },
+    "updated_at_server": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_key",
+    "group_id",
+    "period_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
