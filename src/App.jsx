@@ -37,6 +37,7 @@ import AnalyticsDashboard from "./pages/AnalyticsDashboard.jsx";
 import Quotes from "./pages/Quotes.jsx";
 import AuthenticatedSnapshotFallback from "@/components/snapshots/AuthenticatedSnapshotFallback";
 import LogisticsAssistant from "./pages/LogisticsAssistant.jsx";
+import OperationalProcedures from "./pages/OperationalProcedures.jsx";
 
 // Landing page resolver — MAINTENANCE users go straight to the maintenance module,
 // everyone else sees the Dashboard.
@@ -90,6 +91,7 @@ const AuthenticatedApp = () => {
         <Route path="/my-shifts" element={<RouteGuard><MyShifts /></RouteGuard>} />
         <Route path="/analytics" element={<RouteGuard><AnalyticsDashboard /></RouteGuard>} />
         <Route path="/logistics-assistant" element={<RouteGuard><LogisticsAssistant /></RouteGuard>} />
+        <Route path="/operational-procedures" element={<RouteGuard><OperationalProcedures /></RouteGuard>} />
         {/* Add your page Route elements here */}
         <Route path="*" element={<PageNotFound />} />
       </Routes>

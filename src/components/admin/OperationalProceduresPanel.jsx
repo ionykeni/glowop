@@ -100,65 +100,64 @@ export default function OperationalProceduresPanel() {
   };
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
-      <div className="flex items-center justify-between mb-4">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-5 h-5 text-amber-400" />
-          <h2 className="text-sm font-bold text-white">נהלי תפעול</h2>
+          <BookOpen className="w-5 h-5 text-primary" />
+          <h2 className="text-base font-bold text-foreground">נהלי תפעול</h2>
         </div>
         {canEdit && !showForm && (
-          <Button size="sm" variant="outline" onClick={openCreate} className="gap-1.5 text-xs">
-            <Plus className="w-3.5 h-3.5" /> הוסף נוהל
+          <Button size="sm" onClick={openCreate} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> הוספה חדשה
           </Button>
         )}
       </div>
 
+      {/* Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="mb-4 rounded-lg border border-slate-600 bg-slate-900 p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-amber-400">{editingId ? "עריכת נוהל" : "נוהל חדש"}</p>
-            <button type="button" onClick={resetForm} className="text-slate-400 hover:text-white">
+            <p className="text-sm font-semibold text-primary">{editingId ? "עריכת נוהל" : "נוהל חדש"}</p>
+            <button type="button" onClick={resetForm} className="text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-slate-400">קוד נוהל</label>
+              <label className="text-xs text-muted-foreground">קוד נוהל</label>
               <Input
                 value={formData.code}
                 onChange={(e) => setFormData((f) => ({ ...f, code: e.target.value }))}
                 disabled={!!editingId}
                 placeholder="MORNING"
-                className="bg-slate-800 border-slate-600 text-white"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-slate-400">קטגוריה</label>
+              <label className="text-xs text-muted-foreground">קטגוריה</label>
               <Input
                 value={formData.category}
                 onChange={(e) => setFormData((f) => ({ ...f, category: e.target.value }))}
                 placeholder="משמרת / שבת / ארוחות"
-                className="bg-slate-800 border-slate-600 text-white"
               />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-slate-400">כותרת</label>
+            <label className="text-xs text-muted-foreground">כותרת</label>
             <Input
               value={formData.title}
               onChange={(e) => setFormData((f) => ({ ...f, title: e.target.value }))}
               placeholder="נוהל משמרת בוקר"
-              className="bg-slate-800 border-slate-600 text-white"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-slate-400">תוכן הנוהל</label>
+            <label className="text-xs text-muted-foreground">תוכן הנוהל</label>
             <Textarea
               value={formData.content}
               onChange={(e) => setFormData((f) => ({ ...f, content: e.target.value }))}
               rows={10}
               dir="rtl"
-              className="bg-slate-800 border-slate-600 text-white font-mono text-xs"
+              className="font-mono text-xs"
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -170,9 +169,10 @@ export default function OperationalProceduresPanel() {
         </form>
       )}
 
+      {/* Delete confirmation */}
       {deleteTarget && (
-        <div className="mb-4 rounded-lg border border-red-600 bg-red-950/50 p-4 space-y-3">
-          <p className="text-sm text-red-200">
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 space-y-3">
+          <p className="text-sm text-destructive">
             מחיקה לצמיתות של <span className="font-bold">{deleteTarget.title}</span>?
             פעולה זו אינה הפיכה.
           </p>
@@ -190,75 +190,87 @@ export default function OperationalProceduresPanel() {
         </div>
       )}
 
+      {/* List */}
       {isLoading ? (
-        <p className="text-xs text-slate-500 text-center py-4">טוען נהלים...</p>
+        <p className="text-sm text-muted-foreground text-center py-8">טוען נהלים...</p>
       ) : procedures.length === 0 ? (
-        <p className="text-xs text-slate-500 text-center py-4">אין נהלים עדיין</p>
+        <p className="text-sm text-muted-foreground text-center py-8 border-2 border-dashed border-border rounded-xl">
+          אין נהלים עדיין
+        </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {procedures.map((proc) => (
             <div
               key={proc.id}
-              className={`rounded-lg border p-3 transition-opacity ${
+              className={`rounded-xl border p-4 transition-opacity bg-card shadow-sm ${
                 proc.is_active
-                  ? "border-slate-600 bg-slate-900/60"
-                  : "border-slate-700 bg-slate-900/30 opacity-60"
+                  ? "border-border"
+                  : "border-border opacity-60"
               }`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">
-                      {proc.code}
-                    </span>
-                    {proc.category && (
-                      <span className="text-[10px] text-slate-400">{proc.category}</span>
-                    )}
-                    {!proc.is_active && (
-                      <span className="text-[10px] text-amber-400">מושבת</span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-semibold text-white mt-1">{proc.title}</h3>
+              {/* Top row: actions (left) + category badge (right) */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1">
+                  {canEdit && (
+                    <>
+                      <button
+                        onClick={() => openEdit(proc)}
+                        className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-muted transition-colors"
+                        title="ערוך"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      {proc.is_active ? (
+                        <button
+                          onClick={() => toggleActiveMutation.mutate({ id: proc.id, active: false })}
+                          className="p-1.5 text-muted-foreground hover:text-amber-600 rounded-lg hover:bg-muted transition-colors"
+                          title="השבת"
+                        >
+                          <Archive className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => toggleActiveMutation.mutate({ id: proc.id, active: true })}
+                          className="p-1.5 text-muted-foreground hover:text-emerald-600 rounded-lg hover:bg-muted transition-colors"
+                          title="הפעל מחדש"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                      )}
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => setDeleteTarget(proc)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-muted transition-colors"
+                          title="מחק לצמיתות"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
-                {canEdit && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openEdit(proc)}
-                      className="p-1.5 text-slate-400 hover:text-blue-400 rounded"
-                      title="ערוך"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    {proc.is_active ? (
-                      <button
-                        onClick={() => toggleActiveMutation.mutate({ id: proc.id, active: false })}
-                        className="p-1.5 text-slate-400 hover:text-amber-400 rounded"
-                        title="השבת"
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => toggleActiveMutation.mutate({ id: proc.id, active: true })}
-                        className="p-1.5 text-slate-400 hover:text-emerald-400 rounded"
-                        title="הפעל מחדש"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {isSuperAdmin && (
-                      <button
-                        onClick={() => setDeleteTarget(proc)}
-                        className="p-1.5 text-slate-400 hover:text-red-400 rounded"
-                        title="מחק לצמיתות"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    {proc.code}
+                  </span>
+                  {proc.category && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                      {proc.category}
+                    </span>
+                  )}
+                  {!proc.is_active && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                      מושבת
+                    </span>
+                  )}
+                </div>
               </div>
-              <pre className="mt-2 text-xs text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">
+
+              {/* Title */}
+              <h3 className="text-sm font-bold text-foreground">{proc.title}</h3>
+
+              {/* Content */}
+              <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed">
                 {proc.content}
               </pre>
             </div>
