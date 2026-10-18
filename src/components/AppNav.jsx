@@ -46,8 +46,7 @@ const ALL_LINKS = [
   { key: "kitchen",         to: "/kitchen",         label: "מטבח",             icon: UtensilsCrossed, group: "ops" },
   { key: "maintenance",     to: "/maintenance",     label: "תחזוקה",           icon: Wrench,          group: "ops" },
   { key: "operational-procedures", to: "/operational-procedures", label: "נהלי תפעול", icon: BookOpen,       group: "ops" },
-  { key: "mechina-spaces",  to: "/mechina-spaces",  label: "בקשות מרחבים",     icon: BookMarked,      group: "primary" },
-  { key: "mechina-sleeping-report", to: "/mechina-sleeping-report", label: "דיווח לינה בפועל", icon: BedDouble, group: "primary" },
+  { key: "mechina",         to: "/mechina",         label: "ניהול מכינות",     icon: BookMarked,      group: "primary" },
   { key: "meeting-summaries", to: "/meeting-summaries", label: "סיכומי פגישות", icon: NotebookPen,   group: "primary" },
   { key: "work-schedule",   to: "/work-schedule",   label: "סידור עבודה",      icon: CalendarClock,   group: "ops" },
   { key: "cleaning-hours",  to: "/cleaning-hours",  label: "שעות עובדות ניקיון", icon: Clock,          group: "ops" },
@@ -77,7 +76,7 @@ const ADMIN_ROLES_SET = new Set(["SUPER_ADMIN", "ADMIN", "OPERATIONS"]);
 // Desktop primary nav pill
 function NavPill({ to, label, icon: Icon, pathname, alertCount, role }) {
   const active = isActive(to, pathname);
-  const isMechinaSpaces = to === "/mechina-spaces";
+  const isMechina = to === "/mechina";
   const isAdminRole = ADMIN_ROLES_SET.has(role);
   return (
     <Link
@@ -91,7 +90,7 @@ function NavPill({ to, label, icon: Icon, pathname, alertCount, role }) {
       <Icon className="w-3.5 h-3.5 shrink-0" />
       <span>{label}</span>
       {alertCount > 0 && <AlertBadge count={alertCount} small />}
-      {isMechinaSpaces && isAdminRole && <MechinaPendingBadge />}
+      {isMechina && isAdminRole && <MechinaPendingBadge />}
     </Link>
   );
 }
@@ -159,7 +158,7 @@ function NavDropdown({ label, icon: Icon, items, pathname, alertCounts, urgentKe
 // Mobile drawer link
 function DrawerLink({ to, label, icon: Icon, pathname, onClick, alertCount, role, urgent = false, amber = false }) {
   const active = isActive(to, pathname);
-  const isMechinaSpaces = to === "/mechina-spaces";
+  const isMechina = to === "/mechina";
   const isAdminRole = ADMIN_ROLES_SET.has(role);
   return (
     <Link
@@ -171,7 +170,7 @@ function DrawerLink({ to, label, icon: Icon, pathname, onClick, alertCount, role
       <Icon className="w-4 h-4 shrink-0" />
       <span className="flex-1">{label}</span>
       {alertCount > 0 && <AlertBadge count={alertCount} urgent={urgent} amber={amber} />}
-      {isMechinaSpaces && isAdminRole && <MechinaPendingBadge />}
+      {isMechina && isAdminRole && <MechinaPendingBadge />}
     </Link>
   );
 }
@@ -210,7 +209,7 @@ export default function AppNav() {
   const showUserManagement = role === "SUPER_ADMIN";
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
+  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
     .filter(l => PRIMARY_KEYS.includes(l.key) && (allowedKeys.includes(l.key) || (l.key === "logistics-assistant" && showLogisticsAssistant)))
     .sort((a, b) => role === "QUOTES_MANAGER"
