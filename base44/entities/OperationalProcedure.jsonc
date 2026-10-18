@@ -1,0 +1,56 @@
+{
+  "name": "OperationalProcedure",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Stable identifier (e.g. MORNING, EVENING)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Hebrew display title"
+    },
+    "content": {
+      "type": "string",
+      "description": "Hebrew multiline procedure content"
+    },
+    "category": {
+      "type": "string",
+      "description": "Grouping category (e.g. shift, shabbat, meals)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Inactive procedures are archived and excluded from the logistics assistant"
+    },
+    "source_document_url": {
+      "type": "string",
+      "description": "Original source document URL"
+    }
+  },
+  "required": [
+    "code",
+    "title",
+    "content",
+    "category",
+    "is_active"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

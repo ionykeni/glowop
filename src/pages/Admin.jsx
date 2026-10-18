@@ -4,6 +4,7 @@ import {
   TrendingUp, ChevronLeft, ShieldAlert, UserCog
 } from "lucide-react";
 import OrphanCleanupPanel from "@/components/admin/OrphanCleanupPanel";
+import OperationalProceduresPanel from "@/components/admin/OperationalProceduresPanel";
 import { useRoleContext } from "@/lib/RoleContext";
 import { isQuotePreparationEnabled } from "@/lib/quotePreparationFlow";
 
@@ -95,6 +96,10 @@ export default function Admin() {
               <ChevronLeft className="w-4 h-4 text-slate-400 shrink-0" />
             </Link>
           ))}
+        </div>
+
+        <div className="mt-8">
+          <OperationalProceduresPanel />
         </div>
 
         <div className="mt-8">
