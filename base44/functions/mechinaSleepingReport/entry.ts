@@ -35,12 +35,11 @@ async function loadContext(sr, group, periodKey) {
     || periods.find(p => p.start > today)
     || periods[periods.length - 1];
   if (!period) return { periods, period: null };
-  const [profiles, allocs, tents, nbs, reservations] = await Promise.all([
+  const [profiles, allocs, tents, nbs] = await Promise.all([
     sr.entities.OperationalGroupProfile.filter({ group_id: group.id }),
     sr.entities.SleepingAllocation.filter({ group_id: group.id, status: 'CONFIRMED', allocation_type: 'STUDENT', arrival_date: { $lt: period.end }, departure_date: { $gt: period.start } }),
     sr.entities.Tent.filter({ tent_type: 'STANDARD' }),
     sr.entities.Neighborhood.list('sort_order', 100),
-    sr.entities.NeighborhoodReservation.filter({ group_id: group.id, status: 'ACTIVE', arrival_date: { $lt: period.end }, departure_date: { $gt: period.start } }),
   ]);
   const profile = profiles[0] || {};
   const expected = (Number(profile.boys_count || 0) + Number(profile.girls_count || 0))
@@ -53,9 +52,9 @@ async function loadContext(sr, group, periodKey) {
     if (!(start < period.end && end > period.start) && !(period.start === period.end && start <= period.start && end >= period.end)) continue;
     officialByTent[a.tent_id] = (officialByTent[a.tent_id] || 0) + Number(a.allocated_pax || 0);
   }
-  const scopedNeighborhoods = new Set(reservations.map(r => r.neighborhood_id));
-  for (const t of tents) if (officialByTent[t.id] !== undefined) scopedNeighborhoods.add(t.neighborhood_id);
-  const scopedTents = tents.filter(t => !nbs.find(n => n.id === t.neighborhood_id)?.is_vip && (!scopedNeighborhoods.size || scopedNeighborhoods.has(t.neighborhood_id)));
+  // Additional reporting may use any standard tent in a non-VIP neighborhood,
+  // independently of this group's operational allocations or reservations.
+  const scopedTents = tents.filter(t => nbs.some(n => n.id === t.neighborhood_id && !n.is_vip));
   const tentMap = Object.fromEntries(scopedTents.map(t => [t.id, {
     id: t.id, code: t.code, capacity: t.capacity || 0, neighborhood_id: t.neighborhood_id,
     official_pax: officialByTent[t.id] || 0,
