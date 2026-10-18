@@ -8,8 +8,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { Plus, Pencil, Archive, RotateCcw, Trash2, X, BookOpen } from "lucide-react";
 import { useRoleContext } from "@/lib/RoleContext";
 
-const SOURCE_URL = "https://docs.google.com/document/d/1qMjOlxeK7Ewf25xXkn-hUUF5gpGhMKVrCj0Xkyw2w_4/edit";
-
 export default function OperationalProceduresPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -24,7 +22,10 @@ export default function OperationalProceduresPanel() {
 
   const { data: procedures = [], isLoading } = useQuery({
     queryKey: ["operationalProcedures"],
-    queryFn: () => base44.entities.OperationalProcedure.list({ sort: "code" }),
+    queryFn: async () => {
+      const res = await base44.entities.OperationalProcedure.list({ sort: "code" });
+      return res.items || [];
+    },
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["operationalProcedures"] });
@@ -44,7 +45,6 @@ export default function OperationalProceduresPanel() {
         content: data.content,
         category: data.category,
         is_active: true,
-        source_document_url: SOURCE_URL,
       });
     },
     onSuccess: () => {
@@ -63,7 +63,7 @@ export default function OperationalProceduresPanel() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.OperationalProcedure.delete(id),
+    mutationFn: (id) => base44.functions.invoke("deleteOperationalProcedure", { id }),
     onSuccess: () => { toast({ title: "הנוהל נמחק" }); setDeleteTarget(null); invalidate(); },
     onError: (err) => toast({ title: "שגיאה במחיקה", description: err?.message, variant: "destructive" }),
   });
