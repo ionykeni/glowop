@@ -29,30 +29,30 @@ export const ROLE_LABELS = {
 // Navigation links each role can see
 // Format: { to, label, icon_name }
 export const ROLE_NAV_LINKS = {
-  SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
-  ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
+  SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
+  ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
   QUOTES_MANAGER:       ["dashboard", "groups", "calendar", "quotes"],
-  OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures"],
+  OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-sleeping-report"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "maintenance", "my-shifts", "cleaning-hours", "operational-procedures"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts", "operational-procedures"],
   KITCHEN:              ["dashboard", "calendar", "kitchen", "operational-procedures"],
   MAINTENANCE:          ["common-spaces", "maintenance", "my-shifts", "operational-procedures"],
   VIEWER:               ["dashboard", "calendar"],
-  MECHINA_USER:         ["mechina-spaces"],
+  MECHINA_USER:         ["mechina-spaces", "mechina-sleeping-report"],
 };
 
 // Pages (route prefixes) each role can access
 export const ROLE_ALLOWED_ROUTES = {
   SUPER_ADMIN: "*", // all
-  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures"],
+  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures"],
   QUOTES_MANAGER: ["dashboard", "groups", "calendar", "quotes"],
-  OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures"],
+  OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-sleeping-report"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "cleaning-hours", "maintenance", "my-shifts", "operational-procedures"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts", "operational-procedures"],
   KITCHEN:              ["dashboard", "calendar", "kitchen", "kitchen-report", "operational-procedures"],
   MAINTENANCE:          ["common-spaces", "maintenance", "my-shifts", "operational-procedures"],
   VIEWER:               ["dashboard", "calendar"],
-  MECHINA_USER:         ["mechina-spaces"],
+  MECHINA_USER:         ["mechina-spaces", "mechina-sleeping-report"],
 };
 
 // Permissions — what actions a role can perform

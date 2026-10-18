@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { openVersionPdf } from "@/lib/mechinaSleepingReportPdf";
 import { formatDateTime } from "@/lib/mechinaSleepingReportCalc";
 
-export default function VersionHistoryList({ versions, onRetryPdf, onSelect }) {
+export default function VersionHistoryList({ versions, onRetryPdf, onSelect, onLoadMore }) {
   const [busy, setBusy] = useState("");
   if (!versions.length) return null;
   const open = async (id) => {
@@ -37,6 +37,7 @@ export default function VersionHistoryList({ versions, onRetryPdf, onSelect }) {
           )}
         </div>
       ))}
+      {onLoadMore && <Button variant="outline" size="sm" onClick={onLoadMore}>טען גרסאות קודמות</Button>}
     </section>
   );
 }

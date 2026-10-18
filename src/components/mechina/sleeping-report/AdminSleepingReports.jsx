@@ -7,11 +7,25 @@ import AdminReportDetail from "./AdminReportDetail";
 export default function AdminSleepingReports() {
   const [reports, setReports] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = async (next) => {
+    setBusy(true);
+    try {
+      const r = await base44.functions.invoke("mechinaSleepingReport", { action: "admin_list", cursor: next || undefined });
+      if (!r.data?.success) throw new Error(r.data?.error || "שגיאה בטעינת דיווחים");
+      setReports(old => next ? [...old, ...r.data.reports] : r.data.reports);
+      setCursor(r.data.has_more ? r.data.next_cursor : null);
+    } catch (e) { setError(e.message); }
+    setBusy(false);
+  };
 
   useEffect(() => {
-    base44.functions.invoke("mechinaSleepingReport", { action: "admin_list" }).then(r => setReports(r.data?.reports || []));
+    load();
   }, []);
 
+  if (error) return <p role="alert" className="text-destructive">{error}</p>;
   if (!reports) return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   if (selected) return <AdminReportDetail report={selected} onClose={() => setSelected(null)} />;
 
@@ -32,6 +46,7 @@ export default function AdminSleepingReports() {
           {r.warnings_count > 0 && <span className="flex items-center gap-0.5 text-xs text-orange-600"><AlertTriangle className="w-3.5 h-3.5" />{r.warnings_count}</span>}
         </button>
       ))}
+      {cursor && <button disabled={busy} onClick={() => load(cursor)} className="text-primary underline">{busy ? "טוען..." : "טען דיווחים נוספים"}</button>}
     </div>
   );
 }

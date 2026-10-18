@@ -1,48 +1,25 @@
-import { AlertTriangle, Minus, Plus, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { entryWarnings, WARNING_LABELS } from "@/lib/mechinaSleepingReportCalc";
-
-function Stepper({ label, value, onChange, cls }) {
-  const v = Number(value || 0);
-  return (
-    <div className="flex-1 space-y-1">
-      <p className={`text-xs font-semibold ${cls}`}>{label}</p>
-      <div className="flex items-center gap-1">
-        <button type="button" onClick={() => onChange(Math.max(0, v - 1))} className="w-10 h-10 rounded-lg border border-border flex items-center justify-center"><Minus className="w-4 h-4" /></button>
-        <input type="number" inputMode="numeric" min={0} value={v}
-          onChange={e => onChange(Math.max(0, parseInt(e.target.value || "0", 10) || 0))}
-          className="w-14 h-10 text-center text-lg font-bold border border-border rounded-lg bg-background" />
-        <button type="button" onClick={() => onChange(v + 1)} className="w-10 h-10 rounded-lg border border-border flex items-center justify-center"><Plus className="w-4 h-4" /></button>
-      </div>
-    </div>
-  );
-}
-
-export default function TentEntryEditor({ tent, entry, assigned, onChange, onRemove, onClose }) {
+export default function TentEntryEditor({ tent, neighborhood, entry, assigned, onChange, onClose }) {
   const warnings = entryWarnings(entry, tent, assigned);
-  return (
-    <div className="bg-card border-2 border-primary/40 rounded-xl p-4 space-y-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-base font-bold text-foreground">אוהל {tent.code}</p>
-          <p className="text-xs text-muted-foreground">קיבולת פיזית: {tent.capacity || "לא ידוע"} · משובצים רשמית: {tent.official_pax || 0}</p>
-        </div>
-        <button onClick={onClose} className="text-muted-foreground"><X className="w-5 h-5" /></button>
-      </div>
-      <div className="flex gap-3">
-        <Stepper label="בנים" value={entry.boys} cls="text-primary" onChange={boys => onChange({ ...entry, boys })} />
-        <Stepper label="בנות" value={entry.girls} cls="text-pink-600" onChange={girls => onChange({ ...entry, girls })} />
-      </div>
-      {warnings.map(w => (
-        <div key={w} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${w === "OVER_CAPACITY" ? "bg-destructive/10 text-destructive" : "bg-orange-50 text-orange-700"}`}>
-          <AlertTriangle className="w-4 h-4 shrink-0" /> {WARNING_LABELS[w]} — הדיווח יישמר כפי שהוזן
-        </div>
-      ))}
-      <textarea value={entry.note || ""} onChange={e => onChange({ ...entry, note: e.target.value })} rows={2}
-        placeholder={assigned ? "הערה (אופציונלי)" : "הסבר החריגה — למשל: חניכים מאוהל 21 ישנים כאן"}
-        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background resize-none" />
-      {!assigned && (
-        <button onClick={onRemove} className="text-xs text-destructive underline">הסר אוהל חריגה מהדיווח</button>
-      )}
-    </div>
-  );
+  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+    <DialogContent dir="rtl" className="max-w-md max-h-[90dvh] overflow-y-auto">
+      <DialogHeader className="text-right">
+        <DialogTitle>אוהל {tent.code}</DialogTitle>
+        <DialogDescription>{neighborhood} · קיבולת פיזית: {tent.capacity} · משובצים רשמית: {tent.official_pax || 0}</DialogDescription>
+      </DialogHeader>
+      <fieldset className="space-y-2"><legend className="text-sm font-semibold">כמה תלמידים ישנים כאן בפועל?</legend>
+        <div className="grid grid-cols-5 gap-2">{Array.from({ length: tent.capacity + 1 }, (_, count) => <Button key={count} type="button" variant={entry.count === count ? "default" : "outline"} aria-pressed={entry.count === count} onClick={() => onChange({ ...entry, count, gender: count === 0 ? "" : entry.gender })}>{count}</Button>)}</div>
+      </fieldset>
+      <fieldset className="space-y-2"><legend className="text-sm font-semibold">מגדר אחד לאוהל</legend>
+        <div className="flex gap-2">{[["BOYS", "בנים"], ["GIRLS", "בנות"]].map(([gender, label]) => <Button key={gender} className="flex-1" variant={entry.gender === gender ? "default" : "outline"} disabled={entry.count === 0} aria-pressed={entry.gender === gender} onClick={() => onChange({ ...entry, gender })}>{label}</Button>)}</div>
+      </fieldset>
+      {warnings.map(w => <p role={w === "NOT_ASSIGNED_TENT" ? undefined : "alert"} key={w} className="text-sm text-destructive">{WARNING_LABELS[w]}</p>)}
+      <label className="space-y-1 text-sm">הערה / חריגה
+        <textarea value={entry.note} maxLength={500} onChange={e => onChange({ ...entry, note: e.target.value })} rows={3} placeholder="למשל: שני תלמידים ישנים זמנית במקום אחר" className="block w-full rounded-lg border border-border bg-background p-2 mt-1" />
+      </label>
+      <Button onClick={() => { onChange(entry); onClose(); }}>סיום ועדכון המפה</Button>
+    </DialogContent>
+  </Dialog>;
 }

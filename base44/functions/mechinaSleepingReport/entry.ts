@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { buildSnapshot, compareSnapshots } from '../../shared/mechinaSleepingReportCore.js';
 
 // Informational module only — reads operational data, writes ONLY to
@@ -9,7 +9,7 @@ const fail = (error, status = 200) => Response.json({ success: false, error }, {
 
 async function authorize(sr, user, groupId) {
   const internal = (await sr.entities.InternalUser.filter({ email: user.email }))[0];
-  const role = internal?.role || null;
+  const role = internal?.active === true ? internal.role : null;
   const isAdmin = ADMIN_ROLES.includes(role) && internal?.active !== false;
   if (!groupId) return { isAdmin, internal, allowed: isAdmin };
   if (isAdmin) return { isAdmin, internal, allowed: true };
@@ -35,11 +35,12 @@ async function loadContext(sr, group, periodKey) {
     || periods.find(p => p.start > today)
     || periods[periods.length - 1];
   if (!period) return { periods, period: null };
-  const [profiles, allocs, tents, nbs] = await Promise.all([
+  const [profiles, allocs, tents, nbs, reservations] = await Promise.all([
     sr.entities.OperationalGroupProfile.filter({ group_id: group.id }),
-    sr.entities.SleepingAllocation.filter({ group_id: group.id, status: 'CONFIRMED' }),
-    sr.entities.Tent.list('code', 1000),
+    sr.entities.SleepingAllocation.filter({ group_id: group.id, status: 'CONFIRMED', allocation_type: 'STUDENT', arrival_date: { $lt: period.end }, departure_date: { $gt: period.start } }),
+    sr.entities.Tent.filter({ tent_type: 'STANDARD' }),
     sr.entities.Neighborhood.list('sort_order', 100),
+    sr.entities.NeighborhoodReservation.filter({ group_id: group.id, status: 'ACTIVE', arrival_date: { $lt: period.end }, departure_date: { $gt: period.start } }),
   ]);
   const profile = profiles[0] || {};
   const expected = (Number(profile.boys_count || 0) + Number(profile.girls_count || 0))
@@ -52,11 +53,15 @@ async function loadContext(sr, group, periodKey) {
     if (!(start < period.end && end > period.start) && !(period.start === period.end && start <= period.start && end >= period.end)) continue;
     officialByTent[a.tent_id] = (officialByTent[a.tent_id] || 0) + Number(a.allocated_pax || 0);
   }
-  const tentMap = Object.fromEntries(tents.map(t => [t.id, {
+  const scopedNeighborhoods = new Set(reservations.map(r => r.neighborhood_id));
+  for (const t of tents) if (officialByTent[t.id] !== undefined) scopedNeighborhoods.add(t.neighborhood_id);
+  const scopedTents = tents.filter(t => !nbs.find(n => n.id === t.neighborhood_id)?.is_vip && (!scopedNeighborhoods.size || scopedNeighborhoods.has(t.neighborhood_id)));
+  const tentMap = Object.fromEntries(scopedTents.map(t => [t.id, {
     id: t.id, code: t.code, capacity: t.capacity || 0, neighborhood_id: t.neighborhood_id,
     official_pax: officialByTent[t.id] || 0,
   }]));
-  const nbMap = Object.fromEntries(nbs.map(n => [n.id, { id: n.id, name: n.name, code: n.code, sort_order: n.sort_order }]));
+  const visibleNbs = new Set(scopedTents.map(t => t.neighborhood_id));
+  const nbMap = Object.fromEntries(nbs.filter(n => visibleNbs.has(n.id)).map(n => [n.id, { id: n.id, name: n.name, code: n.code, sort_order: n.sort_order }]));
   return { periods, period, expected, tentMap, nbMap, assignedIds: new Set(Object.keys(officialByTent)) };
 }
 
@@ -79,11 +84,20 @@ export default async function(req) {
     const body = await req.json();
     const { action } = body;
 
+    if (action === 'my_groups') {
+      const auth = await authorize(sr, user, null);
+      if (auth.internal?.role !== 'MECHINA_USER' || auth.internal?.active !== true) return fail('אין הרשאה', 403);
+      const assignments = await sr.entities.MechinaGroupAssignment.filter({ user_email: user.email, is_active: true });
+      const ids = [...new Set(assignments.map(a => a.group_id))];
+      const groups = ids.length ? await sr.entities.Group.filter({ id: { $in: ids } }) : [];
+      return ok({ groups: groups.map(g => ({ id: g.id, group_name: g.group_name })) });
+    }
+
     if (action === 'admin_list') {
       const auth = await authorize(sr, user, null);
       if (!auth.isAdmin) return fail('אין הרשאה', 403);
-      const current = await sr.entities.MechinaSleepingReportVersion.filter({ is_current: true }, '-submitted_at', 500);
-      return ok({ reports: current.map(versionMeta) });
+      const page = await sr.entities.MechinaSleepingReportVersion.filter({ is_current: true, status: 'SUBMITTED' }, { sort: '-submitted_at', limit: 50, cursor: body.cursor });
+      return ok({ reports: page.items.map(versionMeta), next_cursor: page.next_cursor, has_more: page.has_more });
     }
 
     // All other actions are scoped to one group (server-verified)
@@ -108,7 +122,11 @@ export default async function(req) {
     }
 
     if (action === 'version_detail') {
-      return ok({ version: { ...versionMeta(version), snapshot: JSON.parse(version.snapshot_json || '{}'), comparison: version.comparison_json ? JSON.parse(version.comparison_json) : null } });
+      if (!version) return fail('חסרה גרסה');
+      const current = auth.isAdmin ? await loadContext(sr, group, version.period_key) : null;
+      return ok({ version: { ...versionMeta(version), snapshot: JSON.parse(version.snapshot_json || '{}'), comparison: version.comparison_json ? JSON.parse(version.comparison_json) : null,
+        current_official: current?.tentMap ? Object.fromEntries(Object.values(current.tentMap).map(t => [t.id, t.official_pax])) : null,
+        current_tents: current?.tentMap ? Object.values(current.tentMap).filter(t => t.official_pax > 0).map(t => ({ ...t, neighborhood_name: current.nbMap[t.neighborhood_id]?.name })) : [] } });
     }
 
     if (action === 'attach_pdf') {
@@ -117,6 +135,7 @@ export default async function(req) {
       if (version.submitted_by_email !== user.email && !auth.isAdmin) return fail('אין הרשאה', 403);
       if (!body.file_uri || typeof body.file_uri !== 'string') return fail('חסר קובץ');
       const prevCurrent = await sr.entities.MechinaSleepingReportVersion.filter({ report_key: version.report_key, is_current: true });
+      if (prevCurrent.some(v => v.version_number > version.version_number)) return fail('קיימת גרסה חדשה יותר. אין להשלים גרסה ישנה במקומה.');
       await sr.entities.MechinaSleepingReportVersion.update(version.id, {
         pdf_file_uri: body.file_uri, pdf_attached_at: new Date().toISOString(), status: 'SUBMITTED', is_current: true,
       });
@@ -128,14 +147,21 @@ export default async function(req) {
 
     const ctx = await loadContext(sr, group, body.period_key);
     if (!ctx.period) return fail('לא נמצאה תקופת שהייה לקבוצה');
+    if (body.period_key && body.period_key !== ctx.period.key) return fail('תקופת השהייה אינה שייכת לקבוצה או אינה פעילה');
     const reportKey = `${group.id}:${ctx.period.key}`;
 
+    if (action === 'history') {
+      const page = await sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey }, { sort: '-version_number', limit: 50, cursor: body.cursor });
+      return ok({ versions: page.items.map(versionMeta), next_cursor: page.next_cursor, has_more: page.has_more });
+    }
+
     if (action === 'context') {
-      const [drafts, versions] = await Promise.all([
+      const [drafts, page, currents] = await Promise.all([
         sr.entities.MechinaSleepingReportDraft.filter({ report_key: reportKey }),
-        sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey }, '-version_number', 200),
+        sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey }, { sort: '-version_number', limit: 50 }),
+        sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey, status: 'SUBMITTED', is_current: true }, '-version_number', 1),
       ]);
-      const latest = versions.find(v => v.status === 'SUBMITTED' && v.is_current);
+      const latest = currents[0];
       const draft = drafts[0];
       return ok({
         group: { id: group.id, group_name: group.group_name },
@@ -145,14 +171,21 @@ export default async function(req) {
         draft: draft ? { entries: JSON.parse(draft.entries_json || '[]'), general_notes: draft.general_notes || '', updated_at: draft.updated_at_server } : null,
         latest_entries: latest ? JSON.parse(latest.snapshot_json || '{}').entries || [] : null,
         latest_notes: latest ? JSON.parse(latest.snapshot_json || '{}').general_notes || '' : '',
-        versions: versions.map(versionMeta),
+        versions: page.items.map(versionMeta), next_cursor: page.next_cursor, has_more: page.has_more,
       });
     }
 
+    if (action === 'validate') {
+      const checked = buildSnapshot(body.entries, ctx.tentMap, ctx.nbMap, ctx.assignedIds);
+      return ok({ valid: checked.errors.length === 0, errors: checked.errors, totals: checked.totals, scope_tents: Object.keys(ctx.tentMap).length });
+    }
+
     if (action === 'save_draft') {
+      const checked = buildSnapshot(body.entries, ctx.tentMap, ctx.nbMap, ctx.assignedIds, true);
+      if (checked.errors.length) return fail(checked.errors.join(' · '));
       const payload = {
         report_key: reportKey, group_id: group.id, period_key: ctx.period.key,
-        entries_json: JSON.stringify(body.entries || []).slice(0, 200000),
+        entries_json: JSON.stringify(checked.entries.map(e => ({ tent_id: e.tent_id, count: e.count, gender: e.gender, note: e.note, reported: e.reported }))),
         general_notes: String(body.general_notes || '').slice(0, 2000),
         updated_by_email: user.email, updated_at_server: new Date().toISOString(),
       };
@@ -165,8 +198,12 @@ export default async function(req) {
     if (action === 'submit') {
       const snap = buildSnapshot(body.entries, ctx.tentMap, ctx.nbMap, ctx.assignedIds);
       if (snap.errors.length) return fail(snap.errors.join(' · '));
-      const all = await sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey }, '-version_number', 200);
-      const prev = all.find(v => v.status === 'SUBMITTED' && v.is_current);
+      if (!snap.entries.some(e => e.reported)) return fail('יש לדווח לפחות על אוהל אחד');
+      const [all, currentVersions] = await Promise.all([
+        sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey }, '-version_number', 1),
+        sr.entities.MechinaSleepingReportVersion.filter({ report_key: reportKey, status: 'SUBMITTED', is_current: true }, '-version_number', 1),
+      ]);
+      const prev = currentVersions[0];
       const prevSnap = prev ? JSON.parse(prev.snapshot_json || '{}') : null;
       const submittedAt = new Date().toISOString();
       const snapshot = {

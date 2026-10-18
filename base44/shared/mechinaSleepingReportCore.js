@@ -1,52 +1,35 @@
 // Pure logic for the informational Mechina actual-sleeping report.
 // Never touches operational entities.
 
-const toInt = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
-};
-
-// entries: [{tent_id, boys, girls, is_exception, note}]
-// tentMap: {id: {code, capacity, neighborhood_id}}, nbMap: {id: {name}}
-export function buildSnapshot(rawEntries, tentMap, nbMap, assignedIds) {
-  const errors = [];
-  const seen = new Set();
-  const entries = [];
-  for (const e of rawEntries || []) {
+export function buildSnapshot(rawEntries, tentMap, nbMap, assignedIds, draft = false) {
+  const errors = [], entries = [], seen = new Set();
+  if (!Array.isArray(rawEntries)) return { errors: ['רשימת אוהלים לא תקינה'], entries };
+  for (const e of rawEntries) {
     const tent = tentMap[e.tent_id];
-    if (!tent) { errors.push(`אוהל לא קיים: ${e.tent_id}`); continue; }
+    if (!tent) { errors.push('אוהל מחוץ לתחום הדיווח'); continue; }
     if (seen.has(e.tent_id)) { errors.push(`אוהל ${tent.code} מופיע פעמיים`); continue; }
     seen.add(e.tent_id);
-    const boys = toInt(e.boys ?? 0);
-    const girls = toInt(e.girls ?? 0);
-    if (boys === null || girls === null) { errors.push(`ערך לא תקין באוהל ${tent.code}`); continue; }
+    if (e.boys !== undefined || e.girls !== undefined) { errors.push(`אוהל ${tent.code}: יש להשתמש בכמות ובמגדר אחד`); continue; }
+    const count = e.count;
+    if (!Number.isInteger(count) || count < 0 || count > tent.capacity) { errors.push(`אוהל ${tent.code}: יש להזין מספר שלם בין 0 ל-${tent.capacity}`); continue; }
+    const gender = count === 0 ? '' : e.gender;
+    if (count > 0 && !['BOYS', 'GIRLS'].includes(gender) && !(draft && !gender)) { errors.push(`אוהל ${tent.code}: יש לבחור בנים או בנות`); continue; }
+    const boys = gender === 'BOYS' ? count : 0, girls = gender === 'GIRLS' ? count : 0;
     const assigned = assignedIds.has(e.tent_id);
-    const total = boys + girls;
-    const warnings = [];
-    if (boys > 0 && girls > 0) warnings.push("MIXED");
-    if (tent.capacity && total > tent.capacity) warnings.push("OVER_CAPACITY");
-    if (!assigned && total > 0) warnings.push("NOT_ASSIGNED_TENT");
-    entries.push({
-      tent_id: e.tent_id,
-      tent_code: tent.code,
-      neighborhood_id: tent.neighborhood_id,
-      neighborhood_name: nbMap[tent.neighborhood_id]?.name || "",
-      capacity: tent.capacity || 0,
-      official_pax: tent.official_pax || 0,
-      boys, girls, total,
-      assigned,
-      note: String(e.note || "").slice(0, 500),
-      warnings,
-    });
+    entries.push({ tent_id: e.tent_id, tent_code: tent.code, neighborhood_id: tent.neighborhood_id,
+      neighborhood_name: nbMap[tent.neighborhood_id]?.name || '', capacity: tent.capacity,
+      official_pax: tent.official_pax || 0, count, gender: gender || '', boys, girls, total: count,
+      reported: e.reported === true || count > 0, assigned, note: String(e.note || '').slice(0, 500),
+      warnings: !assigned && count > 0 ? ['NOT_ASSIGNED_TENT'] : [] });
   }
-  const totals = entries.reduce((a, e) => ({ boys: a.boys + e.boys, girls: a.girls + e.girls }), { boys: 0, girls: 0 });
+  const totals = entries.reduce((a, e) => ({ boys: a.boys + e.boys, girls: a.girls + e.girls, total: a.total + e.count }), { boys: 0, girls: 0, total: 0 });
   const byNeighborhood = {};
   for (const e of entries) {
-    const k = e.neighborhood_name || "—";
-    byNeighborhood[k] = byNeighborhood[k] || { boys: 0, girls: 0, total: 0 };
-    byNeighborhood[k].boys += e.boys; byNeighborhood[k].girls += e.girls; byNeighborhood[k].total += e.total;
+    const k = e.neighborhood_name || '—';
+    byNeighborhood[k] ||= { boys: 0, girls: 0, total: 0 };
+    byNeighborhood[k].boys += e.boys; byNeighborhood[k].girls += e.girls; byNeighborhood[k].total += e.count;
   }
-  return { errors, entries, totals: { ...totals, total: totals.boys + totals.girls }, byNeighborhood };
+  return { errors, entries, totals, byNeighborhood };
 }
 
 export function compareSnapshots(prev, next) {
@@ -58,8 +41,8 @@ export function compareSnapshots(prev, next) {
   for (const id of ids) {
     const a = prevMap[id] || { boys: 0, girls: 0 };
     const b = nextMap[id] || { boys: 0, girls: 0 };
-    if (a.boys !== b.boys || a.girls !== b.girls) {
-      tents.push({ tent_id: id, tent_code: (b.tent_code || a.tent_code), prev_boys: a.boys, prev_girls: a.girls, boys: b.boys, girls: b.girls });
+    if (a.boys !== b.boys || a.girls !== b.girls || (a.note || '') !== (b.note || '') || (a.reported || false) !== (b.reported || false)) {
+      tents.push({ tent_id: id, tent_code: (b.tent_code || a.tent_code), prev_boys: a.boys, prev_girls: a.girls, boys: b.boys, girls: b.girls, prev_note: a.note || '', note: b.note || '' });
     }
   }
   return {
@@ -67,5 +50,6 @@ export function compareSnapshots(prev, next) {
     prev_boys: prev.totals.boys, boys: next.totals.boys,
     prev_girls: prev.totals.girls, girls: next.totals.girls,
     changed_tents: tents,
+    notes_changed: (prev.general_notes || '') !== (next.general_notes || ''),
   };
 }

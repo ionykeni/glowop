@@ -38,6 +38,7 @@ import Quotes from "./pages/Quotes.jsx";
 import AuthenticatedSnapshotFallback from "@/components/snapshots/AuthenticatedSnapshotFallback";
 import LogisticsAssistant from "./pages/LogisticsAssistant.jsx";
 import OperationalProcedures from "./pages/OperationalProcedures.jsx";
+import MechinaSleepingReport from "@/pages/MechinaSleepingReport";
 
 // Landing page resolver — MAINTENANCE users go straight to the maintenance module,
 // everyone else sees the Dashboard.
@@ -86,6 +87,7 @@ const AuthenticatedApp = () => {
         <Route path="/cleaning-hours" element={<RouteGuard><CleaningHours /></RouteGuard>} />
         <Route path="/cleaning-report" element={<RouteGuard><CleaningReport /></RouteGuard>} />
         <Route path="/mechina-spaces" element={<RouteGuard><MechinaSpaces /></RouteGuard>} />
+        <Route path="/mechina-sleeping-report" element={<RouteGuard><MechinaSleepingReport /></RouteGuard>} />
         <Route path="/meeting-summaries" element={<RouteGuard><MeetingSummaries /></RouteGuard>} />
         <Route path="/work-schedule" element={<RouteGuard><WorkSchedule /></RouteGuard>} />
         <Route path="/my-shifts" element={<RouteGuard><MyShifts /></RouteGuard>} />

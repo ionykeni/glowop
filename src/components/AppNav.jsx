@@ -47,6 +47,7 @@ const ALL_LINKS = [
   { key: "maintenance",     to: "/maintenance",     label: "תחזוקה",           icon: Wrench,          group: "ops" },
   { key: "operational-procedures", to: "/operational-procedures", label: "נהלי תפעול", icon: BookOpen,       group: "ops" },
   { key: "mechina-spaces",  to: "/mechina-spaces",  label: "בקשות מרחבים",     icon: BookMarked,      group: "primary" },
+  { key: "mechina-sleeping-report", to: "/mechina-sleeping-report", label: "דיווח לינה בפועל", icon: BedDouble, group: "primary" },
   { key: "meeting-summaries", to: "/meeting-summaries", label: "סיכומי פגישות", icon: NotebookPen,   group: "primary" },
   { key: "work-schedule",   to: "/work-schedule",   label: "סידור עבודה",      icon: CalendarClock,   group: "ops" },
   { key: "cleaning-hours",  to: "/cleaning-hours",  label: "שעות עובדות ניקיון", icon: Clock,          group: "ops" },
@@ -209,7 +210,7 @@ export default function AppNav() {
   const showUserManagement = role === "SUPER_ADMIN";
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
+  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
     .filter(l => PRIMARY_KEYS.includes(l.key) && (allowedKeys.includes(l.key) || (l.key === "logistics-assistant" && showLogisticsAssistant)))
     .sort((a, b) => role === "QUOTES_MANAGER"
