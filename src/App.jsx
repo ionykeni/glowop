@@ -29,7 +29,7 @@ import CommonSpaces from "./pages/CommonSpaces.jsx";
 import OperationalSummaryPrint from "./pages/OperationalSummaryPrint.jsx";
 import DailyOperationalPrint from "./pages/DailyOperationalPrint.jsx";
 import UserManagement from "./pages/UserManagement.jsx";
-import Mechina from "./pages/Mechina.jsx";
+import MechinaSpaces from "./pages/MechinaSpaces.jsx";
 import MeetingSummaries from "./pages/MeetingSummaries.jsx";
 import WorkSchedule from "./pages/WorkSchedule.jsx";
 import MyShifts from "./pages/MyShifts.jsx";
@@ -86,9 +86,9 @@ const AuthenticatedApp = () => {
         <Route path="/kitchen-report" element={<RouteGuard><KitchenReport /></RouteGuard>} />
         <Route path="/cleaning-hours" element={<RouteGuard><CleaningHours /></RouteGuard>} />
         <Route path="/cleaning-report" element={<RouteGuard><CleaningReport /></RouteGuard>} />
-        <Route path="/mechina" element={<RouteGuard><Mechina /></RouteGuard>} />
-        <Route path="/mechina-spaces" element={<RouteGuard><Mechina /></RouteGuard>} />
-        <Route path="/mechina-sleeping-report" element={<RouteGuard><Mechina /></RouteGuard>} />
+        <Route path="/mechina" element={<Navigate to="/mechina-spaces" replace />} />
+        <Route path="/mechina-spaces" element={<RouteGuard><MechinaSpaces /></RouteGuard>} />
+        <Route path="/mechina-sleeping-report" element={<RouteGuard><MechinaSleepingReport /></RouteGuard>} />
         <Route path="/meeting-summaries" element={<RouteGuard><MeetingSummaries /></RouteGuard>} />
         <Route path="/work-schedule" element={<RouteGuard><WorkSchedule /></RouteGuard>} />
         <Route path="/my-shifts" element={<RouteGuard><MyShifts /></RouteGuard>} />

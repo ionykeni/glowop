@@ -46,7 +46,8 @@ const ALL_LINKS = [
   { key: "kitchen",         to: "/kitchen",         label: "מטבח",             icon: UtensilsCrossed, group: "ops" },
   { key: "maintenance",     to: "/maintenance",     label: "תחזוקה",           icon: Wrench,          group: "ops" },
   { key: "operational-procedures", to: "/operational-procedures", label: "נהלי תפעול", icon: BookOpen,       group: "ops" },
-  { key: "mechina",         to: "/mechina",         label: "ניהול מכינות",     icon: BookMarked,      group: "primary" },
+  { key: "mechina-spaces",        to: "/mechina-spaces",        label: "בקשות מרחבים",   icon: Layers,    group: "mechina" },
+  { key: "mechina-sleeping-report", to: "/mechina-sleeping-report", label: "דיווח לינה",     icon: BedDouble, group: "mechina" },
   { key: "meeting-summaries", to: "/meeting-summaries", label: "סיכומי פגישות", icon: NotebookPen,   group: "primary" },
   { key: "work-schedule",   to: "/work-schedule",   label: "סידור עבודה",      icon: CalendarClock,   group: "ops" },
   { key: "cleaning-hours",  to: "/cleaning-hours",  label: "שעות עובדות ניקיון", icon: Clock,          group: "ops" },
@@ -96,7 +97,7 @@ function NavPill({ to, label, icon: Icon, pathname, alertCount, role }) {
 }
 
 // Dropdown menu
-function NavDropdown({ label, icon: Icon, items, pathname, alertCounts, urgentKeys = [] }) {
+function NavDropdown({ label, icon: Icon, items, pathname, alertCounts, urgentKeys = [], badge = null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -124,6 +125,7 @@ function NavDropdown({ label, icon: Icon, items, pathname, alertCounts, urgentKe
         <Icon className="w-3.5 h-3.5 shrink-0" />
         <span>{label}</span>
         {totalBadge > 0 && <AlertBadge count={totalBadge} small urgent={anyUrgent} />}
+        {badge}
         <ChevronDown className={`w-3 h-3 shrink-0 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -207,9 +209,10 @@ export default function AppNav() {
   const showLogisticsAssistant = isLogisticsManager(internalUser?.email);
   const showAdmin = allowedKeys.includes("admin");
   const showUserManagement = role === "SUPER_ADMIN";
+  const isAdminRole = ADMIN_ROLES_SET.has(role);
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "mechina", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
+  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
     .filter(l => PRIMARY_KEYS.includes(l.key) && (allowedKeys.includes(l.key) || (l.key === "logistics-assistant" && showLogisticsAssistant)))
     .sort((a, b) => role === "QUOTES_MANAGER"
@@ -219,6 +222,10 @@ export default function AppNav() {
   // Ops dropdown: housekeeping, kitchen, maintenance, work schedule
   const OPS_KEYS = ["housekeeping", "kitchen", "maintenance", "operational-procedures", "work-schedule", "cleaning-hours"];
   const opsLinks = ALL_LINKS.filter(l => OPS_KEYS.includes(l.key) && allowedKeys.includes(l.key));
+
+  // Mechina dropdown: space requests + sleeping report
+  const MECHINA_KEYS = ["mechina-spaces", "mechina-sleeping-report"];
+  const mechinaLinks = ALL_LINKS.filter(l => MECHINA_KEYS.includes(l.key) && allowedKeys.includes(l.key));
 
   // Admin dropdown items (not from ALL_LINKS — separate)
   const adminDropdownItems = [];
@@ -280,6 +287,18 @@ export default function AppNav() {
                 role={role}
               />
             ))}
+
+            {/* Mechina dropdown — only if has items */}
+            {mechinaLinks.length > 0 && (
+              <NavDropdown
+                label="מכינה"
+                icon={BookMarked}
+                items={mechinaLinks}
+                pathname={pathname}
+                alertCounts={{}}
+                badge={isAdminRole ? <MechinaPendingBadge /> : null}
+              />
+            )}
 
             {/* Ops dropdown — only if has items */}
             {opsLinks.length > 0 && (
@@ -419,6 +438,22 @@ export default function AppNav() {
                   pathname={pathname}
                   onClick={closeDrawer}
                   alertCount={getCount(link.key)}
+                  role={role}
+                />
+              ))}
+              {mechinaLinks.length > 0 && (
+                <div className="px-4 pt-3 pb-1 text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                  מכינה
+                  {isAdminRole && <MechinaPendingBadge />}
+                </div>
+              )}
+              {mechinaLinks.map(link => (
+                <DrawerLink
+                  key={link.key}
+                  {...link}
+                  pathname={pathname}
+                  onClick={closeDrawer}
+                  alertCount={0}
                   role={role}
                 />
               ))}
