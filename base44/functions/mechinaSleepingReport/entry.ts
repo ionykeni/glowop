@@ -29,7 +29,11 @@ async function loadPeriods(sr, group) {
 
 async function loadContext(sr, group, periodKey) {
   const periods = await loadPeriods(sr, group);
-  const period = periods.find(p => p.key === periodKey) || periods[0];
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+  const period = periods.find(p => p.key === periodKey)
+    || periods.find(p => p.start <= today && p.end >= today)
+    || periods.find(p => p.start > today)
+    || periods[periods.length - 1];
   if (!period) return { periods, period: null };
   const [profiles, allocs, tents, nbs] = await Promise.all([
     sr.entities.OperationalGroupProfile.filter({ group_id: group.id }),
