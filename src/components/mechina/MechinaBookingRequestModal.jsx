@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { findBlockingSpace } from "@/lib/activitySpaceBlocks";
+import { loadMechinaSpaces } from '@/components/mechina/useMechinaSpaces';
+import MechinaRequestSpaceSelect from '@/components/mechina/MechinaRequestSpaceSelect';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -29,7 +31,21 @@ export default function MechinaBookingRequestModal({ open, onClose, onSubmitted,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [blocks, setBlocks] = useState([]);
-  useEffect(() => { base44.entities.ActivitySpaceBlock.filter({ status: "ACTIVE" }).then(setBlocks); }, []);
+  const [availableSpaces, setAvailableSpaces] = useState(spaces);
+  const [loadingSpaces, setLoadingSpaces] = useState(true);
+  const [spaceLoadFailed, setSpaceLoadFailed] = useState(false);
+  const [spaceCursor, setSpaceCursor] = useState(null);
+  const refreshSpaces = async (cursor) => {
+    setLoadingSpaces(true); setSpaceLoadFailed(false);
+    try {
+      const [data, activeBlocks] = await Promise.all([loadMechinaSpaces(cursor), base44.entities.ActivitySpaceBlock.filter({ status: 'ACTIVE' })]);
+      setAvailableSpaces(current => cursor ? [...current, ...data.spaces] : data.spaces);
+      setSpaceCursor(data.has_more ? data.next_cursor : null); setBlocks(activeBlocks);
+    } catch { setSpaceLoadFailed(true); setError('טעינת זמינות המרחבים נכשלה. יש לנסות שוב.'); }
+    finally { setLoadingSpaces(false); }
+  };
+  useEffect(() => { refreshSpaces(); }, []);
+  useEffect(() => base44.entities.ActivitySpace.subscribe(() => { refreshSpaces(); }), []);
   const isBlocked = spaceId => !!findBlockingSpace(blocks, spaceId, form.date, form.start_time, form.end_time);
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }));
@@ -39,6 +55,10 @@ export default function MechinaBookingRequestModal({ open, onClose, onSubmitted,
     e.preventDefault();
     setError("");
     if (!form.space_id) { setError("יש לבחור מרחב"); return; }
+    const selectedSpace = availableSpaces.find(space => space.id === form.space_id);
+    if (loadingSpaces || spaceLoadFailed) { setError('יש להמתין לטעינת זמינות המרחבים'); return; }
+    if (selectedSpace?.mechina_requests_effective_enabled !== true) { setError('המרחב חסום לבקשות מכינה חדשות. יש לפנות למנהל המערכת.'); return; }
+    if (selectedSpace.is_bookable === false) { setError('המרחב אינו זמין להזמנה כללית'); return; }
     if (!form.start_time || !form.end_time) { setError("יש להזין שעות"); return; }
     if (!form.activity_title.trim()) { setError("יש להזין שם פעילות"); return; }
     if (isBlocked(form.space_id)) { setError("המרחב הזה לא זמין בזמן הזה"); return; }
@@ -106,22 +126,9 @@ export default function MechinaBookingRequestModal({ open, onClose, onSubmitted,
             />
           </div>
 
-          {/* Space */}
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">מרחב *</label>
-            <select
-              value={form.space_id}
-              onChange={e => set("space_id", e.target.value)}
-              required
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary bg-white"
-            >
-              <option value="">בחר מרחב...</option>
-              {spaces.filter(s => s.is_bookable !== false).map(s => {
-                const blocked = isBlocked(s.id);
-                return <option key={s.id} value={s.id} disabled={blocked}>{s.name}{s.capacity ? ` (${s.capacity} איש)` : ""}{blocked ? " — המרחב הזה לא זמין בזמן הזה" : ""}</option>;
-              })}
-            </select>
-          </div>
+          <MechinaRequestSpaceSelect spaces={availableSpaces} value={form.space_id} onChange={id => set('space_id', id)} isBlocked={isBlocked} loading={loadingSpaces} />
+          {spaceLoadFailed && <Button type="button" variant="outline" onClick={() => refreshSpaces()}>נסה לטעון מרחבים שוב</Button>}
+          {spaceCursor && <Button type="button" variant="outline" disabled={loadingSpaces} onClick={() => refreshSpaces(spaceCursor)}>הצג מרחבים נוספים</Button>}
 
           {/* Times */}
           <div className="grid grid-cols-2 gap-3">
@@ -226,7 +233,7 @@ export default function MechinaBookingRequestModal({ open, onClose, onSubmitted,
 
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>ביטול</Button>
-            <Button type="submit" className="flex-1" disabled={saving}>
+            <Button type="submit" className="flex-1" disabled={saving || loadingSpaces || spaceLoadFailed}>
               {saving ? "שולח..." : "שלח בקשה"}
             </Button>
           </div>

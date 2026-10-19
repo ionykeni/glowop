@@ -4,7 +4,7 @@ export default function AdminSpaceStatusControl({ space, active, saving, onToggl
   return (
     <div className="mt-1 flex flex-col items-center gap-1">
       <span className={`text-[10px] font-semibold ${active ? "text-emerald-700" : "text-slate-500"}`}>
-        {active ? "פעיל" : "לא פעיל"}
+        חסימה זמנית — {active ? "ללא חסימה בתאריך זה" : "חסום בתאריך זה"}
       </span>
       <Button
         type="button"
@@ -14,7 +14,7 @@ export default function AdminSpaceStatusControl({ space, active, saving, onToggl
         disabled={saving}
         onClick={() => onToggle(space)}
       >
-        {saving ? "..." : active ? "השבת מרחב" : "הפעל מרחב"}
+        {saving ? "..." : active ? "חסימה לפי תאריך" : "שחרר חסימה זמנית"}
       </Button>
     </div>
   );

@@ -27,6 +27,17 @@
       "type": "boolean",
       "default": true
     },
+    "mechina_requests_enabled": {
+      "type": "boolean",
+      "description": "Optional Mechina-only request eligibility. Unset preserves legacy code restrictions. Only the authorized backend operation may change this field.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "collaborator_role": "editor"
+          }
+        }
+      }
+    },
     "working_status": {
       "type": "string",
       "enum": [

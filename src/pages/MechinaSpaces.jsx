@@ -10,6 +10,8 @@ import MechinaDecisionModal from "@/components/mechina/MechinaDecisionModal";
 import SpaceDeactivationDialog from "@/components/mechina/SpaceDeactivationDialog";
 import { filterRelevantMechinaAssignments } from "@/lib/mechinaGroups";
 import { isBlockVisibleOnCalendarDate } from "@/lib/activitySpaceBlocks";
+import MechinaEligibilityPanel from '@/components/mechina/MechinaEligibilityPanel';
+import { loadMechinaSpaces } from '@/components/mechina/useMechinaSpaces';
 
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
@@ -142,6 +144,18 @@ export default function MechinaSpaces() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [spaces, setSpaces] = useState([]);
+  const [spacesCursor, setSpacesCursor] = useState(null);
+  const [spacesError, setSpacesError] = useState('');
+  const [spacesBusy, setSpacesBusy] = useState(false);
+  const fetchSpaces = async (cursor) => {
+    setSpacesBusy(true); setSpacesError('');
+    try {
+      const data = await loadMechinaSpaces(cursor);
+      setSpaces(current => cursor ? [...current, ...data.spaces] : data.spaces);
+      setSpacesCursor(data.has_more ? data.next_cursor : null);
+    } catch (error) { setSpacesError(error.message || 'טעינת המרחבים נכשלה'); }
+    finally { setSpacesBusy(false); }
+  };
   const [groups, setGroups] = useState([]);
   const [activeBookings, setActiveBookings] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
@@ -174,7 +188,8 @@ export default function MechinaSpaces() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignments, groups]);
 
-  useEffect(() => { base44.entities.ActivitySpace.list().then(setSpaces); }, []);
+  useEffect(() => { fetchSpaces(); }, []);
+  useEffect(() => base44.entities.ActivitySpace.subscribe(() => { fetchSpaces(); }), []);
   useEffect(() => { base44.entities.Group.list("-created_date", 500).then(setGroups); }, []);
 
   useEffect(() => {
@@ -250,6 +265,7 @@ export default function MechinaSpaces() {
       await reloadAdminData();
     } else {
       toast.error(res.data?.error || "שגיאה — נסה שוב");
+      if (res.data?.request_changed) await reloadAdminData();
     }
   };
 
@@ -358,17 +374,18 @@ export default function MechinaSpaces() {
     "boulder_1", "boulder_2", "boulder_3", "boulder_4",
     "boulder_5", "boulder_6", "boulder_7", "boulder_8",
   ];
-  // Spaces never lent to Mechinot — excluded from Mechina selectable spaces only.
-  // (ActivitySpace records, general activity scheduling, calendars and reports are unaffected.)
-  const MECHINA_EXCLUDED_CODES = ["bunker_5", "dining_hall"];
   const mechinaSpaces = spaces
-    .filter(s => !MECHINA_EXCLUDED_CODES.includes(s.code))
+    .filter(s => isAdmin || s.mechina_requests_visible === true)
     .sort((a, b) => {
-      const ai = SPACE_SORT_ORDER.indexOf(a.code);
-      const bi = SPACE_SORT_ORDER.indexOf(b.code);
+      const ai = SPACE_SORT_ORDER.indexOf(a.code), bi = SPACE_SORT_ORDER.indexOf(b.code);
       return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
     });
   const bookableSpaces = mechinaSpaces;
+  const spaceLoadControls = <div className="text-sm space-y-2">
+    {spacesError && <p role="alert" className="text-destructive">{spacesError} <Button variant="link" onClick={() => fetchSpaces()}>נסה שוב</Button></p>}
+    {spacesBusy && <p className="text-muted-foreground">טוען מרחבים...</p>}
+    {spacesCursor && <Button variant="outline" disabled={spacesBusy} onClick={() => fetchSpaces(spacesCursor)}>הצג מרחבים נוספים</Button>}
+  </div>;
 
   // ── MECHINA USER VIEW ────────────────────────────────────────────────────
   if (isMechinaUser) {
@@ -401,6 +418,7 @@ export default function MechinaSpaces() {
         </div>
 
 
+        {spaceLoadControls}
         <DateNav selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
         <section className="space-y-3">
@@ -503,6 +521,12 @@ export default function MechinaSpaces() {
           <p className="text-2xl font-bold text-emerald-600">{approvedRequests.length}</p>
         </div>
       </div>
+
+      {spaceLoadControls}
+      {canManageAvailability && <MechinaEligibilityPanel spaces={mechinaSpaces} onChanged={async space => {
+        setSpaces(current => current.map(item => item.id === space.id ? space : item));
+        await reloadAdminData();
+      }} />}
 
       {/* Date navigator + availability */}
       <section className="space-y-3">

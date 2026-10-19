@@ -111,7 +111,7 @@ export default function MechinaSpaceAvailability({
   groupMap = {},
 }) {
   const gridWidth = COL_WIDTH * spaces.length;
-  const headerHeight = canManageAvailability ? 88 : HEADER_H;
+  const headerHeight = canManageAvailability ? 108 : isAdmin ? HEADER_H : 62;
 
   // Legend: groups visible on this date
   const legendGroups = (() => {
@@ -214,6 +214,7 @@ export default function MechinaSpaceAvailability({
               >
                 <p className="text-xs font-semibold text-slate-700 text-center leading-tight">{space.name}</p>
                 {space.capacity && <p className="text-[10px] text-slate-400">{space.capacity} איש</p>}
+                {!isAdmin && <p className="text-[10px] text-muted-foreground">בקשות מכינה — {space.mechina_requests_effective_enabled === true ? 'פעיל' : 'חסום'}</p>}
                 {canManageAvailability && (() => {
                   const applicableBlocks = blocks.filter(block => block.activity_space_id === space.id && blockAppliesOnDate(block, selectedDate));
                   return <AdminSpaceStatusControl
@@ -287,11 +288,13 @@ export default function MechinaSpaceAvailability({
                   {/* New request button */}
                   {allowCreateRequest && (
                     <button
+                      disabled={space.mechina_requests_effective_enabled !== true || space.is_bookable === false}
+                      title={space.mechina_requests_effective_enabled !== true ? 'המרחב חסום לבקשות מכינה חדשות' : space.is_bookable === false ? 'המרחב אינו זמין להזמנה כללית' : ''}
                       onClick={() => onRequestNew(space.id)}
                       className="absolute bottom-2 left-0 right-0 mx-auto w-fit text-[10px] text-primary border border-primary/30 rounded-full px-2 py-0.5 bg-white hover:bg-primary/5 transition-colors"
                       style={{ zIndex: 10, pointerEvents: "auto" }}
                     >
-                      + בקשה
+                      {space.mechina_requests_effective_enabled !== true ? 'חסום לבקשות מכינה' : space.is_bookable === false ? 'לא זמין להזמנה' : '+ בקשה'}
                     </button>
                   )}
                 </div>

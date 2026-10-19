@@ -1,4 +1,5 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
+import { isMechinaRequestsEnabled, MECHINA_DISABLED_REASON } from '../../shared/mechinaSpaceEligibility.js';
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
 
@@ -73,10 +74,11 @@ export default async function(req) {
     } catch {}
     if (!space) return Response.json({ success: false, error: "מרחב לא נמצא" }, { status: 200 });
 
-    // ── Blocked spaces for Mechina requests (does not affect admin/general modules) ──
-    const MECHINA_BLOCKED_CODES = ["bunker_2", "bunker_3", "bunker_4", "bunker_5", "dining_hall"];
-    if (MECHINA_BLOCKED_CODES.includes(space.code)) {
-      return Response.json({ success: false, error: "המרחב הזה לא זמין לבקשות מכינה" }, { status: 200 });
+    if (!isMechinaRequestsEnabled(space)) {
+      return Response.json({ success: false, error: MECHINA_DISABLED_REASON }, { status: 200 });
+    }
+    if (space.is_bookable === false) {
+      return Response.json({ success: false, error: 'המרחב אינו זמין להזמנה כללית' }, { status: 200 });
     }
 
     // ── Validate group exists ────────────────────────────────────────────────
@@ -162,6 +164,14 @@ export default async function(req) {
         status: "PENDING",
       });
 
+      // Refresh immediately before booking: an admin may have disabled this space while checks ran.
+      const currentSpace = await base44.asServiceRole.entities.ActivitySpace.get(space_id);
+      const currentRequest = await base44.asServiceRole.entities.CommonSpaceBookingRequest.get(newRequest.id);
+      if (!isMechinaRequestsEnabled(currentSpace) || currentSpace.is_bookable === false || currentRequest.status !== 'PENDING') {
+        // Only this newly-created, unbooked request is cleaned up; existing reservations are untouched.
+        if (currentRequest.status === 'PENDING') await base44.asServiceRole.entities.CommonSpaceBookingRequest.delete(newRequest.id);
+        return Response.json({ success: false, error: 'הזמינות השתנתה במהלך השליחה. לא נוצרה הזמנה; יש לרענן את הטופס.' });
+      }
       scheduleItem = await base44.asServiceRole.entities.GroupScheduleItem.create({
         group_id: mechina_group_id,
         operational_group_profile_id: profile?.id || "",
@@ -185,12 +195,16 @@ export default async function(req) {
         status: "ACTIVE",
       });
 
-      await base44.asServiceRole.entities.CommonSpaceBookingRequest.update(newRequest.id, {
-        status: "APPROVED",
-        admin_decision_by_name: "אישור אוטומטי",
-        admin_decision_at: new Date().toISOString(),
-        approved_schedule_item_id: scheduleItem.id,
-      });
+      await base44.asServiceRole.entities.CommonSpaceBookingRequest.updateMany({ id: newRequest.id, status: 'PENDING' }, { $set: {
+        status: 'APPROVED', admin_decision_by_name: 'אישור אוטומטי',
+        admin_decision_at: new Date().toISOString(), approved_schedule_item_id: scheduleItem.id,
+      } });
+      const decidedRequest = await base44.asServiceRole.entities.CommonSpaceBookingRequest.get(newRequest.id);
+      if (decidedRequest.status !== 'APPROVED' || decidedRequest.approved_schedule_item_id !== scheduleItem.id) {
+        await base44.asServiceRole.entities.GroupScheduleItem.delete(scheduleItem.id);
+        scheduleItem = null;
+        return Response.json({ success: false, error: 'הבקשה השתנתה במהלך השליחה. לא נשמרה הזמנה חדשה.' });
+      }
     } catch (persistError) {
       if (scheduleItem?.id) await base44.asServiceRole.entities.GroupScheduleItem.delete(scheduleItem.id).catch(() => null);
       if (newRequest?.id) await base44.asServiceRole.entities.CommonSpaceBookingRequest.delete(newRequest.id).catch(() => null);

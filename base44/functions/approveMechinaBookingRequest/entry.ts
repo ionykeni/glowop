@@ -1,4 +1,5 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
+import { isMechinaRequestsEnabled, MECHINA_DISABLED_REASON, rejectPendingMechinaRequests } from '../../shared/mechinaSpaceEligibility.js';
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
 
@@ -19,7 +20,7 @@ function reservationOverlapsBlock(block, date, startTime, endTime) {
   return reservationStart < `${block.end_date}T${block.end_time}` && blockStart < reservationEnd;
 }
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
 
@@ -55,6 +56,11 @@ Deno.serve(async (req) => {
     let space = null;
     try { space = await base44.asServiceRole.entities.ActivitySpace.get(request.space_id); } catch {}
     if (!space) return Response.json({ success: false, error: "מרחב לא נמצא" }, { status: 200 });
+    if (!isMechinaRequestsEnabled(space)) {
+      if (request.status === 'PENDING') await rejectPendingMechinaRequests(base44, space.id, user, internalUser, request.id);
+      return Response.json({ success: false, request_changed: request.status === 'PENDING', error: MECHINA_DISABLED_REASON });
+    }
+    if (space.is_bookable === false) return Response.json({ success: false, error: 'המרחב אינו זמין להזמנה כללית' });
 
     let group = null;
     try { group = await base44.asServiceRole.entities.Group.get(request.mechina_group_id); } catch {}
@@ -111,17 +117,30 @@ Deno.serve(async (req) => {
       status: "ACTIVE",
     };
 
+    const freshSpace = await base44.asServiceRole.entities.ActivitySpace.get(request.space_id);
+    if (!isMechinaRequestsEnabled(freshSpace)) {
+      if (request.status === 'PENDING') await rejectPendingMechinaRequests(base44, space.id, user, internalUser, request.id);
+      return Response.json({ success: false, request_changed: request.status === 'PENDING', error: MECHINA_DISABLED_REASON });
+    }
+    if (freshSpace.is_bookable === false) return Response.json({ success: false, error: 'המרחב אינו זמין להזמנה כללית' });
+    const freshRequest = await base44.asServiceRole.entities.CommonSpaceBookingRequest.get(request_id);
+    if (freshRequest.status !== request.status) return Response.json({ success: false, request_changed: true, error: 'מצב הבקשה השתנה. יש לרענן.' });
     const scheduleItem = await base44.asServiceRole.entities.GroupScheduleItem.create(scheduleItemData);
 
-    // F. Update request
-    await base44.asServiceRole.entities.CommonSpaceBookingRequest.update(request_id, {
+    // F. Conditional decision: never overwrite a rejection that raced this approval.
+    await base44.asServiceRole.entities.CommonSpaceBookingRequest.updateMany({ id: request_id, status: request.status }, { $set: {
       status: "APPROVED",
       admin_decision_by_user_id: user.id,
       admin_decision_by_name: internalUser.name || user.full_name || "",
       admin_decision_at: new Date().toISOString(),
       admin_notes: admin_notes || "",
       approved_schedule_item_id: scheduleItem.id,
-    });
+    } });
+    const decided = await base44.asServiceRole.entities.CommonSpaceBookingRequest.get(request_id);
+    if (decided.status !== 'APPROVED' || decided.approved_schedule_item_id !== scheduleItem.id) {
+      await base44.asServiceRole.entities.GroupScheduleItem.delete(scheduleItem.id);
+      return Response.json({ success: false, request_changed: true, error: 'הבקשה השתנתה במהלך האישור. לא נשמרה הזמנה חדשה.' });
+    }
 
     // G. Email requester
     const emailBody = `
@@ -154,4 +173,4 @@ Deno.serve(async (req) => {
     console.error("[approveMechinaBookingRequest]", err?.message, err?.stack);
     return Response.json({ success: false, error: "שגיאה פנימית — נסה שוב" }, { status: 500 });
   }
-});
+}
