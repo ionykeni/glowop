@@ -513,6 +513,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const [saving, setSaving] = useState(false);
   const [optionBusy, setOptionBusy] = useState(false);
   const optionCreateLockRef = useRef(false);
+  const saveInFlightRef = useRef(false); // synchronous guard against concurrent Save submissions
   const [optionLoading, setOptionLoading] = useState(() => Boolean(multiOptionFeatureEnabled && quote?.id && quote.multi_option_enabled));
   const [optionLoadError, setOptionLoadError] = useState("");
   const [optionNotes, setOptionNotes] = useState("");
@@ -736,6 +737,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saveInFlightRef.current) return;
     if (optionLoading || optionLoadError) return toast.error("לא ניתן לשמור לפני טעינת אפשרויות ההצעה");
     if (!form.quote_audience_type) {
       setAudienceError(true);
@@ -757,6 +759,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
       toast.error("מספר האנשים באוהלי VIP גדול ממספר הצוות — נא לתקן לפני שמירה");
       return;
     }
+    saveInFlightRef.current = true;
     setSaving(true);
     try {
       const usePreparationFlow = preparationFlowEnabled && isNewGroupFlow;
@@ -828,6 +831,8 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     } catch (error) {
       setSaving(false);
       toast.error(error?.message === "FEATURE_DISABLED" ? "זרימת ההכנה מושבתת כרגע" : error?.message === "PREPARATION_INIT_FAILED" ? "יצירת קבוצת ההכנה נכשלה" : "שמירת הצעת המחיר נכשלה");
+    } finally {
+      saveInFlightRef.current = false;
     }
   };
 
