@@ -516,7 +516,8 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const optionCreateLockRef = useRef(false);
   const saveInFlightRef = useRef(false); // synchronous guard against concurrent Save submissions
   // Records confirmed as persisted during this form session — never re-created on retry.
-  const persistedRef = useRef({ groupId: null, quoteId: null, quote: null, optionsDone: false, preparationDone: false, ambiguous: false });
+  // Fingerprints record the exact payload each stage last persisted; a stage is skipped only when unchanged.
+  const persistedRef = useRef({ groupId: null, quoteId: null, quote: null, quoteFingerprint: null, optionsFingerprint: null, savedOptions: [], preparationFingerprint: null, ambiguous: false });
   const [recovery, setRecovery] = useState(null); // { kind: "partial" | "ambiguous", quoteSaved, message }
   const [optionLoading, setOptionLoading] = useState(() => Boolean(multiOptionFeatureEnabled && quote?.id && quote.multi_option_enabled));
   const [optionLoadError, setOptionLoadError] = useState("");
@@ -822,29 +823,51 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
       };
       if (hasOptionB) { const legacyOptionA = { ...draftsToSave.A }; delete legacyOptionA.option_notes; quotePayload = applyOptionPayloadToQuote(quotePayload, legacyOptionA); }
       const existingQuoteId = quote?.id || persisted.quoteId;
-      const savedQuote = existingQuoteId
-        ? await base44.entities.Quote.update(existingQuoteId, quotePayload)
-        : await base44.entities.Quote.create(quotePayload);
-      persisted.quoteId = savedQuote.id;
-      persisted.quote = savedQuote;
+      const quoteFingerprint = JSON.stringify(quotePayload);
+      let savedQuote;
+      if (persisted.quoteId && persisted.quoteFingerprint === quoteFingerprint) {
+        savedQuote = persisted.quote; // unchanged since last confirmed write
+      } else {
+        savedQuote = existingQuoteId
+          ? await base44.entities.Quote.update(existingQuoteId, quotePayload)
+          : await base44.entities.Quote.create(quotePayload);
+        persisted.quoteId = savedQuote.id;
+        persisted.quote = savedQuote;
+        persisted.quoteFingerprint = quoteFingerprint;
+        persisted.preparationFingerprint = null; // preparation derives from Quote fields — rerun after any Quote change
+      }
       finalSavedQuote = savedQuote;
       stage = "options";
-      // manageQuoteOptions "save" updates existing A/B rows by quote_id — safe to re-run on resume.
+      // manageQuoteOptions "save" writes A and B together by quote_id, so a partial A/B failure is
+      // completed by re-running it; skipped only when the identical payload was already confirmed.
       if (hasOptionB) {
-        const optionsRes = await base44.functions.invoke("manageQuoteOptions", { action: "save", quote_id: savedQuote.id, options: draftsToSave });
-        if (!optionsRes.data?.success) throw new Error(optionsRes.data?.error || "OPTION_SAVE_FAILED");
-        savedOptions = optionsRes.data.options || [];
+        const optionsFingerprint = JSON.stringify(draftsToSave);
+        if (persisted.optionsFingerprint === optionsFingerprint) {
+          savedOptions = persisted.savedOptions;
+        } else {
+          const optionsRes = await base44.functions.invoke("manageQuoteOptions", { action: "save", quote_id: savedQuote.id, options: draftsToSave });
+          if (!optionsRes.data?.success) throw new Error(optionsRes.data?.error || "OPTION_SAVE_FAILED");
+          savedOptions = optionsRes.data.options || [];
+          persisted.savedOptions = savedOptions;
+          persisted.optionsFingerprint = optionsFingerprint;
+        }
         finalSavedQuote = { ...savedQuote, multi_option_enabled: true };
-        persisted.optionsDone = true;
       }
       stage = "preparation";
-      // ensureQuotePreparationGroup reuses an existing linked Group/OGP — safe to re-run on resume.
+      // ensureQuotePreparationGroup reads the saved Quote and reuses its linked Group/OGP.
       if (usePreparationFlow || quote?.preparation_flow_enabled) {
-        const ensured = await base44.functions.invoke("ensureQuotePreparationGroup", { quote_id: savedQuote.id });
-        if (!ensured.data?.success) throw new Error(ensured.data?.error || "PREPARATION_INIT_FAILED");
-        resolvedGroupId = ensured.data.group?.id;
-        finalSavedQuote = ensured.data.quote || finalSavedQuote;
-        persisted.preparationDone = true;
+        if (persisted.preparationFingerprint === quoteFingerprint && persisted.groupId) {
+          resolvedGroupId = persisted.groupId;
+          finalSavedQuote = persisted.quote || finalSavedQuote;
+        } else {
+          const ensured = await base44.functions.invoke("ensureQuotePreparationGroup", { quote_id: savedQuote.id });
+          if (!ensured.data?.success) throw new Error(ensured.data?.error || "PREPARATION_INIT_FAILED");
+          resolvedGroupId = ensured.data.group?.id;
+          if (resolvedGroupId) persisted.groupId = resolvedGroupId;
+          if (ensured.data.quote) persisted.quote = ensured.data.quote;
+          finalSavedQuote = ensured.data.quote || finalSavedQuote;
+          persisted.preparationFingerprint = quoteFingerprint;
+        }
       }
     } catch (error) {
       setSaving(false);
