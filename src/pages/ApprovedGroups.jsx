@@ -1,13 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 import { CheckCircle2, Clock, Calendar, Users, ChevronLeft, BedDouble, CalendarDays } from "lucide-react";
-import GroupFilters, { filterGroups } from "@/components/groups/GroupFilters";
+import GroupFilters from "@/components/groups/GroupFilters";
 import DayGroupHeader, { groupByDay } from "@/components/groups/DayGroupHeader";
-import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +37,7 @@ function nightsCount(arrival, departure) {
 // ── main ─────────────────────────────────────────────────────────────────────
 
 export default function ApprovedGroups() {
-  const today = new Date().toISOString().slice(0, 10);
+  const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
 
   // ── filter state ──────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,15 +60,17 @@ export default function ApprovedGroups() {
   };
 
   // ── data ───────────────────────────────────────────────────────
-  const { data: profiles = [], isLoading: loadingProfiles } = useQuery({
-    queryKey: ["operationalProfiles"],
-    queryFn: () => base44.entities.OperationalGroupProfile.list("-accepted_at", 200),
+  const { data, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ["groups", "approved", localToday, filterState],
+    queryFn: async () => {
+      const response = await base44.functions.invoke("getApprovedGroups", filterState);
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
   });
-
-  const { data: groups = [], isLoading: loadingGroups } = useQuery({
-    queryKey: ["groups"],
-    queryFn: () => base44.entities.Group.list("-arrival_date", 200),
-  });
+  const groups = data?.groups || [];
+  const activeProfiles = data?.profiles || [];
+  const today = data?.today || localToday;
 
   const { data: scheduleItems = [] } = useQuery({
     queryKey: ["allScheduleItems"],
@@ -80,8 +81,6 @@ export default function ApprovedGroups() {
     queryKey: ["allMealItems"],
     queryFn: () => base44.entities.MealReservation.filter({ status: "ACTIVE" }),
   });
-
-  const loading = loadingProfiles || loadingGroups;
 
   // ── maps ───────────────────────────────────────────────────────
   const groupById = Object.fromEntries(groups.map(g => [g.id, g]));
@@ -95,32 +94,6 @@ export default function ApprovedGroups() {
     if (!mealsByProfile[m.operational_group_profile_id]) mealsByProfile[m.operational_group_profile_id] = [];
     mealsByProfile[m.operational_group_profile_id].push(m);
   });
-
-  // ── filter profiles by their associated group ──────────────────
-  const activeProfiles = useMemo(() => {
-    // First filter profiles to only CONFIRMED groups
-    const confirmed = profiles.filter(p => {
-      const g = groupById[p.group_id];
-      return g && isGroupOperationallyEnabled(g) && g.status === "CONFIRMED";
-    });
-
-    // Then apply search/filter using the group data
-    // filterGroups works on Group entities, so we need to filter profiles by group
-    const filteredGroupIds = new Set(
-      filterGroups(
-        confirmed.map(p => groupById[p.group_id]).filter(Boolean),
-        filterState
-      ).map(g => g.id)
-    );
-
-    return confirmed
-      .filter(p => filteredGroupIds.has(p.group_id))
-      .sort((a, b) => {
-        const ga = groupById[a.group_id];
-        const gb = groupById[b.group_id];
-        return (ga?.arrival_date || "").localeCompare(gb?.arrival_date || "");
-      });
-  }, [profiles, groupById, filterState]);
 
   // Bucket: upcoming vs past
   const upcoming = activeProfiles.filter(p => {
@@ -238,6 +211,13 @@ export default function ApprovedGroups() {
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
+  }
+
+  if (error) {
+    return <div className="text-center py-12 space-y-3" dir="rtl" role="alert">
+      <p className="text-destructive">טעינת הקבוצות נכשלה</p>
+      <button className="text-primary underline" onClick={() => refetch()}>נסה שוב</button>
+    </div>;
   }
 
   return (
