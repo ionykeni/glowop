@@ -25,6 +25,7 @@ import { normalizeCatalogLines, normalizeOptionPayload, syncOptionPayloadPax } f
 import QuoteAudienceSelector from "./QuoteAudienceSelector";
 import QuoteOptionTabs from "./QuoteOptionTabs";
 import QuoteOptionPreviewSelector from "./QuoteOptionPreviewSelector";
+import QuoteSaveRecoveryBanner from "./QuoteSaveRecoveryBanner";
 import { toast } from "sonner";
 import { isValidDateString } from "@/lib/groupStayPeriods";
 
@@ -514,6 +515,9 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const [optionBusy, setOptionBusy] = useState(false);
   const optionCreateLockRef = useRef(false);
   const saveInFlightRef = useRef(false); // synchronous guard against concurrent Save submissions
+  // Records confirmed as persisted during this form session — never re-created on retry.
+  const persistedRef = useRef({ groupId: null, quoteId: null, quote: null, optionsDone: false, preparationDone: false, ambiguous: false });
+  const [recovery, setRecovery] = useState(null); // { kind: "partial" | "ambiguous", quoteSaved, message }
   const [optionLoading, setOptionLoading] = useState(() => Boolean(multiOptionFeatureEnabled && quote?.id && quote.multi_option_enabled));
   const [optionLoadError, setOptionLoadError] = useState("");
   const [optionNotes, setOptionNotes] = useState("");
@@ -738,6 +742,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saveInFlightRef.current) return;
+    if (persistedRef.current.ambiguous) return toast.error("לא ניתן לאמת את השמירה הקודמת — יש לבדוק ברשימת ההצעות לפני שמירה נוספת");
     if (optionLoading || optionLoadError) return toast.error("לא ניתן לשמור לפני טעינת אפשרויות ההצעה");
     if (!form.quote_audience_type) {
       setAudienceError(true);
@@ -761,10 +766,17 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     }
     saveInFlightRef.current = true;
     setSaving(true);
+    const persisted = persistedRef.current;
+    // A create call that failed without a server response may still have persisted.
+    const isAmbiguousFailure = error => !(error?.response?.status || error?.status);
+    let stage = "group";
+    let finalSavedQuote = null;
+    let savedOptions = [];
+    let resolvedGroupId = group?.id;
+    const usePreparationFlow = preparationFlowEnabled && isNewGroupFlow;
     try {
-      const usePreparationFlow = preparationFlowEnabled && isNewGroupFlow;
-      let resolvedGroupId = group?.id;
-      if (isNewGroupFlow && !usePreparationFlow) {
+      if (isNewGroupFlow && !usePreparationFlow && persisted.groupId) resolvedGroupId = persisted.groupId;
+      else if (isNewGroupFlow && !usePreparationFlow) {
         const totalPax = Number(form.estimated_pax || 0);
         const staffPax = Number(form.staff_count || 0);
         const newGroup = await base44.entities.Group.create({
@@ -783,7 +795,9 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
           status: "DRAFT",
         });
         resolvedGroupId = newGroup.id;
+        persisted.groupId = newGroup.id;
       }
+      stage = "quote";
       const activeOptionPayload = captureActiveOptionDraft();
       const rawDraftsToSave = { ...optionDraftsRef.current, [activeOptionKey]: activeOptionPayload };
       const draftsToSave = Object.fromEntries(Object.entries(rawDraftsToSave).map(([key, payload]) => [key, repriceOptionPayload(payload, nights, quoteType === "day_use", estimatedPax)]));
@@ -807,30 +821,63 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
         vip_people: effectiveVipPeople,
       };
       if (hasOptionB) { const legacyOptionA = { ...draftsToSave.A }; delete legacyOptionA.option_notes; quotePayload = applyOptionPayloadToQuote(quotePayload, legacyOptionA); }
-      const savedQuote = isEdit
-        ? await base44.entities.Quote.update(quote.id, quotePayload)
+      const existingQuoteId = quote?.id || persisted.quoteId;
+      const savedQuote = existingQuoteId
+        ? await base44.entities.Quote.update(existingQuoteId, quotePayload)
         : await base44.entities.Quote.create(quotePayload);
-      let finalSavedQuote = savedQuote;
-      let savedOptions = [];
+      persisted.quoteId = savedQuote.id;
+      persisted.quote = savedQuote;
+      finalSavedQuote = savedQuote;
+      stage = "options";
+      // manageQuoteOptions "save" updates existing A/B rows by quote_id — safe to re-run on resume.
       if (hasOptionB) {
         const optionsRes = await base44.functions.invoke("manageQuoteOptions", { action: "save", quote_id: savedQuote.id, options: draftsToSave });
         if (!optionsRes.data?.success) throw new Error(optionsRes.data?.error || "OPTION_SAVE_FAILED");
         savedOptions = optionsRes.data.options || [];
         finalSavedQuote = { ...savedQuote, multi_option_enabled: true };
+        persisted.optionsDone = true;
       }
+      stage = "preparation";
+      // ensureQuotePreparationGroup reuses an existing linked Group/OGP — safe to re-run on resume.
       if (usePreparationFlow || quote?.preparation_flow_enabled) {
         const ensured = await base44.functions.invoke("ensureQuotePreparationGroup", { quote_id: savedQuote.id });
         if (!ensured.data?.success) throw new Error(ensured.data?.error || "PREPARATION_INIT_FAILED");
         resolvedGroupId = ensured.data.group?.id;
         finalSavedQuote = ensured.data.quote || finalSavedQuote;
+        persisted.preparationDone = true;
       }
+    } catch (error) {
       setSaving(false);
+      saveInFlightRef.current = false;
+      const createdNothingYet = stage === "group" ? true : stage === "quote" && !(quote?.id || persisted.quoteId);
+      if (createdNothingYet && !isEdit && isAmbiguousFailure(error)) {
+        persisted.ambiguous = true;
+        setRecovery({ kind: "ambiguous", quoteSaved: false, message: stage === "group" ? "החיבור נקטע בזמן יצירת הקבוצה." : "החיבור נקטע בזמן יצירת הצעת המחיר." });
+        return;
+      }
+      if (stage === "options" || stage === "preparation") {
+        const prepMessage = error?.message === "FEATURE_DISABLED" ? "זרימת ההכנה מושבתת כרגע." : "הגדרת קבוצת ההכנה / הפרופיל התפעולי לא הושלמה.";
+        setRecovery({ kind: "partial", quoteSaved: true, message: stage === "options" ? "שמירת אפשרויות ההצעה (א׳/ב׳) לא הושלמה." : prepMessage });
+        toast.error("הצעת המחיר נשמרה, אך חלק מההגדרות לא הושלמו");
+        return;
+      }
+      if (stage === "quote" && persisted.groupId && !persisted.quoteId) {
+        setRecovery({ kind: "partial", quoteSaved: false, message: "הקבוצה נשמרה, אך שמירת הצעת המחיר נכשלה. בהמשך השמירה תשמש אותה קבוצה." });
+      }
+      toast.error(error?.message === "FEATURE_DISABLED" ? "זרימת ההכנה מושבתת כרגע" : "שמירת הצעת המחיר נכשלה");
+      return;
+    }
+    // Persistence is complete from here — handoff errors must never be shown as save failures.
+    setRecovery(null);
+    setSaving(false);
+    toast.success(isEdit ? "הצעת המחיר עודכנה בהצלחה" : "הצעת המחיר נשמרה בהצלחה");
+    try {
       if (returnToQuotes) onSaved(finalSavedQuote, savedOptions);
       else if (usePreparationFlow && resolvedGroupId) { navigate(`/groups/${resolvedGroupId}`); onClose(); }
       else onSaved(finalSavedQuote, savedOptions);
-    } catch (error) {
-      setSaving(false);
-      toast.error(error?.message === "FEATURE_DISABLED" ? "זרימת ההכנה מושבתת כרגע" : error?.message === "PREPARATION_INIT_FAILED" ? "יצירת קבוצת ההכנה נכשלה" : "שמירת הצעת המחיר נכשלה");
+    } catch (handoffError) {
+      console.error("[QuoteFormModal] post-save handoff failed", { quote_id: persisted.quoteId, error: handoffError?.message });
+      toast.error("ההצעה נשמרה, אך המעבר למסך הבא נכשל — סגרו את הטופס ורעננו את הרשימה");
     } finally {
       saveInFlightRef.current = false;
     }
@@ -1269,14 +1316,16 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               </div>
             )}
 
+            <QuoteSaveRecoveryBanner recovery={recovery} />
+
             {/* Save button */}
             <Button
               type="submit"
               form="quote-form"
-              disabled={saving || optionLoading || Boolean(optionLoadError)}
+              disabled={saving || optionLoading || Boolean(optionLoadError) || recovery?.kind === "ambiguous"}
               className="w-full h-11 text-sm font-semibold"
             >
-              {saving ? "שומר..." : isEdit ? "שמור הצעת מחיר" : "צור הצעת מחיר"}
+              {saving ? "שומר..." : recovery?.kind === "partial" ? "המשך שמירה" : isEdit ? "שמור הצעת מחיר" : "צור הצעת מחיר"}
             </Button>
             <Button type="button" variant="outline" onClick={onClose} className="w-full text-sm">
               ביטול
