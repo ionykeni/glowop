@@ -19,8 +19,12 @@ Deno.serve(async (req) => {
     }
 
     // Use service role to bypass row-level security
-    const allUsers = await base44.asServiceRole.entities.InternalUser.list();
-    const match = allUsers.find(u => u.email && u.email.trim().toLowerCase() === normalizedEmail);
+    const escaped = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const candidates = await base44.asServiceRole.entities.InternalUser.filter(
+      { email: { $regex: `^\\s*${escaped}\\s*$`, $options: 'i' } }, '-updated_date', 10
+    );
+    const rows = Array.isArray(candidates) ? candidates : (candidates?.items || []);
+    const match = rows.find(u => u.active !== false) || rows[0];
 
     if (!match) {
       // Fallback test-agent detection (in case the flag is not present on auth.me())
