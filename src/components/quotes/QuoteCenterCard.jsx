@@ -19,12 +19,13 @@ function QuotePriceBlock({ quote, pricing }) {
   return <span className="text-primary">סה״כ: {money(quote.total_price)}</span>;
 }
 
-export default function QuoteCenterCard({ quote, group, profile, optionPricing, cancelledBooking = false, groupLinkBroken = false, canDecide, onEdit, onApprove, onReject, onDeleted, onUpdated, onStatusChange }) {
+export default function QuoteCenterCard({ quote, group, profile, optionPricing, cancelledBooking = false, groupLinkBroken = false, groupStatusUnverified = false, canDecide, onEdit, onApprove, onReject, onDeleted, onUpdated, onStatusChange }) {
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const nights = getQuoteNights(quote.arrival_date, quote.departure_date, quote.quote_type);
   return <div className="bg-card border border-border rounded-xl p-4 space-y-3" dir="rtl">
     <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{quote.client_name || group?.group_name || "ללא שם"}</p><p className="text-xs text-muted-foreground">{quote.quote_number || `גרסה ${quote.version}`}</p></div><div className="flex items-center gap-1.5">{cancelledBooking && <span className="text-xs px-2 py-0.5 rounded border font-medium bg-red-50 text-red-600 border-red-200">מבוטל</span>}<QuoteStatusBadge status={quote.status} /></div></div>
     {cancelledBooking && <p className="text-xs text-red-600">ההזמנה בוטלה — הצעת המחיר המאושרת נשמרת כרשומה היסטורית.</p>}
+    {groupStatusUnverified && <p className="text-xs text-slate-500">סטטוס הקבוצה המקושרת עדיין לא אומת — ייתכן שההזמנה בוטלה.</p>}
     {groupLinkBroken && <p className="text-xs text-amber-700">הקבוצה המקושרת לא נמצאה במערכת — נדרשת בדיקה.</p>}
     <div className="flex flex-wrap items-start gap-3 text-xs text-muted-foreground">{quote.arrival_date && <span className="flex gap-1"><Calendar className="w-3 h-3" />{quote.arrival_date}{quote.departure_date ? ` — ${quote.departure_date}` : ""}</span>}{quote.quote_type !== "day_use" && nights > 0 && <span>לילות: {nights}</span>}<span className="flex gap-1"><Users className="w-3 h-3" />{quote.estimated_pax || 0}</span><QuotePriceBlock quote={quote} pricing={optionPricing} /></div>
     <div className="text-xs text-muted-foreground">קבוצה: {group ? `${group.group_name} · ${group.status}` : "לא נוצרה"} · פרופיל: {profile ? "קיים" : "חסר"} · עודכן {quote.updated_date?.slice(0, 10) || "—"}</div>
