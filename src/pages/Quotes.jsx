@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useRoleContext } from "@/lib/RoleContext";
-import { isQuotePreparationEnabled, isQuoteOpen, isQuoteApproved, isQuoteRejected } from "@/lib/quotePreparationFlow";
+import { isQuotePreparationEnabled, isQuoteOpen, isQuoteApproved, isQuoteRejected, isQuoteCancelledBooking } from "@/lib/quotePreparationFlow";
 import { isQuoteMultiOptionEnabled } from "@/lib/quoteMultiOption";
 import { hasPermission } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -102,7 +102,10 @@ export default function Quotes() {
     });
   }, [quotes]);
   const today = todayInJerusalem();
-  const approvedQuotes = sortedQuotes.filter(isQuoteApproved);
+  const groupById = Object.fromEntries(groups.map(group => [group.id, group]));
+  const isCancelledBooking = quote => isQuoteCancelledBooking(quote, groupById[quote.group_id]);
+  const cancelledBookingQuotes = sortedQuotes.filter(quote => isQuoteApproved(quote) && isCancelledBooking(quote));
+  const approvedQuotes = sortedQuotes.filter(quote => isQuoteApproved(quote) && !isCancelledBooking(quote));
   const currentApprovedQuotes = approvedQuotes.filter(quote =>
     !isValidDateString(quote.departure_date) || quote.departure_date >= today
   );
@@ -134,9 +137,9 @@ export default function Quotes() {
     updateQuotePreparationCache(qc, { quote: approvedQuote, group: confirmedGroup, profile: operationalProfile });
     refresh(confirmedGroup?.id); setActiveTab("approved"); toast.success("הצעת המחיר אושרה"); return true;
   };
-  const sections = [{ key: "open", label: "פתוחות / בתהליך", rows: sortedQuotes.filter(isQuoteOpen) }, { key: "approved", label: "מאושרות", rows: currentApprovedQuotes }, { key: "history", label: "נדחו / היסטוריה", rows: [...sortedQuotes.filter(isQuoteRejected), ...completedApprovedQuotes].sort(compareDepartureDesc) }];
+  const sections = [{ key: "open", label: "פתוחות / בתהליך", rows: sortedQuotes.filter(isQuoteOpen) }, { key: "approved", label: "מאושרות", rows: currentApprovedQuotes }, { key: "history", label: "נדחו / היסטוריה", rows: [...sortedQuotes.filter(isQuoteRejected), ...completedApprovedQuotes, ...cancelledBookingQuotes].sort(compareDepartureDesc) }];
   const searchResults = searchTerm.trim() ? quotes.filter(quote => matchesQuoteSearch(quote, searchTerm)) : [];
-  const renderQuote = quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => openEdit(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} onUpdated={() => refresh(quote.group_id)} onStatusChange={status => changeStatus(quote, status)} />;
+  const renderQuote = quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} cancelledBooking={isCancelledBooking(quote)} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => openEdit(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} onUpdated={() => refresh(quote.group_id)} onStatusChange={status => changeStatus(quote, status)} />;
   const changeStatus = async (quote, status) => {
     try {
       const updated = await base44.entities.Quote.update(quote.id, { status });
