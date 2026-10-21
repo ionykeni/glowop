@@ -66,7 +66,25 @@ export default function Quotes() {
   const canCreate = hasPermission(role, "CREATE_QUOTE");
   const canDecide = hasPermission(role, "APPROVE_QUOTE");
   const { data: quotes = [] } = useQuery({ queryKey: ["quoteCenter"], queryFn: loadAllQuotes, enabled });
-  const { data: groups = [] } = useQuery({ queryKey: ["quoteCenterGroups"], queryFn: () => base44.entities.Group.list("-updated_date", 500), enabled });
+  const { data: recentGroups = [], isSuccess: recentGroupsLoaded } = useQuery({ queryKey: ["quoteCenterGroups"], queryFn: () => base44.entities.Group.list("-updated_date", 500), enabled });
+  // Targeted lookup for linked Groups outside the recent page — only the exact IDs referenced by Quotes.
+  const recentGroupIds = new Set(recentGroups.map(group => group.id));
+  const unloadedGroupIds = [...new Set(quotes.map(quote => quote.group_id).filter(id => id && !recentGroupIds.has(id)))].sort();
+  const { data: linkedGroups = [], isSuccess: linkedGroupsLoaded } = useQuery({
+    queryKey: ["quoteCenterLinkedGroups", unloadedGroupIds],
+    queryFn: async () => {
+      const rows = [];
+      for (let i = 0; i < unloadedGroupIds.length; i += 100) {
+        const chunk = unloadedGroupIds.slice(i, i + 100);
+        rows.push(...await base44.entities.Group.filter({ id: { $in: chunk } }, "-updated_date", chunk.length));
+      }
+      return rows;
+    },
+    enabled: enabled && recentGroupsLoaded && unloadedGroupIds.length > 0,
+  });
+  const groups = [...recentGroups, ...linkedGroups];
+  // A link is "broken" only after both lookups finished and the Group still was not found.
+  const groupLinksResolved = recentGroupsLoaded && (unloadedGroupIds.length === 0 || linkedGroupsLoaded);
   const { data: profiles = [] } = useQuery({ queryKey: ["quoteCenterProfiles"], queryFn: () => base44.entities.OperationalGroupProfile.list("-updated_date", 500), enabled });
   const { data: quoteOptions = [], isError: optionLoadFailed } = useQuery({ queryKey: ["quoteCenterOptions"], queryFn: async () => { try { return await base44.entities.QuoteOption.list("-updated_date", 1000); } catch (error) { console.error("[Quotes] failed to load QuoteOption prices", error); throw error; } }, enabled });
 
@@ -117,6 +135,7 @@ export default function Quotes() {
     invalidateQuotePreparationCache(qc, groupId);
     qc.invalidateQueries({ queryKey: ["quoteCenterOptions"] });
     qc.invalidateQueries({ queryKey: ["quoteCenterGroups"] });
+    qc.invalidateQueries({ queryKey: ["quoteCenterLinkedGroups"] });
     qc.invalidateQueries({ queryKey: ["quoteCenterProfiles"] });
   };
   const groupMap = Object.fromEntries(groups.map(group => [group.id, group]));
@@ -139,7 +158,7 @@ export default function Quotes() {
   };
   const sections = [{ key: "open", label: "פתוחות / בתהליך", rows: sortedQuotes.filter(isQuoteOpen) }, { key: "approved", label: "מאושרות", rows: currentApprovedQuotes }, { key: "history", label: "נדחו / היסטוריה", rows: [...sortedQuotes.filter(isQuoteRejected), ...completedApprovedQuotes, ...cancelledBookingQuotes].sort(compareDepartureDesc) }];
   const searchResults = searchTerm.trim() ? quotes.filter(quote => matchesQuoteSearch(quote, searchTerm)) : [];
-  const renderQuote = quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} cancelledBooking={isCancelledBooking(quote)} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => openEdit(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} onUpdated={() => refresh(quote.group_id)} onStatusChange={status => changeStatus(quote, status)} />;
+  const renderQuote = quote => <QuoteCenterCard key={quote.id} quote={quote} group={groupMap[quote.group_id]} profile={profileMap[quote.group_id]} optionPricing={optionPricingMap[quote.id]} cancelledBooking={isCancelledBooking(quote)} groupLinkBroken={Boolean(quote.group_id && groupLinksResolved && !groupMap[quote.group_id])} canDecide={canDecide && (!quote.multi_option_enabled || multiOptionEnabled)} onEdit={() => openEdit(quote)} onApprove={key => decide(quote, "approve", key)} onReject={() => decide(quote, "reject")} onDeleted={handleDeleted} onUpdated={() => refresh(quote.group_id)} onStatusChange={status => changeStatus(quote, status)} />;
   const changeStatus = async (quote, status) => {
     try {
       const updated = await base44.entities.Quote.update(quote.id, { status });
