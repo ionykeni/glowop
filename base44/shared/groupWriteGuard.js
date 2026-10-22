@@ -16,6 +16,7 @@ export const GROUP_FIELD = {
 export const GROUP_WRITE_MESSAGES = {
   GROUP_CANCELLED: 'הקבוצה בוטלה. לא ניתן להוסיף או לשנות שיבוצים, ארוחות או פעילויות.',
   GROUP_CANCELLATION_IN_PROGRESS: 'הקבוצה נמצאת בתהליך ביטול. לא ניתן לבצע שינויים כעת.',
+  GROUP_NOT_FOUND: 'הקבוצה לא נמצאה. לא ניתן לשמור את הרשומה.',
 };
 export class GroupWriteBlocked extends Error {
   constructor(code, groupId) { super(GROUP_WRITE_MESSAGES[code]); this.code = code; this.status = 409; this.group_id = groupId; }
@@ -30,9 +31,9 @@ const isRelease = data => !!data && RELEASE_STATUSES.has(data.status);
 const setPart = upd => upd?.$set || {};
 const groupSensitive = (data, unset = {}) => !!data && ('cancellation_operation_id' in data || 'cancellation_operation_id' in unset
   || (data.status !== undefined && data.status !== 'CANCELLED') || data.operationally_active === true);
-const blockedState = g => !g ? null : g.status === 'CANCELLED' ? 'GROUP_CANCELLED' : g.cancellation_operation_id ? 'GROUP_CANCELLATION_IN_PROGRESS' : null;
+const blockedState = g => !g ? 'GROUP_NOT_FOUND' : g.status === 'CANCELLED' ? 'GROUP_CANCELLED' : g.cancellation_operation_id ? 'GROUP_CANCELLATION_IN_PROGRESS' : null;
 
-async function readAll(entity, query) {
+export async function readAll(entity, query) {
   const rows = [];
   for (let skip = 0; ; skip += 500) { const page = await entity.filter(query, 'id', 500, skip); rows.push(...page); if (page.length < 500) return rows; }
 }
@@ -44,7 +45,8 @@ const passthrough = (target, overrides) => new Proxy({}, {
 export function guardOperationalClient(client) {
   const raw = () => client.asServiceRole.entities;
   const verdict = new Map(); const rowGroup = new Map(); const released = new Set();
-  const readGroup = async gid => (await raw().Group.filter({ id: gid }))[0] || null;
+  // A lookup that fails (e.g. malformed id) is treated as a missing Group: the write is rejected.
+  const readGroup = async gid => (await raw().Group.filter({ id: gid }).catch(() => []))[0] || null;
 
   const remember = (name, field, res) => {
     if (!field || !res) return;
