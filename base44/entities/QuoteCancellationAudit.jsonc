@@ -1,0 +1,89 @@
+{
+  "name": "QuoteCancellationAudit",
+  "type": "object",
+  "properties": {
+    "quote_id": {
+      "type": "string"
+    },
+    "group_id": {
+      "type": "string",
+      "description": "Derived server-side from Quote.group_id"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "CUSTOMER_CANCELLED",
+        "CREATED_BY_MISTAKE"
+      ]
+    },
+    "actor_email": {
+      "type": "string"
+    },
+    "actor_role": {
+      "type": "string"
+    },
+    "no_arrival_declared": {
+      "type": "boolean",
+      "default": false,
+      "description": "Caller declaration only; not proof of non-arrival"
+    },
+    "declared_at": {
+      "type": "string"
+    },
+    "planned_arrival_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "evidence_assessment_json": {
+      "type": "string"
+    },
+    "fingerprint": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "RECORDED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "RECOVERY_REQUIRED",
+        "BLOCKED"
+      ],
+      "default": "RECORDED"
+    },
+    "result_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "quote_id",
+    "reason",
+    "actor_email",
+    "state"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

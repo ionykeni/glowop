@@ -5,7 +5,9 @@ import { isValidDateString } from '../../shared/groupStayPeriods.js';
 // READ-ONLY (B1.1). Previews what cancelling an approved Quote booking would affect. Never writes.
 // Execution model: caller identity comes from the request token (auth.me); authorization is the
 // InternalUser whitelist; reads use service role only after authorization succeeds.
-const ALLOWED_ROLES = new Set(['QUOTES_MANAGER', 'ADMIN', 'SUPER_ADMIN']);
+const ALLOWED_ROLES = new Set(['QUOTES_MANAGER', 'SUPER_ADMIN']);
+// B2 release gate: commit stays disabled until non-production checks prove serialization/recovery.
+const B2_COMMIT_ENABLED = false;
 const GROUP_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'ARCHIVED']);
 const CLOSED_GROUP_STATUSES = new Set(['CANCELLED', 'COMPLETED', 'ARCHIVED']);
 const LIST_CAP = 200;
@@ -165,11 +167,24 @@ export default async function(req) {
     const isMulti = group.stay_mode === 'MULTI_PERIOD';
     if (isMulti) blockers.push('MULTI_PERIOD_NOT_SUPPORTED_IN_INITIAL_SCOPE');
     else if (!isValidDateString(group.arrival_date) || (group.departure_date && !isValidDateString(group.departure_date)) || (group.departure_date && group.departure_date < group.arrival_date)) blockers.push('GROUP_DATES_INVALID');
-    else {
-      const end = group.departure_date || group.arrival_date;
-      if (group.arrival_date <= today && today <= end) blockers.push('GROUP_ON_SITE_TODAY');
-      else if (group.arrival_date <= today) warnings.push('STAY_ALREADY_ENDED_HISTORY_PRESERVED');
-    }
+    // Planned dates are never proof of arrival. Today/past planned arrival only requires an explicit audited no-arrival declaration.
+    const requiresNoArrivalDeclaration = isValidDateString(group.arrival_date) && group.arrival_date <= today;
+
+    // Reliable actual-stay evidence: manual operational records that only exist after a real stay.
+    // (No physical check-in system exists; none is assumed.)
+    const [incidents, postReports, sleepReports] = await Promise.all([
+      readAllStrict(db.PostStayIncident, { group_id: gid }),
+      readAllStrict(db.PostStayReport, { group_id: gid }),
+      readAllStrict(db.MechinaSleepingReportVersion, { group_id: gid, status: 'SUBMITTED' }),
+    ]);
+    const stayEvidence = {
+      post_stay_incidents: incidents.length,
+      post_stay_reports_sent: postReports.filter(r => r.status === 'SENT').length,
+      submitted_sleeping_reports: sleepReports.length,
+    };
+    if (Object.values(stayEvidence).some(n => n > 0)) blockers.push('ACTUAL_STAY_EVIDENCE');
+    // Possible-stay signals (not proof): recorded for audit, never blockers on their own.
+    const possibleStaySignals = [];
 
     const resources = {
       stay_periods: summarize('stay_periods', periods, today, p => inclusive(p.start_date, p.end_date), p => pick(p, ['id', 'start_date', 'end_date'])),
@@ -191,7 +206,7 @@ export default async function(req) {
     for (const [name, r] of Object.entries(resources)) {
       if (r.counts.unknown_status) blockers.push(`UNKNOWN_STATUS:${name}`);
       if (r.counts.invalid_dates) blockers.push(`INVALID_DATES:${name}`);
-      if (r.counts.today || r.counts.in_progress) blockers.push(`IN_PROGRESS_COMMITMENTS:${name}`);
+      if (r.counts.today || r.counts.in_progress || r.preserved_history_count) possibleStaySignals.push({ resource: name, today: r.counts.today, in_progress: r.counts.in_progress, past: r.preserved_history_count });
       if (r.truncated) warnings.push(`LIST_TRUNCATED:${name}`);
     }
 
@@ -242,7 +257,7 @@ export default async function(req) {
     if (leftovers) warnings.push('CALENDAR_LEFTOVERS_FOR_CANCELLED_ITEMS');
 
     const fingerprint = await sha256({
-      v: 'B1.1', today,
+      v: 'B2.0', today, stay_evidence: stayEvidence,
       quote: pick(quote, ['id', 'status', 'group_id', 'approved_option_key', 'updated_date']),
       group: pick(group, ['id', 'status', 'stay_mode', 'group_type', 'arrival_date', 'departure_date', 'operationally_active', 'updated_date']),
       approved_quote_ids: approvedQuoteIds,
@@ -258,6 +273,10 @@ export default async function(req) {
       success: true,
       read_only: true,
       eligible: blockers.length === 0,
+      commit_enabled: B2_COMMIT_ENABLED,
+      requires_no_arrival_declaration: requiresNoArrivalDeclaration,
+      stay_evidence: stayEvidence,
+      possible_stay_signals: possibleStaySignals,
       fingerprint,
       today,
       timezone: 'Asia/Jerusalem',
