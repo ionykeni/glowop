@@ -425,13 +425,13 @@ export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl, requiresAdvanc
         ]} />
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 14 }}>אישור ההצעה וחתימה</div>
-        <div style={{ marginBottom: 18 }}>
+      <div style={{ marginTop: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 10 }}>אישור ההצעה וחתימה</div>
+        <div style={{ marginBottom: 10 }}>
           <SigLine label="שם מלא" />
           <SigLine label="תפקיד" />
         </div>
-        <div style={{ marginBottom: 18 }}>
+        <div style={{ marginBottom: 10 }}>
           <SigLine label="חתימה" />
           <SigLine label="תאריך" />
         </div>
@@ -441,8 +441,8 @@ export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl, requiresAdvanc
         </div>
       </div>
 
-      <div style={{ marginTop: 28, textAlign: "center" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 12 }}>מחכים לכם בבית הדור הבא</div>
+      <div style={{ marginTop: 14, textAlign: "center" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, marginBottom: 8 }}>מחכים לכם בבית הדור הבא</div>
         <div style={{ display: "inline-block", width: "65%" }}>
           <img
             src={footerUrl || FOOTER_URL_FALLBACK}
