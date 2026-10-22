@@ -34,6 +34,10 @@ Deno.serve(async (req) => {
   if (!group) {
     return Response.json({ error: 'Group not found' }, { status: 404 });
   }
+  // A Quote cancellation owns this Group (atomic lock); lifecycle changes must not race it.
+  if (group.cancellation_operation_id) {
+    return Response.json({ error: 'GROUP_CANCELLATION_IN_PROGRESS' }, { status: 409 });
+  }
 
   const now = new Date().toISOString();
   const summary = { sleepingAllocations: 0, mealReservations: 0, scheduleItems: 0, neighborhoodReservations: 0, operationalHolds: 0 };
