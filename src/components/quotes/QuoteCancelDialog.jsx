@@ -23,7 +23,7 @@ export default function QuoteCancelDialog({ quote, open, onOpenChange, onDone })
     base44.functions.invoke("previewQuoteBookingCancellation", { quote_id: quote.id }).then(r => setPreview(r.data));
   }, [open, quote.id]);
 
-  const needsDeclaration = preview?.requires_no_arrival_declaration;
+  const needsDeclaration = !!reason && preview?.reasons?.[reason]?.requires_no_arrival_declaration === true;
   const confirm = async () => {
     setBusy(true);
     const { data } = await base44.functions.invoke("commitQuoteCancellation", { quote_id: quote.id, reason, fingerprint: preview.fingerprint, no_arrival_declared: declared });

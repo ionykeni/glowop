@@ -10,6 +10,7 @@ const MESSAGES = {
   NO_ARRIVAL_DECLARATION_REQUIRED: 'יש לאשר שהקבוצה לא הגיעה.',
   STALE: 'הנתונים השתנו מאז הפתיחה. יש לפתוח מחדש.',
   DISABLED: 'הפעולה עדיין אינה זמינה.',
+  LIVE_GROUP: 'להצעה יש קבוצה פעילה או שיבוצים תפעוליים. יש לבטל את ההזמנה או לבדוק תפעולית.',
   BLOCKED: 'לא ניתן לבצע כרגע. נדרשת בדיקה תפעולית.',
 };
 
@@ -29,13 +30,16 @@ export default async function(req) {
   if (!preview?.success) return Response.json({ success: false, error: preview?.error || 'PREVIEW_FAILED' }, { status: 403 });
 
   if (body.fingerprint !== preview.fingerprint) return Response.json({ success: false, outcome: 'STALE', message: MESSAGES.STALE });
-  if (preview.requires_no_arrival_declaration && body.no_arrival_declared !== true) {
+  // Each reason has its own eligibility: booking cancellation vs. Quote-only commercial withdrawal.
+  const rule = preview.reasons?.[reason];
+  if (!rule) return Response.json({ success: false, outcome: 'BLOCKED', message: MESSAGES.BLOCKED });
+  if (rule.requires_no_arrival_declaration && body.no_arrival_declared !== true) {
     return Response.json({ success: false, outcome: 'BLOCKED', error: 'NO_ARRIVAL_DECLARATION_REQUIRED', message: MESSAGES.NO_ARRIVAL_DECLARATION_REQUIRED });
   }
-  // Mistaken withdrawal touches only the Quote; operational blockers that require modifying Group data still block.
-  const blockers = preview.blockers || [];
-  if (blockers.includes('ACTUAL_STAY_EVIDENCE')) return Response.json({ success: false, outcome: 'BLOCKED', message: MESSAGES.ACTUAL_STAY_EVIDENCE });
-  if (blockers.length) return Response.json({ success: false, outcome: 'BLOCKED', message: MESSAGES.BLOCKED });
+  const blockers = rule.blockers || [];
+  if (blockers.includes('ACTUAL_STAY_EVIDENCE')) return Response.json({ success: false, outcome: 'BLOCKED', blockers, message: MESSAGES.ACTUAL_STAY_EVIDENCE });
+  if (blockers.includes('MISTAKEN_QUOTE_HAS_LIVE_GROUP') || blockers.includes('MISTAKEN_QUOTE_GROUP_HOLDS_RESOURCES')) return Response.json({ success: false, outcome: 'BLOCKED', blockers, message: MESSAGES.LIVE_GROUP });
+  if (blockers.length) return Response.json({ success: false, outcome: 'BLOCKED', blockers, message: MESSAGES.BLOCKED });
 
   // Release gate: no writes (including audit) until serialization, recovery and idempotency are proven.
   if (!preview.commit_enabled) return Response.json({ success: false, outcome: 'DISABLED', message: MESSAGES.DISABLED, validated: true });
