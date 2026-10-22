@@ -53,4 +53,6 @@ export const opWrite = {
   GroupScheduleItem: handle("GroupScheduleItem"),
   CoffeeCornerRequest: handle("CoffeeCornerRequest"),
   PrisaRequest: handle("PrisaRequest"),
+  // Sets all active meals of the alert's Group to the Group's current total pax (server-derived).
+  applyKitchenPaxAlert: (alertId) => enqueue({ entity: "MealReservation", action: "applyKitchenPaxAlert", alert_id: alertId }),
 };

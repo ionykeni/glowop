@@ -1,4 +1,7 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
+import { todayIL } from '../../shared/stayReconciliationCore.js';
+import { RELEASE_SPEC, findLiveCommitments, releaseRow } from '../../shared/quoteCancellationRelease.js';
+import { readAll } from '../../shared/groupWriteGuard.js';
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
@@ -102,6 +105,11 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.Group.update(group_id, {
         status: 'CANCELLED',
       });
+      // Final sweep after the status is visible: catches guarded writes that passed their re-check before
+      // CANCELLED was stored. Later writers see CANCELLED and release themselves (groupWriteGuard).
+      const db = base44.asServiceRole.entities;
+      const live = await findLiveCommitments(db, group_id, todayIL(), readAll);
+      for (const spec of RELEASE_SPEC) for (const row of live[spec.key]) await releaseRow(db, spec, row);
     } else {
       await base44.asServiceRole.entities.Group.update(group_id, {
         status: 'ARCHIVED',

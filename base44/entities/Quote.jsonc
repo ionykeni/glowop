@@ -207,20 +207,50 @@
     },
     "cancellation_operation_id": {
       "type": "string",
-      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set)"
+      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set). Backend-only.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "backend_only"
+          }
+        }
+      }
     },
     "withdrawn_reason": {
       "type": "string",
       "enum": [
         "CREATED_BY_MISTAKE"
       ],
-      "description": "Additive withdrawal marker; status and commercial snapshot stay unchanged"
+      "description": "Additive withdrawal marker; status and commercial snapshot stay unchanged. Backend-only.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "backend_only"
+          }
+        }
+      }
     },
     "withdrawn_at": {
-      "type": "string"
+      "type": "string",
+      "description": "Backend-only.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "backend_only"
+          }
+        }
+      }
     },
     "withdrawn_by": {
-      "type": "string"
+      "type": "string",
+      "description": "Backend-only.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "backend_only"
+          }
+        }
+      }
     }
   },
   "required": [

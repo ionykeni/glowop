@@ -105,7 +105,14 @@
     },
     "cancellation_operation_id": {
       "type": "string",
-      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set)"
+      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set). Backend-only.",
+      "rls": {
+        "update": {
+          "user_condition": {
+            "role": "backend_only"
+          }
+        }
+      }
     }
   },
   "required": [
@@ -113,5 +120,12 @@
     "group_type",
     "arrival_date",
     "status"
-  ]
+  ],
+  "rls": {
+    "update": {
+      "data.status": {
+        "$ne": "CANCELLED"
+      }
+    }
+  }
 }

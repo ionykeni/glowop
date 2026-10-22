@@ -332,6 +332,9 @@ export default function GroupFormModal({ group, onClose, onSaved, initialProfile
 
       if (statusChangingToLifecycle) {
         const action = payload.status === "CANCELLED" ? "cancel" : payload.status === "ARCHIVED" ? "freeze" : "complete";
+        // Save the non-status fields (name, contact, notes, etc.) first: a cancelled Group is read-only for direct writes.
+        const { status: _s, ...payloadWithoutStatus } = payload;
+        await base44.entities.Group.update(group.id, payloadWithoutStatus);
         const res = await base44.functions.invoke("updateGroupLifecycle", {
           group_id: group.id,
           action,
@@ -341,9 +344,6 @@ export default function GroupFormModal({ group, onClose, onSaved, initialProfile
           setSaving(false);
           return;
         }
-        // Still save the non-status fields (name, contact, notes, etc.)
-        const { status: _s, ...payloadWithoutStatus } = payload;
-        await base44.entities.Group.update(group.id, payloadWithoutStatus);
         setSaving(false);
         onSaved();
         return;

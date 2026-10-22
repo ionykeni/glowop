@@ -131,18 +131,14 @@
   "rls": {
     "create": {
       "user_condition": {
-        "collaborator_role": "editor"
+        "role": "backend_only"
       }
     },
     "update": {
       "user_condition": {
-        "collaborator_role": "editor"
+        "role": "backend_only"
       }
     },
-    "delete": {
-      "user_condition": {
-        "collaborator_role": "editor"
-      }
-    }
+    "delete": false
   }
 }

@@ -107,22 +107,13 @@ export default function ReviewAlertCard({ alert, groupName, group, onAcknowledge
     if (!paxChange) return;
     setUpdating(true);
     try {
-      // Fetch all active meals for this group
-      const meals = await base44.entities.MealReservation.filter({
-        group_id: alert.group_id,
-        status: "ACTIVE",
-      });
-      // Update pax only — never touch date, type, notes, diets, sandwich
-      let updated = 0;
-      for (const meal of meals) {
-        await opWrite.MealReservation.update(meal.id, { pax: paxChange.newPax });
-        updated++;
-      }
+      // Server updates pax only on the Group's active meals — never date, type, notes, diets, sandwich
+      const result = await opWrite.applyKitchenPaxAlert(alert.id);
       // Acknowledge after update
       await doAcknowledge(false);
-      toast.success(`עודכנו ${updated} ארוחות לפי מספר האנשים החדש (${paxChange.newPax})`);
+      toast.success(`עודכנו ${result?.meals ?? 0} ארוחות לפי מספר האנשים החדש (${result?.pax ?? paxChange.newPax})`);
     } catch (err) {
-      toast.error("שגיאה בעדכון הארוחות");
+      toast.error(err?.message || "שגיאה בעדכון הארוחות");
     } finally {
       setUpdating(false);
       setConfirmUpdate(false);
