@@ -19,6 +19,9 @@
     "actor_email": {
       "type": "string"
     },
+    "actor_user_id": {
+      "type": "string"
+    },
     "actor_role": {
       "type": "string"
     },
@@ -55,6 +58,28 @@
       "default": "RECORDED"
     },
     "result_message": {
+      "type": "string"
+    },
+    "progress_json": {
+      "type": "string",
+      "description": "Per-resource release progress"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "calendar_state": {
+      "type": "string",
+      "enum": [
+        "NOT_REQUIRED",
+        "PENDING",
+        "DONE",
+        "FAILED"
+      ]
+    },
+    "calendar_item_ids_json": {
+      "type": "string"
+    },
+    "completed_at": {
       "type": "string"
     }
   },

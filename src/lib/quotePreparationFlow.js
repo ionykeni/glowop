@@ -11,5 +11,6 @@ export const isQuoteApproved = (quote) => String(quote?.status || "").toUpperCas
 export const isQuoteRejected = (quote) => ["REJECTED", "EXPIRED"].includes(String(quote?.status || "").toUpperCase());
 // A booking is cancelled only when the linked Group is loaded and explicitly CANCELLED.
 // Quote.status stays APPROVED (commercial truth); missing Groups are never treated as cancelled.
-export const isQuoteCancelledBooking = (quote, group) => Boolean(quote?.group_id && group && group.id === quote.group_id && group.status === "CANCELLED");
+export const isQuoteWithdrawnByMistake = quote => quote?.withdrawn_reason === "CREATED_BY_MISTAKE";
+export const isQuoteCancelledBooking = (quote, group) => isQuoteWithdrawnByMistake(quote) || Boolean(quote?.group_id && group && group.id === quote.group_id && group.status === "CANCELLED");
 export const isOperationalGroup = (group) => !(group?.quote_preparation_flow && group.status !== "CONFIRMED");

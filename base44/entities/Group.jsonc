@@ -102,6 +102,10 @@
     "archived_reason": {
       "type": "string",
       "description": "Reason for freezing/archiving the group"
+    },
+    "cancellation_operation_id": {
+      "type": "string",
+      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set)"
     }
   },
   "required": [

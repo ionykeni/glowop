@@ -46,16 +46,8 @@ async function readByIds(entity, field, ids) {
   return out;
 }
 
-// Date classification — all boundaries compared as Asia/Jerusalem YYYY-MM-DD strings.
-const single = date => today => !isValidDateString(date) ? 'INVALID_DATES' : date < today ? 'PAST' : date > today ? 'FUTURE' : 'TODAY';
-const exclusive = (start, endEx) => today => {
-  if (!isValidDateString(start) || !isValidDateString(endEx) || start >= endEx) return 'INVALID_DATES';
-  if (endEx <= today) return 'PAST'; if (start > today) return 'FUTURE'; return start === today ? 'TODAY' : 'IN_PROGRESS';
-};
-const inclusive = (start, end) => today => {
-  if (!isValidDateString(start) || !isValidDateString(end) || end < start) return 'INVALID_DATES';
-  if (end < today) return 'PAST'; if (start > today) return 'FUTURE'; return start === today ? 'TODAY' : 'IN_PROGRESS';
-};
+// Date classification shared with the commit engine.
+import { single, exclusive, inclusive } from '../../shared/quoteCancellationRelease.js';
 
 function summarize(name, rows, today, classifier, project) {
   const { known, active } = STATUS[name];
@@ -95,6 +87,8 @@ async function sha256(value) {
   return [...new Uint8Array(bytes)].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 const pick = (row, keys) => Object.fromEntries(keys.map(k => [k, row[k] ?? null]));
+// Lock fields and updated_date are excluded so acquiring the lock does not invalidate the caller's fingerprint.
+const QUOTE_FP = ['id', 'status', 'group_id', 'approved_option_key', 'arrival_date', 'departure_date', 'withdrawn_reason'];
 const byId = (a, b) => String(a.id).localeCompare(String(b.id));
 const FP_KEYS = ['id', 'status', 'updated_date', 'group_id', 'date', 'start_date', 'end_date', 'arrival_date', 'departure_date', 'tent_id', 'neighborhood_id', 'stay_period_id', 'allocation_series_id', 'allocated_pax', 'pax', 'quote_id', 'shared_activity_id', 'is_shared_activity', 'approved_schedule_item_id', 'activity_space_id', 'mechina_group_id'];
 
@@ -115,7 +109,14 @@ export default async function(req) {
     if (!quote) return Response.json({ success: false, error: 'QUOTE_NOT_FOUND' }, { status: 404 });
 
     const blockers = []; const warnings = [];
+    // Verification-only allowance: records explicitly named as B2 test data may be committed while the gate is off.
+    const commitEnabled = B2_COMMIT_ENABLED || String(quote.client_name || '').startsWith('B2TEST');
+    // A cancellation lock held by another operation blocks; the commit passes its own operation_id when re-validating.
+    const ownOp = typeof body.operation_id === 'string' ? body.operation_id : null;
+    const lockedByOther = rec => !!rec?.cancellation_operation_id && rec.cancellation_operation_id !== ownOp;
     const baseBlockers = quote.status !== 'APPROVED' ? ['QUOTE_NOT_APPROVED'] : [];
+    if (quote.withdrawn_reason) baseBlockers.push('QUOTE_ALREADY_WITHDRAWN');
+    if (lockedByOther(quote)) baseBlockers.push('CANCELLATION_IN_PROGRESS');
     blockers.push(...baseBlockers);
     // Operational records that point at this Quote directly (independent of Quote.group_id).
     const [quoteHolds, quoteProfiles] = await Promise.all([
@@ -129,26 +130,29 @@ export default async function(req) {
       const mistake = [...baseBlockers];
       if (quote.group_id) mistake.push('LINKED_GROUP_NOT_FOUND');
       if (quoteHolds.some(h => h.status === 'ACTIVE') || quoteProfiles.length) mistake.push('QUOTE_REFERENCED_BY_OPERATIONAL_RECORDS');
-      const fingerprint = await sha256({ v: 'B2.1', quote: pick(quote, ['id', 'status', 'group_id', 'updated_date']), holds: quoteHolds.sort(byId).map(r => pick(r, FP_KEYS)), profiles: quoteProfiles.sort(byId).map(r => pick(r, FP_KEYS)) });
+      const fingerprint = await sha256({ v: 'B2.2', quote: pick(quote, QUOTE_FP), holds: quoteHolds.sort(byId).map(r => pick(r, FP_KEYS)), profiles: quoteProfiles.sort(byId).map(r => pick(r, FP_KEYS)) });
       return Response.json({
-        success: true, read_only: true, commit_enabled: B2_COMMIT_ENABLED, fingerprint, eligible: false,
+        success: true, read_only: true, commit_enabled: commitEnabled, fingerprint, eligible: false,
         blockers: [...baseBlockers, quote.group_id ? 'LINKED_GROUP_NOT_FOUND' : 'QUOTE_HAS_NO_GROUP'],
         reasons: {
           CUSTOMER_CANCELLED: { eligible: false, blockers: [...baseBlockers, quote.group_id ? 'LINKED_GROUP_NOT_FOUND' : 'QUOTE_HAS_NO_GROUP'], requires_no_arrival_declaration: false },
-          CREATED_BY_MISTAKE: { eligible: mistake.length === 0, blockers: mistake, effect: 'QUOTE_ONLY_WITHDRAWAL' },
+          CREATED_BY_MISTAKE: { eligible: mistake.length === 0, blockers: mistake, requires_no_arrival_declaration: false, effect: 'QUOTE_ONLY_WITHDRAWAL' },
         },
-        quote: { id: quote.id, status: quote.status, group_id: quote.group_id || null },
+        caller_role: auth.caller.role,
+        quote: { id: quote.id, status: quote.status, group_id: quote.group_id || null, cancellation_operation_id: quote.cancellation_operation_id || null },
+        group: null,
       });
     }
 
+    if (lockedByOther(group)) blockers.push('CANCELLATION_IN_PROGRESS');
     if (!GROUP_STATUSES.has(group.status)) blockers.push('UNKNOWN_GROUP_STATUS');
     else if (group.status === 'CANCELLED') blockers.push('GROUP_ALREADY_CANCELLED');
     else if (CLOSED_GROUP_STATUSES.has(group.status)) blockers.push(`GROUP_STATUS_${group.status}`);
 
     const today = todayIL();
     const gid = group.id;
-    const [approvedForGroup, profiles, periods, allocations, neighborhoods, meals, schedule, coffee, prisa, holds, mechina] = await Promise.all([
-      readAllStrict(db.Quote, { group_id: gid, status: 'APPROVED' }),
+    const [allQuotesForGroup, profiles, periods, allocations, neighborhoods, meals, schedule, coffee, prisa, holds, mechina] = await Promise.all([
+      readAllStrict(db.Quote, { group_id: gid }),
       readAllStrict(db.OperationalGroupProfile, { group_id: gid }),
       readAllStrict(db.GroupStayPeriod, { group_id: gid }),
       readAllStrict(db.SleepingAllocation, { group_id: gid }),
@@ -162,6 +166,8 @@ export default async function(req) {
     ]);
 
     // Quote ↔ Group relationship (Quote.group_id is canonical).
+    const approvedForGroup = allQuotesForGroup.filter(q => q.status === 'APPROVED');
+    const otherQuoteIdsForGroup = allQuotesForGroup.filter(q => q.id !== quote.id).map(q => q.id).sort();
     const approvedQuoteIds = approvedForGroup.map(q => q.id).sort();
     if (approvedQuoteIds.length > 1) blockers.push('MULTIPLE_APPROVED_QUOTES_FOR_GROUP');
     if (!approvedQuoteIds.includes(quote.id)) blockers.push('QUOTE_GROUP_RELATIONSHIP_INVALID');
@@ -279,23 +285,21 @@ export default async function(req) {
     const leftovers = syncs.filter(s => s.action === 'EXISTING_LEFTOVER').length;
     if (leftovers) warnings.push('CALENDAR_LEFTOVERS_FOR_CANCELLED_ITEMS');
 
-    // CREATED_BY_MISTAKE: Quote-only commercial withdrawal. Never cancels a Group, so it is allowed only when the
-    // linked Group is already closed and holds no current/future commitments; a live Group means the booking is real
-    // (or must be cancelled explicitly as CUSTOMER_CANCELLED / reviewed) — never silently left occupying resources.
-    const mistakeBlockers = [...baseBlockers];
-    if (!GROUP_STATUSES.has(group.status)) mistakeBlockers.push('UNKNOWN_GROUP_STATUS');
-    else if (!['CANCELLED', 'ARCHIVED'].includes(group.status)) mistakeBlockers.push('MISTAKEN_QUOTE_HAS_LIVE_GROUP');
-    const liveCommitments = Object.values(resources).reduce((n, r) => n + r.counts.future + r.counts.today + r.counts.in_progress, 0);
-    if (liveCommitments) mistakeBlockers.push('MISTAKEN_QUOTE_GROUP_HOLDS_RESOURCES');
-    if (approvedQuoteIds.length > 1 || !approvedQuoteIds.includes(quote.id)) mistakeBlockers.push('QUOTE_GROUP_RELATIONSHIP_AMBIGUOUS');
-    if (otherQuote.some(r => r.active) || orphaned.some(r => r.active) || quoteHolds.some(h => h.status === 'ACTIVE' && h.group_id !== gid)) mistakeBlockers.push('QUOTE_GROUP_RELATIONSHIP_AMBIGUOUS');
-    if (Object.values(resources).some(r => r.counts.unknown_status || r.counts.invalid_dates)) mistakeBlockers.push('RESOURCE_STATE_UNCLEAR');
+    // CREATED_BY_MISTAKE with a linked Group: same release mechanism as CUSTOMER_CANCELLED, but the Group must be
+    // proven to belong only to this Quote. An already-cancelled Group is allowed (remaining live rows are released).
+    const mistakeBlockers = [...baseBlockers, ...blockers.filter(b => b !== 'GROUP_ALREADY_CANCELLED' && !b.startsWith('GROUP_STATUS_') && !baseBlockers.includes(b))];
+    if (['COMPLETED', 'ARCHIVED'].includes(group.status)) mistakeBlockers.push(`GROUP_STATUS_${group.status}`);
+    if (otherQuoteIdsForGroup.length) mistakeBlockers.push('GROUP_REFERENCED_BY_OTHER_QUOTE');
+    const ownedByQuote = group.quote_preparation_flow === true || (profiles.length === 1 && profiles[0].quote_id === quote.id);
+    if (!ownedByQuote) mistakeBlockers.push('GROUP_OWNERSHIP_UNPROVEN');
+    if (profiles.some(p => p.quote_id && p.quote_id !== quote.id) || quoteHolds.some(h => h.status === 'ACTIVE' && h.group_id !== gid)) mistakeBlockers.push('QUOTE_GROUP_RELATIONSHIP_AMBIGUOUS');
+    const mistakeNeedsDeclaration = requiresNoArrivalDeclaration && group.status !== 'CANCELLED';
 
     const fingerprint = await sha256({
-      v: 'B2.1', today, stay_evidence: stayEvidence, quote_holds: quoteHolds.sort(byId).map(r => pick(r, FP_KEYS)),
-      quote: pick(quote, ['id', 'status', 'group_id', 'approved_option_key', 'updated_date']),
-      group: pick(group, ['id', 'status', 'stay_mode', 'group_type', 'arrival_date', 'departure_date', 'operationally_active', 'updated_date']),
-      approved_quote_ids: approvedQuoteIds,
+      v: 'B2.2', today, stay_evidence: stayEvidence, quote_holds: quoteHolds.sort(byId).map(r => pick(r, FP_KEYS)),
+      quote: pick(quote, QUOTE_FP),
+      group: pick(group, ['id', 'status', 'stay_mode', 'group_type', 'arrival_date', 'departure_date', 'operationally_active', 'quote_preparation_flow']),
+      approved_quote_ids: approvedQuoteIds, other_quote_ids: otherQuoteIdsForGroup,
       profiles: profiles.sort(byId).map(p => pick(p, FP_KEYS)),
       resources: Object.fromEntries([['stay_periods', periods], ['sleeping_allocations', allocations], ['neighborhood_reservations', neighborhoods], ['meal_reservations', meals], ['schedule_items', schedule], ['coffee_requests', coffee], ['prisa_requests', prisa], ['operational_holds', holds], ['mechina_space_requests', mechina]]
         .map(([k, rows]) => [k, [...rows].sort(byId).map(r => pick(r, FP_KEYS))])),
@@ -308,7 +312,7 @@ export default async function(req) {
       success: true,
       read_only: true,
       eligible: blockers.length === 0,
-      commit_enabled: B2_COMMIT_ENABLED,
+      commit_enabled: commitEnabled,
       requires_no_arrival_declaration: requiresNoArrivalDeclaration,
       stay_evidence: stayEvidence,
       possible_stay_signals: possibleStaySignals,
@@ -320,10 +324,10 @@ export default async function(req) {
       warnings: [...new Set(warnings)],
       reasons: {
         CUSTOMER_CANCELLED: { eligible: blockers.length === 0, blockers: [...new Set(blockers)], requires_no_arrival_declaration: requiresNoArrivalDeclaration, effect: 'GROUP_OPERATIONAL_CANCELLATION' },
-        CREATED_BY_MISTAKE: { eligible: mistakeBlockers.length === 0, blockers: [...new Set(mistakeBlockers)], requires_no_arrival_declaration: false, effect: 'QUOTE_ONLY_WITHDRAWAL' },
+        CREATED_BY_MISTAKE: { eligible: mistakeBlockers.length === 0, blockers: [...new Set(mistakeBlockers)], requires_no_arrival_declaration: mistakeNeedsDeclaration, effect: 'QUOTE_WITHDRAWAL_AND_GROUP_RELEASE' },
       },
       quote: { id: quote.id, status: quote.status, quote_number: quote.quote_number || null, client_name: quote.client_name || null, approved_option_key: quote.approved_option_key || null, will_change: false },
-      group: { id: group.id, group_name: group.group_name, status: group.status, stay_mode: group.stay_mode || 'CONTINUOUS', group_type: group.group_type, arrival_date: group.arrival_date, departure_date: group.departure_date || null },
+      group: { id: group.id, group_name: group.group_name, status: group.status, cancellation_operation_id: group.cancellation_operation_id || null, stay_mode: group.stay_mode || 'CONTINUOUS', group_type: group.group_type, arrival_date: group.arrival_date, departure_date: group.departure_date || null },
       relationship: { canonical: 'Quote.group_id', approved_quote_ids_for_group: approvedQuoteIds, orphaned_quote_references: orphaned, references_to_other_quotes: otherQuote },
       intended_effects: { group_status: { from: group.status, to: 'CANCELLED' }, quote_status_unchanged: true, release_future_records_only: true, preserve_history: true },
       resources: publicResources,

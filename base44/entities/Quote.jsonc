@@ -204,6 +204,23 @@
     },
     "snapshot": {
       "type": "string"
+    },
+    "cancellation_operation_id": {
+      "type": "string",
+      "description": "QuoteCancellationAudit id holding the cancellation lock (atomic compare-and-set)"
+    },
+    "withdrawn_reason": {
+      "type": "string",
+      "enum": [
+        "CREATED_BY_MISTAKE"
+      ],
+      "description": "Additive withdrawal marker; status and commercial snapshot stay unchanged"
+    },
+    "withdrawn_at": {
+      "type": "string"
+    },
+    "withdrawn_by": {
+      "type": "string"
     }
   },
   "required": [
