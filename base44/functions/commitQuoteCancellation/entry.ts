@@ -25,7 +25,9 @@ const MESSAGES = {
   DONE_CUSTOMER: 'ההזמנה בוטלה והמשאבים שוחררו.',
   DONE_MISTAKE: 'ההצעה הוסרה כ"נוצרה בטעות".',
   CALENDAR_PENDING: 'אירועי היומן טרם הוסרו; ניתן לנסות שוב.',
+  BUSY: 'המערכת עמוסה כרגע ולא בוצע שום שינוי. יש לנסות שוב בעוד דקה.',
 };
+const AUTH_ERRORS = new Set(['FORBIDDEN', 'UNAUTHORIZED', 'AMBIGUOUS_INTERNAL_USER']);
 const messageFor = blockers => blockers.includes('ACTUAL_STAY_EVIDENCE') ? MESSAGES.ACTUAL_STAY_EVIDENCE
   : blockers.includes('CANCELLATION_IN_PROGRESS') ? MESSAGES.IN_PROGRESS
   : blockers.includes('MULTI_PERIOD_NOT_SUPPORTED_IN_INITIAL_SCOPE') ? MESSAGES.MULTI_PERIOD
@@ -141,7 +143,11 @@ export default async function(req) {
   const quoteNow = (await db.Quote.filter({ id: quoteId }))[0];
   if (!quoteNow) return Response.json({ success: false, error: 'QUOTE_NOT_FOUND' }, { status: 404 });
   const authPreview = await invokePreview(quoteNow.cancellation_operation_id || undefined);
-  if (!authPreview?.success) return Response.json({ success: false, error: authPreview?.error || 'FORBIDDEN' }, { status: 403 });
+  if (!authPreview?.success) {
+    // Transient read failure (e.g. platform rate limit) is not an authorization decision; nothing was written.
+    if (authPreview?.error && !AUTH_ERRORS.has(authPreview.error)) return Response.json({ success: false, outcome: 'RETRY', error: authPreview.error, message: MESSAGES.BUSY }, { status: 503 });
+    return Response.json({ success: false, error: authPreview?.error || 'FORBIDDEN' }, { status: 403 });
+  }
 
   // Recovery / idempotent repeat: a locked Quote is owned by exactly one operation; resume or report it.
   if (quoteNow.cancellation_operation_id) {
@@ -185,7 +191,8 @@ export default async function(req) {
   // Full revalidation under the lock: nothing may have changed since the caller's preview.
   const locked = await invokePreview(audit.id);
   const lockedRule = locked?.reasons?.[reason];
-  if (!locked?.success || locked.fingerprint !== preview.fingerprint || !lockedRule?.eligible) {
+  if (!locked?.success) { await unlock(); return block('REVALIDATION_UNAVAILABLE', 'RETRY', MESSAGES.BUSY); }
+  if (locked.fingerprint !== preview.fingerprint || !lockedRule?.eligible) {
     await unlock();
     return block(locked?.fingerprint !== preview.fingerprint ? 'STALE_UNDER_LOCK' : 'REVALIDATION_FAILED', 'STALE', MESSAGES.STALE);
   }
