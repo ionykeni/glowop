@@ -43,7 +43,7 @@ const ADDON_CATALOG_PDF = {
   meal_lunch:               { label: "ארוחת צהריים",                              group: "ארוחות" },
   meal_dinner:              { label: "ארוחת ערב",                                 group: "ארוחות" },
   karmelim:                 { label: "כרמלים/ גלואו — לינה + 3 ארוחות",           group: "כרמלים/ גלואו" },
-  agad:                     { label: "אגד/ סוכנים אחרים — לילה תלמידים",          group: "אגד/ סוכנים אחרים" },
+  agad:                     { label: "סוכנים — לילה תלמידים",          group: "סוכנים" },
   content_student_workshop: { label: "סדנת תוכן בית הדור הבא — תלמידים",           group: "תוכן" },
   content_adult_workshop:   { label: "סדנת תוכן בית הדור הבא — מבוגרים",          group: "תוכן" },
   content_shirley_lecture:  { label: "הרצאה של שירלי בבית — כולם",               group: "תוכן" },
@@ -430,7 +430,10 @@ export function QuoteTermsPage({ logoUrl, quoteNumber, footerUrl, requiresAdvanc
         <div style={{ marginBottom: 18 }}>
           <SigLine label="שם מלא" />
           <SigLine label="תפקיד" />
+        </div>
+        <div style={{ marginBottom: 18 }}>
           <SigLine label="חתימה" />
+          <SigLine label="תאריך" />
         </div>
         <div>
           <SigLine label="שם הגוף המשלם" wide />

@@ -197,7 +197,7 @@ function getCatalogLayout(quoteType) {
 const ALL_ADDON_BY_GROUP = {
   "ארוחות":               MEAL_ADDON_CATALOG,
   "כרמלים/ גלואו":        OPERATOR_ADDON_CATALOG.filter(o => o.id === "karmelim"),
-  "אגד/ סוכנים אחרים":   OPERATOR_ADDON_CATALOG.filter(o => o.id === "agad"),
+  "סוכנים":              OPERATOR_ADDON_CATALOG.filter(o => o.id === "agad"),
   "תוכן":                 CONTENT_ADDON_CATALOG,
 };
 
@@ -330,7 +330,7 @@ function AddOperatorDropdown({ onAdd }) {
         className="gap-1.5 text-xs h-7 border-dashed"
         onClick={() => setOpen(o => !o)}>
         <Plus className="w-3 h-3" />
-        הוסף כרמלים / אגד
+        הוסף כרמלים / סוכנים
         <ChevronDown className="w-3 h-3" />
       </Button>
       {open && (
@@ -481,7 +481,7 @@ export default function PackageLinesSection({
           <>
             {operatorLines.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide px-1 pt-1 border-t border-slate-200">כרמלים / אגד</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide px-1 pt-1 border-t border-slate-200">כרמלים / סוכנים</div>
                 {operatorLines.map(line => {
                   const i = addonLines.indexOf(line);
                   return <AddonLineRow key={i} line={line} index={i} onUpdate={updateAddonLine} onRemove={removeAddonLine} defaultPax={defaultPax} nights={nights} />;

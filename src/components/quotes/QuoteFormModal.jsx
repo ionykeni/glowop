@@ -765,6 +765,12 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
       toast.error("מספר האנשים באוהלי VIP גדול ממספר הצוות — נא לתקן לפני שמירה");
       return;
     }
+    // Preparation-flow Quotes create a linked Group, which requires an arrival date. Checking first
+    // prevents an orphan Quote (no Group) from being created on every retry.
+    if (((preparationFlowEnabled && isNewGroupFlow) || quote?.preparation_flow_enabled) && !quote?.group_id && !form.arrival_date) {
+      toast.error("יש להזין תאריך הגעה לפני שמירת הצעת המחיר");
+      return;
+    }
     saveInFlightRef.current = true;
     setSaving(true);
     const persisted = persistedRef.current;

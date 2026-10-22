@@ -132,8 +132,8 @@ export const OPERATOR_ADDON_CATALOG = [
   },
   {
     id: "agad",
-    group: "אגד/ סוכנים אחרים",
-    label: "אגד/ סוכנים אחרים",
+    group: "סוכנים",
+    label: "סוכנים",
     description: "לילה תלמידים + סדנה אחת חובה",
     target_audience: "לילה תלמידים",
     rate: 206,
