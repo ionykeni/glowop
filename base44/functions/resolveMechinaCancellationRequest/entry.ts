@@ -1,10 +1,11 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me();
     if (!user) return Response.json({ success: false, error: "לא מחובר" }, { status: 401 });
 

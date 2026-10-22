@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, MapPin, Users } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Button } from "@/components/ui/button";
 import RoleGate from "@/components/RoleGate";
 import { toast } from "sonner";
@@ -98,7 +99,7 @@ export default function GroupAllocationCard({
     setMarkingReady(true);
     try {
       await Promise.all(pendingIds.map(id =>
-        base44.entities.SleepingAllocation.update(id, { housekeeping_status: "READY" })
+        opWrite.SleepingAllocation.update(id, { housekeeping_status: "READY" })
       ));
       toast.success(`כל האוהלים סומנו כמוכנים (${pendingIds.length})`);
       onRefresh?.();

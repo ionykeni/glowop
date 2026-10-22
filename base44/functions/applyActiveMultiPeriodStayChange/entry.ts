@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { analyzeActiveMultiPeriodStayChange, authorizeActiveStayAdmin } from '../../shared/activeMultiPeriodStayChange.js';
 import { executeStayChange } from '../../shared/stayChangeExecution.js';
@@ -42,7 +43,7 @@ function withSleepingReconciliation(plan, result, actions) {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me().catch(() => null);
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     if (!await authorizeActiveStayAdmin(base44, user)) return Response.json({ success: false, error: 'FORBIDDEN' }, { status: 403 });

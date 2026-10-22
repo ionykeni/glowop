@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 // Option fields include vip_people (availability planning only).
 import { getEffectiveQuoteGroupName } from '../../shared/quotePreparation.js';
@@ -76,7 +77,7 @@ const isEmpty = (v) => v === null || v === undefined || v === '';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     let user = null;

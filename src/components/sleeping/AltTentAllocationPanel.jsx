@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -380,9 +381,9 @@ function AltTentAllocationModal({
     for (const alloc of removedAllocs) {
       try {
         if (alloc.status === "DRAFT") {
-          await base44.entities.SleepingAllocation.delete(alloc.id);
+          await opWrite.SleepingAllocation.delete(alloc.id);
         } else {
-          await base44.entities.SleepingAllocation.update(alloc.id, { status: "CANCELLED" });
+          await opWrite.SleepingAllocation.update(alloc.id, { status: "CANCELLED" });
         }
       } catch (err) {
         const tent = allTents.find(t => t.id === alloc.tent_id);
@@ -684,9 +685,9 @@ export default function AltTentAllocationPanel({
     setReleasingId(alloc.id);
     try {
       if (alloc.status === "DRAFT") {
-        await base44.entities.SleepingAllocation.delete(alloc.id);
+        await opWrite.SleepingAllocation.delete(alloc.id);
       } else {
-        await base44.entities.SleepingAllocation.update(alloc.id, { status: "CANCELLED" });
+        await opWrite.SleepingAllocation.update(alloc.id, { status: "CANCELLED" });
       }
       toast.success("האוהל החילופי שוחרר");
       onInvalidate();

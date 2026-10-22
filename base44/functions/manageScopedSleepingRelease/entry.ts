@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { assertSleepingAccess, sleepingWrites, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
@@ -12,7 +13,7 @@ import { planApplyToUpdatedDates } from '../../shared/staleSleepingDates.js';
 export default async function(req) {
   let writes;
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me();
     await assertSleepingAccess(base44, user);
     const body = await req.json();

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Lightbulb, CheckCircle2, Shield, Trash2, Users, Plus } from "lucide-react";
@@ -365,11 +366,11 @@ export default function SleepingAllocationTab({ groupId }) {
       await Promise.all([
         ...activeAllocs.map(a =>
           a.status === "DRAFT"
-            ? base44.entities.SleepingAllocation.delete(a.id)
-            : base44.entities.SleepingAllocation.update(a.id, { status: "CANCELLED" })
+            ? opWrite.SleepingAllocation.delete(a.id)
+            : opWrite.SleepingAllocation.update(a.id, { status: "CANCELLED" })
         ),
         ...activeNhoodRes.map(r =>
-          base44.entities.NeighborhoodReservation.update(r.id, { status: "CANCELLED" })
+          opWrite.NeighborhoodReservation.update(r.id, { status: "CANCELLED" })
         ),
       ]);
 
@@ -389,10 +390,10 @@ export default function SleepingAllocationTab({ groupId }) {
     try {
       const existing = myActiveNhoodRes.find(r => r.neighborhood_id === payload.neighborhood_id);
       if (existing) {
-        await base44.entities.NeighborhoodReservation.update(existing.id, payload);
+        await opWrite.NeighborhoodReservation.update(existing.id, payload);
         toast.success("שכונה עודכנה");
       } else {
-        await base44.entities.NeighborhoodReservation.create(payload);
+        await opWrite.NeighborhoodReservation.create(payload);
         toast.success("שכונה הוקצתה לקבוצה ✓");
       }
       invalidate();
@@ -415,7 +416,7 @@ export default function SleepingAllocationTab({ groupId }) {
         toast.error("שינוי מקום של שיבוץ מאושר פעיל מחייב בחירה ב׳שנה החל מתאריך׳.");
         return;
       }
-      await base44.entities.NeighborhoodReservation.update(reservationId, { status: "CANCELLED" });
+      await opWrite.NeighborhoodReservation.update(reservationId, { status: "CANCELLED" });
 
       // 2. Also cancel all active SleepingAllocation rows for this group in this neighborhood
       //    so that DB and UI stay in sync
@@ -427,8 +428,8 @@ export default function SleepingAllocationTab({ groupId }) {
         await Promise.all(
           neighborhoodAllocs.map(a =>
             a.status === "DRAFT"
-              ? base44.entities.SleepingAllocation.delete(a.id)
-              : base44.entities.SleepingAllocation.update(a.id, { status: "CANCELLED" })
+              ? opWrite.SleepingAllocation.delete(a.id)
+              : opWrite.SleepingAllocation.update(a.id, { status: "CANCELLED" })
           )
         );
       }

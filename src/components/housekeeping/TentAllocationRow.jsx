@@ -1,4 +1,5 @@
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import HousekeepingStatusBadge from "./HousekeepingStatusBadge";
@@ -21,7 +22,7 @@ export default function TentAllocationRow({ allocation, tent, neighborhood, hide
   const canMark = hasPermission(role, "MARK_TENT_READY");
 
   const handleStatusChange = async (newStatus) => {
-    await base44.entities.SleepingAllocation.update(allocation.id, {
+    await opWrite.SleepingAllocation.update(allocation.id, {
       housekeeping_status: newStatus,
     });
     queryClient.invalidateQueries({ queryKey: ["sleepingAllocations"] });

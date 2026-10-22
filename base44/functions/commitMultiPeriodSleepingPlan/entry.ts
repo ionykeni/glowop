@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { addSleepingPlanConflicts, buildMultiPeriodSleepingPlan, findLegacyEnvelopeAllocations, normalizeSharedNeighborhoodIntent, validateSleepingAssignments } from '../../shared/multiPeriodSleepingPlan.js';
 import { expectedPeriodsForSeries, readSeriesEffectivePeriod, resolveAssignmentEffectivePeriods } from '../../shared/effectiveSleepingSeries.js';
@@ -101,7 +102,7 @@ export default async function(req) {
   const createdReservationIds = [];
   let base44;
   try {
-    base44 = createClientFromRequest(req);
+    base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me();
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     const body = await req.json();

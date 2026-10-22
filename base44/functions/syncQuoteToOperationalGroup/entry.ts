@@ -10,13 +10,14 @@
  * - Blocks date/type changes if active SleepingAllocations exist
  * - Creates review alerts for allocation and kitchen teams when relevant
  */
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { getEffectiveQuoteGroupName } from '../../shared/quotePreparation.js';
 import { assertValidQuoteOperationalDates } from '../../shared/operationalDateValidation.js';
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
     const normalizedEmail = user.email.trim().toLowerCase();

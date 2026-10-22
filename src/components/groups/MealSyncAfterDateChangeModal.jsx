@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -20,7 +21,7 @@ export default function MealSyncAfterDateChangeModal({ groupId, outOfRangeMeals,
     try {
       await Promise.all(
         outOfRangeMeals.map(m =>
-          base44.entities.MealReservation.update(m.id, { status: "CANCELLED" })
+          opWrite.MealReservation.update(m.id, { status: "CANCELLED" })
         )
       );
       toast.success(`${outOfRangeMeals.length} ארוחות בוטלו בהצלחה`);

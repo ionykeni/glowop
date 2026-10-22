@@ -109,8 +109,8 @@ export default async function(req) {
     if (!quote) return Response.json({ success: false, error: 'QUOTE_NOT_FOUND' }, { status: 404 });
 
     const blockers = []; const warnings = [];
-    // Verification-only allowance: records explicitly named as B2 test data may be committed while the gate is off.
-    const commitEnabled = B2_COMMIT_ENABLED || String(quote.client_name || '').startsWith('B2TEST');
+    // Server-controlled release gate only; no record field can enable commits.
+    const commitEnabled = B2_COMMIT_ENABLED;
     // A cancellation lock held by another operation blocks; the commit passes its own operation_id when re-validating.
     const ownOp = typeof body.operation_id === 'string' ? body.operation_id : null;
     const lockedByOther = rec => !!rec?.cancellation_operation_id && rec.cancellation_operation_id !== ownOp;

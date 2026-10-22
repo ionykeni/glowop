@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { deriveStayEnvelope, validateStayPeriods } from '../../shared/groupStayPeriods.js';
 
@@ -9,7 +10,7 @@ function conflict(error, details = {}) {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me().catch(() => null);
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     const internalUsers = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email }, '-created_date', 1);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { BedDouble, AlertTriangle, Unlock } from "lucide-react";
@@ -54,7 +55,7 @@ export default function VipPaxEditDialog({
         : cleanNotes;
 
       // Update the allocation row directly — keep status CONFIRMED
-      await base44.entities.SleepingAllocation.update(allocation.id, {
+      await opWrite.SleepingAllocation.update(allocation.id, {
         allocated_pax: pax,
         notes: updatedNotes,
         // status stays CONFIRMED — do not change it
@@ -174,7 +175,7 @@ export default function VipPaxEditDialog({
                 setReleasing(true);
                 setError(null);
                 try {
-                  await base44.entities.SleepingAllocation.update(allocation.id, { status: "CANCELLED" });
+                  await opWrite.SleepingAllocation.update(allocation.id, { status: "CANCELLED" });
                   toast.success(`אוהל ${tent?.code} שוחרר`);
                   onSaved();
                 } catch (err) {

@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 
@@ -30,7 +31,7 @@ const ALT_TENT_MARKER = '__alt_tent__';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     let user = null;
     try {

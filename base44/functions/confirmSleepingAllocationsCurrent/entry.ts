@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { assertSleepingAccess, readSleepingRows, sleepingToday } from '../../shared/sleepingActionCore.js';
@@ -9,7 +10,7 @@ const responseJson = createConfirmationResponse(RUNTIME_BUILD, true);
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     let user = null;
     try { user = await base44.auth.me(); } catch (authErr) {
       console.warn('[confirmSleepingAllocationsCurrent] auth.me() threw:', authErr?.message);

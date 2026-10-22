@@ -1,9 +1,10 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { authorizeDatedOperationalManager, validateDatedOperationalDate } from '../../shared/datedOperationalPeriodValidation.js';
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me().catch(() => null);
     if (!user) return Response.json({ success: false, error: 'נדרשת התחברות' }, { status: 401 });
     if (!await authorizeDatedOperationalManager(base44, user)) return Response.json({ success: false, error: 'אין הרשאה לניהול פעילויות' }, { status: 403 });

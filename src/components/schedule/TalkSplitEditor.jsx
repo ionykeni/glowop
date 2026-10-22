@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { toast } from "sonner";
 import { X, Plus, Shuffle } from "lucide-react";
 
@@ -141,7 +142,7 @@ export default function TalkSplitEditor({
         if (res.data?.error) {
           // Rollback: cancel all previously created items
           for (const createdId of createdIds) {
-            await base44.entities.GroupScheduleItem.update(createdId, { status: "CANCELLED" }).catch(() => {});
+            await opWrite.GroupScheduleItem.update(createdId, { status: "CANCELLED" }).catch(() => {});
           }
           setError(`שגיאה במרחב ${i + 1}: ${res.data.error}`);
           setSaving(false);
@@ -156,7 +157,7 @@ export default function TalkSplitEditor({
     } catch (err) {
       // Rollback on unexpected error
       for (const createdId of createdIds) {
-        await base44.entities.GroupScheduleItem.update(createdId, { status: "CANCELLED" }).catch(() => {});
+        await opWrite.GroupScheduleItem.update(createdId, { status: "CANCELLED" }).catch(() => {});
       }
       setError(err?.response?.data?.error || err?.message || "שגיאה בשמירה — הפעולה בוטלה");
     } finally {

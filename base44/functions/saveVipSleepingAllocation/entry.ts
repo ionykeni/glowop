@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 
@@ -26,7 +27,7 @@ function fail(reasonCode, errorMsg, dbg) {
 Deno.serve(async (req) => {
   // ── Top-level try/catch: catches any unexpected exception ─────────────────
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     // ── Auth — same pattern as saveGroupScheduleItem / confirmSleepingAllocations ──
     // auth.me() is best-effort: if it throws (e.g. session not forwarded in some

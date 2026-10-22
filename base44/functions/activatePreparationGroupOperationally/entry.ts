@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { ensureExactlyOneOperationalProfile } from '../../shared/operationalProfile.js';
 import { assertValidGroupOperationalDates } from '../../shared/operationalDateValidation.js';
@@ -6,7 +7,7 @@ const ALLOWED_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'CONFIRMED']);
 
 Deno.serve(async req => {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me().catch(() => null);
     if (!user) return Response.json({ success: false, error: 'UNAUTHORIZED' }, { status: 401 });
     const internal = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email });

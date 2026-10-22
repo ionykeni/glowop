@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -79,7 +80,7 @@ export default function DuplicateMealModal({
       const payloads = targetDates.map(d => buildDuplicatePayload(sourceMeal, d));
       // Use individual create calls (not bulkCreate) so each record goes through
       // the standard client create path reliably from the frontend context.
-      await Promise.all(payloads.map(p => base44.entities.MealReservation.create(p)));
+      await Promise.all(payloads.map(p => opWrite.MealReservation.create(p)));
       toast.success(
         skippedCount > 0
           ? `נוצרו ${targetDates.length} ארוחות. ${skippedCount} דולגו כי כבר היו קיימות.`

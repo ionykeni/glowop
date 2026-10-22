@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -408,17 +409,17 @@ export default function TentDistributionEditor({
             notes,
           };
           if (existing) {
-            ops.push(base44.entities.SleepingAllocation.update(existing.id, payload));
+            ops.push(opWrite.SleepingAllocation.update(existing.id, payload));
           } else {
-            ops.push(base44.entities.SleepingAllocation.create(payload));
+            ops.push(opWrite.SleepingAllocation.create(payload));
           }
         } else {
           // pax = 0 → cancel/delete existing
           if (existing) {
             if (existing.status === "DRAFT") {
-              ops.push(base44.entities.SleepingAllocation.delete(existing.id));
+              ops.push(opWrite.SleepingAllocation.delete(existing.id));
             } else {
-              ops.push(base44.entities.SleepingAllocation.update(existing.id, { status: "CANCELLED" }));
+              ops.push(opWrite.SleepingAllocation.update(existing.id, { status: "CANCELLED" }));
             }
           }
         }
@@ -498,9 +499,9 @@ export default function TentDistributionEditor({
     setReleasingTentId(tent.id);
     try {
       if (existing.status === "DRAFT") {
-        await base44.entities.SleepingAllocation.delete(existing.id);
+        await opWrite.SleepingAllocation.delete(existing.id);
       } else {
-        await base44.entities.SleepingAllocation.update(existing.id, { status: "CANCELLED" });
+        await opWrite.SleepingAllocation.update(existing.id, { status: "CANCELLED" });
       }
       setPaxMap(p => ({ ...p, [tent.id]: "0" }));
       queryClient.invalidateQueries({ queryKey: ["sleepingAllocations", groupId] });

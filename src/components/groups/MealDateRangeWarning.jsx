@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export default function MealDateRangeWarning({ group }) {
     try {
       await Promise.all(
         outOfRangeMeals.map(m =>
-          base44.entities.MealReservation.update(m.id, { status: "CANCELLED" })
+          opWrite.MealReservation.update(m.id, { status: "CANCELLED" })
         )
       );
       toast.success(`${outOfRangeMeals.length} ארוחות בוטלו בהצלחה`);

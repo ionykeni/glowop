@@ -74,6 +74,18 @@ async function runEngine(base44, db, audit) {
       const g = await db.Group.updateMany({ id: gid, cancellation_operation_id: audit.id }, { $set: { status: 'CANCELLED' } });
       const group = (await db.Group.filter({ id: gid }))[0];
       if (group?.status !== 'CANCELLED' || group.cancellation_operation_id !== audit.id) throw Object.assign(new Error('GROUP_FINALIZE_FAILED'), { code: 'GROUP_FINALIZE_FAILED', updated: g?.updated });
+      // Final sweep after CANCELLED (write-fence protocol, shared/groupWriteGuard.js): catches any guarded write
+      // whose post-write re-read saw the lock but not yet CANCELLED.
+      let clean = false;
+      for (let round = 0; round < SWEEP_ROUNDS && !clean; round++) {
+        const live = await findLiveCommitments(db, gid, today, readAll);
+        clean = Object.values(live).every(rows => rows.length === 0);
+        for (const spec of RELEASE_SPEC) for (const row of live[spec.key]) {
+          if (await releaseRow(db, spec, row)) progress.released[spec.key] = (progress.released[spec.key] || 0) + 1;
+          if (spec.key === 'schedule_items') calendarIds.add(row.id);
+        }
+      }
+      if (!clean) throw Object.assign(new Error('LIVE_COMMITMENTS_REMAIN_AFTER_FINALIZE'), { code: 'LIVE_COMMITMENTS_REMAIN_AFTER_FINALIZE' });
     }
     if (audit.reason === 'CREATED_BY_MISTAKE') {
       await db.Quote.updateMany({ id: audit.quote_id, cancellation_operation_id: audit.id }, { $set: { withdrawn_reason: 'CREATED_BY_MISTAKE', withdrawn_at: new Date().toISOString(), withdrawn_by: audit.actor_email } });

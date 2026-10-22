@@ -7,6 +7,7 @@ import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { acknowledgeAlert } from "@/lib/reviewAlerts";
 import { useRoleContext } from "@/lib/RoleContext";
 import { format } from "date-fns";
@@ -114,7 +115,7 @@ export default function ReviewAlertCard({ alert, groupName, group, onAcknowledge
       // Update pax only — never touch date, type, notes, diets, sandwich
       let updated = 0;
       for (const meal of meals) {
-        await base44.entities.MealReservation.update(meal.id, { pax: paxChange.newPax });
+        await opWrite.MealReservation.update(meal.id, { pax: paxChange.newPax });
         updated++;
       }
       // Acknowledge after update

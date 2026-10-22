@@ -7,6 +7,7 @@
  * After saving the submission, for DAY_USE groups this function also syncs
  * kitchen MealReservation records (meals + coffee corner).
  */
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { validateDatedOperationalDate } from '../../shared/datedOperationalPeriodValidation.js';
 import { loadGuestFormStayPeriods, updateGuestFormStayPeriodTimes } from '../../shared/guestFormStayPeriodTimes.js';
@@ -169,7 +170,7 @@ function buildOgpUpdateFromFields(fields, num) {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     const body = await req.json();
     const { quote_id, group_id, form_link_token, ...fields } = body;

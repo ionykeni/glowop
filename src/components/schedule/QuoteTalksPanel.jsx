@@ -3,6 +3,7 @@ import { CheckCircle2, Clock, GitBranch, Plus, Pencil, Trash2 } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { toast } from "sonner";
 
 /**
@@ -46,7 +47,7 @@ export default function QuoteTalksPanel({
   const handleCancelSingle = async (itemId) => {
     if (!window.confirm("לבטל שיבוץ זה?")) return;
     setCancellingId(itemId);
-    await base44.entities.GroupScheduleItem.update(itemId, { status: "CANCELLED" });
+    await opWrite.GroupScheduleItem.update(itemId, { status: "CANCELLED" });
     setCancellingId(null);
     toast.success("שיבוץ בוטל");
     onScheduleChanged?.();
@@ -56,7 +57,7 @@ export default function QuoteTalksPanel({
     if (!window.confirm(`לבטל את כל ${items.length} השיבוצים המפוצלים?`)) return;
     setCancellingId("split");
     for (const item of items) {
-      await base44.entities.GroupScheduleItem.update(item.id, { status: "CANCELLED" }).catch(() => {});
+      await opWrite.GroupScheduleItem.update(item.id, { status: "CANCELLED" }).catch(() => {});
     }
     setCancellingId(null);
     toast.success("שיבוץ מפוצל בוטל");

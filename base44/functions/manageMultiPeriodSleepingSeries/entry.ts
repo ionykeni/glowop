@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import { assertSleepingAccess, sleepingWrites } from '../../shared/sleepingActionCore.js';
 import { loadSleepingContext } from '../../shared/actionableSleepingPlan.js';
@@ -8,7 +9,7 @@ import { missingSleepingNights } from '../../shared/sleepingCoverage.js';
 export default async function(req) {
   let writes;
   try {
-    const base44=createClientFromRequest(req),user=await base44.auth.me();
+    const base44=guardOperationalClient(createClientFromRequest(req)),user=await base44.auth.me();
     await assertSleepingAccess(base44,user);
     const body=await req.json();
     if(!body.group_id) return Response.json({success:false,error:'חסרה קבוצה'});

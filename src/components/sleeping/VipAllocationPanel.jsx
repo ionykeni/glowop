@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ShieldCheck, AlertTriangle, X, Shield, Car, User, Star, BookOpen, BedDouble, Pencil } from "lucide-react";
@@ -198,9 +199,9 @@ function AssignmentDialog({ req, reqIndex, tent, existingAlloc, profile, group, 
     setErrors([]);
     try {
       if (existingAlloc.status === "DRAFT") {
-        await base44.entities.SleepingAllocation.delete(existingAlloc.id);
+        await opWrite.SleepingAllocation.delete(existingAlloc.id);
       } else {
-        await base44.entities.SleepingAllocation.update(existingAlloc.id, { status: "CANCELLED" });
+        await opWrite.SleepingAllocation.update(existingAlloc.id, { status: "CANCELLED" });
       }
       toast.success(`אוהל ${tent.code} שוחרר`);
       onReleased();

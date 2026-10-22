@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { assertOperationalGroup, isPreparationGroupOperational } from '../../shared/quotePreparationConfig.js';
 import { checkActivitySpaceConflict } from '../../shared/activitySpaceAvailability.js';
@@ -241,7 +242,7 @@ async function recomputeSharedSnapshot(base44, sharedActivityId) {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     // ── Auth & permission check ───────────────────────────────────────────────
     let user = null;

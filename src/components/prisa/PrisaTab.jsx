@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,7 +141,7 @@ export default function PrisaTab({ groupId, profile, group }) {
 
   const handleCancel = async (req) => {
     if (!window.confirm("לבטל פריסה זו?")) return;
-    await base44.entities.PrisaRequest.update(req.id, {
+    await opWrite.PrisaRequest.update(req.id, {
       status: "CANCELLED",
       cancelled_date: new Date().toISOString(),
     });

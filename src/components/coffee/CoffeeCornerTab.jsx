@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,7 +161,7 @@ export default function CoffeeCornerTab({ groupId, profile, group }) {
   const handleCancel = async (req) => {
     if (!window.confirm("לבטל פינת קפה זו?")) return;
     // 1. Cancel the CoffeeCornerRequest
-    await base44.entities.CoffeeCornerRequest.update(req.id, { status: "CANCELLED" });
+    await opWrite.CoffeeCornerRequest.update(req.id, { status: "CANCELLED" });
     // 2. Cancel any matching MealReservation (meal_type COFFEE_CORNER, same group_id + date)
     try {
       const relatedMeals = await base44.entities.MealReservation.filter({
@@ -169,7 +170,7 @@ export default function CoffeeCornerTab({ groupId, profile, group }) {
       });
       const toCancel = relatedMeals.filter(m => m.status !== "CANCELLED" && m.date === req.date);
       await Promise.all(toCancel.map(m =>
-        base44.entities.MealReservation.update(m.id, { status: "CANCELLED" })
+        opWrite.MealReservation.update(m.id, { status: "CANCELLED" })
       ));
     } catch {
       // non-fatal — CoffeeCornerRequest already cancelled

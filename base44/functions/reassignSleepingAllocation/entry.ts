@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 const overlaps = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
@@ -9,7 +10,7 @@ export default async function(req) {
   const created = [];
   const snapshots = [];
   try {
-    base44 = createClientFromRequest(req);
+    base44 = guardOperationalClient(createClientFromRequest(req));
     const user = await base44.auth.me();
     if (!user) return fail('UNAUTHORIZED', 'נדרשת התחברות', {}, 401);
     const body = await req.json();

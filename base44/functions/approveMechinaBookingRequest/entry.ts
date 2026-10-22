@@ -1,3 +1,4 @@
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { isMechinaRequestsEnabled, MECHINA_DISABLED_REASON, rejectPendingMechinaRequests } from '../../shared/mechinaSpaceEligibility.js';
 
@@ -22,7 +23,7 @@ function reservationOverlapsBlock(block, date, startTime, endTime) {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
+    const base44 = guardOperationalClient(createClientFromRequest(req));
 
     // A. Auth / permission
     let user = null;

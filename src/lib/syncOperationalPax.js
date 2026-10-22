@@ -13,6 +13,7 @@
  */
 
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 
 export async function syncExistingOperationalPaxForGroup(groupId, newTotalPax) {
   if (!groupId || newTotalPax == null || Number(newTotalPax) <= 0) return;
@@ -29,7 +30,7 @@ export async function syncExistingOperationalPaxForGroup(groupId, newTotalPax) {
   // Meals — update pax only; undefined/false lock remains backward-compatible and unlocked
   meals.forEach(m => {
     if (m.pax_sync_locked !== true && m.pax !== pax) {
-      ops.push(base44.entities.MealReservation.update(m.id, { pax }));
+      ops.push(opWrite.MealReservation.update(m.id, { pax }));
     }
   });
 
@@ -37,14 +38,14 @@ export async function syncExistingOperationalPaxForGroup(groupId, newTotalPax) {
   activities.forEach(a => {
     if (a.split_group_id) return; // leave split rows untouched
     if (a.pax !== pax) {
-      ops.push(base44.entities.GroupScheduleItem.update(a.id, { pax }));
+      ops.push(opWrite.GroupScheduleItem.update(a.id, { pax }));
     }
   });
 
   // Coffee corner requests — update pax only
   coffeeRequests.forEach(c => {
     if (c.pax !== pax) {
-      ops.push(base44.entities.CoffeeCornerRequest.update(c.id, { pax }));
+      ops.push(opWrite.CoffeeCornerRequest.update(c.id, { pax }));
     }
   });
 

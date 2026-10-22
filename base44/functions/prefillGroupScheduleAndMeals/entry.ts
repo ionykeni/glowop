@@ -4,6 +4,7 @@
  * Idempotent: updates existing groupSync rows, never touches manual rows.
  * Supports partial sync (no GuestFormSubmission) — syncs from Group + OperationalGroupProfile alone.
  */
+import { guardOperationalClient } from '../../shared/groupWriteGuard.js';
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { assertOperationalGroup } from '../../shared/quotePreparationConfig.js';
 import { validateDatedOperationalDate } from '../../shared/datedOperationalPeriodValidation.js';
@@ -39,7 +40,7 @@ function buildDietSummary(diets) {
 
 Deno.serve(async (req) => {
   console.log('[prefillGroupScheduleAndMeals] function invoked');
-  const base44 = createClientFromRequest(req);
+  const base44 = guardOperationalClient(createClientFromRequest(req));
   let step = 'init';
 
   try {

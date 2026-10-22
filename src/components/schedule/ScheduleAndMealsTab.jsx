@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { opWrite } from "@/lib/operationalWrites";
 import { sortActivitySpaces, getActivitySpaceDisplayName } from "@/lib/activitySpaceUtils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -333,7 +334,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
           toast.error(res.data?.error || "שגיאה בביטול");
         }
       } else {
-        await base44.entities.GroupScheduleItem.update(id, { status: "CANCELLED" });
+        await opWrite.GroupScheduleItem.update(id, { status: "CANCELLED" });
         toast.success("פעילות בוטלה");
       }
     }
@@ -516,7 +517,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
         if (!res.data?.success || res.data?.error) {
           // Rollback
           for (const cid of createdIds) {
-            await base44.entities.GroupScheduleItem.update(cid, { status: "CANCELLED" }).catch(() => {});
+            await opWrite.GroupScheduleItem.update(cid, { status: "CANCELLED" }).catch(() => {});
           }
           invalidate();
           setNewScheduleError(res.data?.error || "השמירה נכשלה. נסה שוב.");
@@ -535,7 +536,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
       resetAddActivityForm();
     } catch (err) {
       for (const cid of createdIds) {
-        await base44.entities.GroupScheduleItem.update(cid, { status: "CANCELLED" }).catch(() => {});
+        await opWrite.GroupScheduleItem.update(cid, { status: "CANCELLED" }).catch(() => {});
       }
       invalidate();
       setNewScheduleError(err?.response?.data?.error || err?.message || "השמירה נכשלה. הנתונים רועננו, נסה שוב.");
@@ -551,7 +552,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
       if (form.id) {
         const oldSandwich = !!item?.sandwich_option;
         const newSandwich = !!form.sandwich_option;
-        await base44.entities.MealReservation.update(form.id, form);
+        await opWrite.MealReservation.update(form.id, form);
 
         if (oldSandwich !== newSandwich) {
           const direction = newSandwich
@@ -598,7 +599,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
           queryClient.invalidateQueries({ queryKey: ["openAlertCounts"] });
         }
       } else {
-        await base44.entities.MealReservation.create(form);
+        await opWrite.MealReservation.create(form);
       }
       invalidateMealCaches();
       toast.success("ארוחה נשמרה");
@@ -617,7 +618,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
       const update = locked
         ? { pax_sync_locked: true }
         : { pax_sync_locked: false, pax: Number(group.total_pax) };
-      await base44.entities.MealReservation.update(item.id, update);
+      await opWrite.MealReservation.update(item.id, update);
       invalidateMealCaches();
       toast.success(locked ? "מספר הסועדים ננעל" : "הנעילה בוטלה ומספר הסועדים עודכן לפי הקבוצה");
     } catch (err) {
@@ -629,7 +630,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
 
   const handleCancelMealItem = async (id) => {
     if (!window.confirm("לבטל ארוחה זו?")) return;
-    await base44.entities.MealReservation.update(id, { status: "CANCELLED" });
+    await opWrite.MealReservation.update(id, { status: "CANCELLED" });
     invalidate();
     toast.success("ארוחה בוטלה");
   };
@@ -643,7 +644,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
     if (mealMaxDate && newMeal.date > mealMaxDate) { setNewMealError("תאריך הארוחה חייב להיות בטווח שהות הקבוצה"); return; }
     if (!newMeal.pax || Number(newMeal.pax) <= 0) { setNewMealError("חסרה כמות משתתפים"); return; }
     setSaving(true);
-    const createdMeal = await base44.entities.MealReservation.create({
+    const createdMeal = await opWrite.MealReservation.create({
       ...newMeal,
       pax: Number(newMeal.pax),
       special_diets_summary: JSON.stringify(newMealDiets),
