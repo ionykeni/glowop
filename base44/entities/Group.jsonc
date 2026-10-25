@@ -120,12 +120,5 @@
     "group_type",
     "arrival_date",
     "status"
-  ],
-  "rls": {
-    "update": {
-      "data.status": {
-        "$ne": "CANCELLED"
-      }
-    }
-  }
+  ]
 }
