@@ -144,18 +144,5 @@
     "activity_name",
     "source",
     "status"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": "backend_only"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "role": "backend_only"
-      }
-    },
-    "delete": false
-  }
+  ]
 }
