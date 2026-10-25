@@ -314,6 +314,7 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
       : "לבטל פעילות זו?";
     if (!window.confirm(msg)) return;
 
+    try {
     if (isSharedDelete) {
       // Use deleteGroupScheduleItem backend function for all-scope
       const res = await base44.functions.invoke("deleteGroupScheduleItem", { id, delete_scope: "all" });
@@ -337,6 +338,9 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
         await opWrite.GroupScheduleItem.update(id, { status: "CANCELLED" });
         toast.success("פעילות בוטלה");
       }
+    }
+    } catch (err) {
+      toast.error(`ביטול הפעילות נכשל: ${err?.response?.data?.error || err?.message || "שגיאה"}`);
     }
     invalidate();
   };
@@ -630,9 +634,13 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
 
   const handleCancelMealItem = async (id) => {
     if (!window.confirm("לבטל ארוחה זו?")) return;
-    await opWrite.MealReservation.update(id, { status: "CANCELLED" });
+    try {
+      await opWrite.MealReservation.update(id, { status: "CANCELLED" });
+      toast.success("ארוחה בוטלה");
+    } catch (err) {
+      toast.error(`ביטול הארוחה נכשל: ${err?.message || "שגיאה"}`);
+    }
     invalidate();
-    toast.success("ארוחה בוטלה");
   };
 
   const handleAddMeal = async () => {
@@ -644,16 +652,23 @@ export default function ScheduleAndMealsTab({ groupId, profile, group, quotes = 
     if (mealMaxDate && newMeal.date > mealMaxDate) { setNewMealError("תאריך הארוחה חייב להיות בטווח שהות הקבוצה"); return; }
     if (!newMeal.pax || Number(newMeal.pax) <= 0) { setNewMealError("חסרה כמות משתתפים"); return; }
     setSaving(true);
-    const createdMeal = await opWrite.MealReservation.create({
-      ...newMeal,
-      pax: Number(newMeal.pax),
-      special_diets_summary: JSON.stringify(newMealDiets),
-      group_id: groupId,
-      operational_group_profile_id: profileId,
-      source: "manual",
-      status: "ACTIVE",
-    });
-    setSaving(false);
+    let createdMeal;
+    try {
+      createdMeal = await opWrite.MealReservation.create({
+        ...newMeal,
+        pax: Number(newMeal.pax),
+        special_diets_summary: JSON.stringify(newMealDiets),
+        group_id: groupId,
+        operational_group_profile_id: profileId,
+        source: "manual",
+        status: "ACTIVE",
+      });
+    } catch (err) {
+      setNewMealError(`שמירת הארוחה נכשלה: ${err?.message || "שגיאה"}`);
+      return;
+    } finally {
+      setSaving(false);
+    }
     setNewMeal(EMPTY_MEAL());
     setNewMealDiets(mergeDiets(parseDiets(profile?.special_diets)));
     setNewMealError(null);

@@ -176,7 +176,7 @@ export default function GroupFormModal({ group, onClose, onSaved, initialProfile
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
+  const submitGroup = async (e) => {
     e.preventDefault();
     setAllocationBlockError(null);
     setGenderConsistencyError(null);
@@ -607,6 +607,19 @@ export default function GroupFormModal({ group, onClose, onSaved, initialProfile
     }
 
     onSaved();
+  };
+
+  // Any unexpected failure ends the saving state and shows the real reason; nothing is reported as saved.
+  const handleSubmit = async (e) => {
+    try {
+      await submitGroup(e);
+    } catch (error) {
+      console.error("[GroupFormModal] save failed:", error);
+      const detail = error?.response?.data?.message || error?.response?.data?.error || error?.message || "";
+      setAllocationBlockError(`השמירה נכשלה${detail ? ` (${detail})` : ""}. יש לרענן את הדף ולבדוק מה נשמר לפני ניסיון חוזר.`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDuplicateOverride = async () => {
