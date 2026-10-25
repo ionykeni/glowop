@@ -75,22 +75,5 @@
     "effective_quantity",
     "source",
     "status"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "collaborator_role": "editor"
-      }
-    },
-    "update": {
-      "user_condition": {
-        "collaborator_role": "editor"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "collaborator_role": "editor"
-      }
-    }
-  }
+  ]
 }
