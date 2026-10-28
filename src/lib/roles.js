@@ -124,9 +124,19 @@ export function hasPermission(role, permission) {
   return allowed.includes(role);
 }
 
-export function canAccessRoute(role, pathname) {
+// Individual read-only extras on top of the user's role (by email)
+export const USER_EXTRA_ROUTES = {
+  "omrielbm@gmail.com": ["dashboard"],
+};
+
+export function getUserExtraRoutes(email) {
+  return USER_EXTRA_ROUTES[(email || "").toLowerCase()] || [];
+}
+
+export function canAccessRoute(role, pathname, email) {
   if (!role) return false;
-  const allowed = ROLE_ALLOWED_ROUTES[role];
+  const roleAllowed = ROLE_ALLOWED_ROUTES[role];
+  const allowed = roleAllowed === "*" ? "*" : [...(roleAllowed || []), ...getUserExtraRoutes(email)];
   if (allowed === "*") return true;
   if (pathname === "/") return allowed.includes("dashboard") || allowed.includes("quotes");
   // Extract route key from pathname (strip leading /)

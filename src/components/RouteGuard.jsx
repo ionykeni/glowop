@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 
 export default function RouteGuard({ children }) {
-  const { role, isLoadingRole, roleError } = useRoleContext();
+  const { role, internalUser, isLoadingRole, roleError } = useRoleContext();
   const { isAuthenticated, isLoadingAuth, user } = useAuth();
   const { pathname } = useLocation();
 
@@ -116,7 +116,7 @@ export default function RouteGuard({ children }) {
   }
 
   // 5. Authenticated + has role, but can't access this route
-  if (!canAccessRoute(role, pathname)) {
+  if (!canAccessRoute(role, pathname, internalUser?.email)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
         <div className="text-center space-y-3 max-w-sm">
