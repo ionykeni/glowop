@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useRoleContext } from "@/lib/RoleContext";
 import { Button } from "@/components/ui/button";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Download } from "lucide-react";
 import { addDays, getWeekStart } from "@/lib/workScheduleConfig";
+import { downloadIcsCalendar } from "@/lib/shiftCalendarExport";
 import WeeklyShiftDays from "@/components/work-schedule/WeeklyShiftDays";
 import WorkerShiftRequestModal from "@/components/work-schedule/WorkerShiftRequestModal";
 import WorkerRequestsList from "@/components/work-schedule/WorkerRequestsList";
@@ -32,7 +33,8 @@ export default function MyShifts() {
     <div className="flex items-center gap-2"><CalendarClock className="w-5 h-5 text-primary" /><h1 className="text-xl font-bold">המשמרות שלי</h1></div>
     <div className="flex gap-2 border-b pb-2"><Button size="sm" variant={tab === "shifts" ? "default" : "ghost"} onClick={() => setTab("shifts")}>המשמרות שלי</Button><Button size="sm" variant={tab === "requests" ? "default" : "ghost"} onClick={() => setTab("requests")}>הבקשות שלי</Button></div>
     {tab === "shifts" ? <>
-      <div className="flex gap-2 flex-wrap"><Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, -7))}>שבוע קודם</Button><Button size="sm" variant="outline" onClick={() => setWeekStart(getWeekStart())}>השבוע</Button><Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))}>שבוע הבא</Button></div>
+      <div className="flex gap-2 flex-wrap"><Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, -7))}>שבוע קודם</Button><Button size="sm" variant="outline" onClick={() => setWeekStart(getWeekStart())}>השבוע</Button><Button size="sm" variant="outline" onClick={() => setWeekStart(addDays(weekStart, 7))}>שבוע הבא</Button><Button size="sm" variant="secondary" onClick={() => downloadIcsCalendar(shifts)} disabled={!shifts.length}><Download className="w-4 h-4" /> ייצוא המשמרות שלי</Button></div>
+      <p className="text-[11px] text-slate-400">הוספת משמרת ליומן היא ייצוא חד-פעמי — שינויים עתידיים במשמרות לא יתעדכנו אוטומטית ביומן.</p>
       {loading ? <div className="text-center py-10 text-slate-400">טוען...</div> : !profile ? <div className="rounded-xl border bg-slate-50 p-6 text-center text-sm">לא נמצא פרופיל עובד מקושר למשתמש שלך</div> : !schedule ? <div className="rounded-xl border bg-slate-50 p-6 text-center text-sm">אין סידור עבודה מפורסם לשבוע זה</div> : <WeeklyShiftDays weekStart={weekStart} shifts={shifts} />}
     </> : <>
       {!profile ? <div className="rounded-xl border bg-slate-50 p-6 text-center text-sm">לא נמצא פרופיל עובד מקושר למשתמש שלך</div> : <><div className="flex justify-end"><Button onClick={() => setRequestOpen(true)}>בקשה חדשה</Button></div><WorkerRequestsList requests={requests} onCancel={cancelRequest} /></>}
