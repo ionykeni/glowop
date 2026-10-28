@@ -1,5 +1,7 @@
 export const QUOTE_PREPARATION_FLOW = true;
 export const QUOTE_PREPARATION_ROLLOUT = "ADMINS";
+// B2 booking cancellation entry point stays hidden until its release (backend commit gate is also off).
+export const QUOTE_B2_CANCELLATION_UI_ENABLED = false;
 
 export function isQuotePreparationEnabled(role) {
   if (!QUOTE_PREPARATION_FLOW) return false;

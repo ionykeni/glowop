@@ -3,7 +3,7 @@ import { guardOperationalClient, GROUP_FIELD } from '../../shared/groupWriteGuar
 import { ENTITY_ROLES, ACTIONS, KITCHEN_PAX_ALERT, rolesFor } from '../../shared/operationalWritePolicy.js';
 
 // Replaces the former direct client writes on operational records. Every write runs through the Group write
-// fence (rejects missing, cancelled and cancellation-locked Groups).
+// fence (rejects missing, cancelled and cancellation-locked Groups). Role policy: shared/operationalWritePolicy.js.
 const PROTECTED = new Set(['id', 'created_date', 'updated_date', 'created_by', 'created_by_id', 'is_sample']);
 const MAX_OPS = 100;
 const DENIED = { ok: false, error: 'אין הרשאה לפעולה זו' };
