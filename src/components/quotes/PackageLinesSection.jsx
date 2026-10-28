@@ -41,6 +41,9 @@ function PackageLineRow({ line, index, onUpdate, onRemove, defaultPax, nights })
 
   // Auto-resolve price when option or quantity changes
   const handleOptionChange = (optionId) => {
+    // The dropdown's hidden form select emits "" when a reused row receives another package's option
+    // (A/B switch, row removal). No real choice is empty — ignore it so selection and price are kept.
+    if (!optionId) return;
     const newRate = resolvePackageUnitPrice(pkg.id, optionId, pax);
     onUpdate(index, { ...line, option_id: optionId, unit_price: newRate });
   };

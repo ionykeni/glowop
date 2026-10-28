@@ -1141,7 +1141,8 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               </SectionCard>
 
               {optionLoading && <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">טוען את אפשרויות ההצעה — העריכה תיפתח מיד כשהטעינה תושלם.</div>}
-              <fieldset disabled={optionLoading || Boolean(optionLoadError)} className="contents">
+              {/* Keyed by option: switching A/B mounts fresh controls, so no control carries state into the other option */}
+              <fieldset key={activeOptionKey} disabled={optionLoading || Boolean(optionLoadError)} className="contents">
               {multiOptionFeatureEnabled && (
                 <QuoteOptionTabs
                   active={activeOptionKey}
