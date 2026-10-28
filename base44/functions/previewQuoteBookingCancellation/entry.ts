@@ -6,8 +6,8 @@ import { isValidDateString } from '../../shared/groupStayPeriods.js';
 // Execution model: caller identity comes from the request token (auth.me); authorization is the
 // InternalUser whitelist; reads use service role only after authorization succeeds.
 const ALLOWED_ROLES = new Set(['QUOTES_MANAGER', 'SUPER_ADMIN']);
-// B2 release gate: DISABLED during the 2026-10-25 operational-save incident recovery. Commit refuses before any write.
-const B2_COMMIT_ENABLED = false;
+// B2 release gate: re-enabled 2026-10-28 after the operational-save incident; commit/release code unchanged since its 2026-10-22 verification.
+const B2_COMMIT_ENABLED = true;
 const GROUP_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'CONFIRMED', 'CANCELLED', 'COMPLETED', 'ARCHIVED']);
 const CLOSED_GROUP_STATUSES = new Set(['CANCELLED', 'COMPLETED', 'ARCHIVED']);
 const LIST_CAP = 200;
