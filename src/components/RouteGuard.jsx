@@ -6,6 +6,7 @@ import { useRoleContext } from "@/lib/RoleContext";
 import { useAuth } from "@/lib/AuthContext";
 import { canAccessRoute, getLandingPath } from "@/lib/roles";
 import { isLogisticsManager } from "@/lib/logisticsAssistantConfig";
+import useMyWorkerProfile from "@/lib/useMyWorkerProfile";
 import { useLocation, Navigate } from "react-router-dom";
 import { ShieldOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,9 @@ export default function RouteGuard({ children }) {
   const { role, internalUser, isLoadingRole, roleError } = useRoleContext();
   const { isAuthenticated, isLoadingAuth, user } = useAuth();
   const { pathname } = useLocation();
+  const isMyShiftsRoute = pathname === "/my-shifts" || pathname.startsWith("/my-shifts/");
+  const needsWorkerCheck = isMyShiftsRoute && !!role && !canAccessRoute(role, pathname, internalUser?.email);
+  const { isActiveWorker, isLoading: loadingWorker } = useMyWorkerProfile(needsWorkerCheck);
 
   // 1. Still loading auth or role
   if (isLoadingAuth || isLoadingRole) {
@@ -120,6 +124,10 @@ export default function RouteGuard({ children }) {
   }
 
   // 5. Authenticated + has role, but can't access this route
+  if (needsWorkerCheck && loadingWorker) {
+    return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  }
+  if (needsWorkerCheck && isActiveWorker) return children;
   if (!canAccessRoute(role, pathname, internalUser?.email)) {
     if (landing) return <Navigate to={landing} replace />;
     return (

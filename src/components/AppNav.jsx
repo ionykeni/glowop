@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
 import { useRoleContext } from "@/lib/RoleContext";
+import useMyWorkerProfile from "@/lib/useMyWorkerProfile";
 import { ROLE_NAV_LINKS, ROLE_LABELS, getUserExtraRoutes } from "@/lib/roles";
 import { useAlertCounts } from "@/hooks/useAlertCounts";
 import { useQuery } from "@tanstack/react-query";
@@ -205,7 +206,9 @@ export default function AppNav() {
     await base44.auth.logout();
   };
 
-  const allowedKeys = role ? [...(ROLE_NAV_LINKS[role] || []), ...getUserExtraRoutes(internalUser?.email)] : [];
+  const { isActiveWorker } = useMyWorkerProfile(!!role);
+  const baseKeys = role ? [...(ROLE_NAV_LINKS[role] || []), ...getUserExtraRoutes(internalUser?.email)] : [];
+  const allowedKeys = isActiveWorker && !baseKeys.includes("my-shifts") ? [...baseKeys, "my-shifts"] : baseKeys;
   const showLogisticsAssistant = isLogisticsManager(internalUser?.email);
   const showAdmin = allowedKeys.includes("admin");
   const showUserManagement = role === "SUPER_ADMIN";
