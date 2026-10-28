@@ -143,3 +143,18 @@ export function canAccessRoute(role, pathname, email) {
   const key = pathname.replace(/^\//, "").split("/")[0] || "dashboard";
   return allowed.includes(key);
 }
+
+// Preferred main module per role, used only when the user cannot open the home page ("בית")
+const ROLE_HOME_MODULE = {
+  MAINTENANCE: "maintenance",
+  MECHINA_USER: "mechina-spaces",
+};
+
+// First page this user is actually authorized to open ("/" = home/Dashboard), or null when none.
+export function getLandingPath(role, email) {
+  if (!role) return null;
+  if (canAccessRoute(role, "/", email)) return "/";
+  const candidates = [ROLE_HOME_MODULE[role], ...(ROLE_NAV_LINKS[role] || []), ...getUserExtraRoutes(email)].filter(Boolean);
+  const key = candidates.find(k => canAccessRoute(role, `/${k}`, email));
+  return key ? `/${key}` : null;
+}

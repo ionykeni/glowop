@@ -6,7 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import AppNav from './components/AppNav';
 import { Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { RoleProvider, useRoleContext } from '@/lib/RoleContext';
+import { RoleProvider } from '@/lib/RoleContext';
 import RouteGuard from '@/components/RouteGuard';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Add page imports here
@@ -40,14 +40,6 @@ import LogisticsAssistant from "./pages/LogisticsAssistant.jsx";
 import OperationalProcedures from "./pages/OperationalProcedures.jsx";
 import MechinaSleepingReport from "@/pages/MechinaSleepingReport";
 
-// Landing page resolver — MAINTENANCE users go straight to the maintenance module,
-// everyone else sees the Dashboard.
-const HomeLanding = () => {
-  const { role } = useRoleContext();
-  if (role === "MAINTENANCE") return <Navigate to="/maintenance" replace />;
-  return <Dashboard />;
-};
-
 const AuthenticatedApp = () => {
   const { isLoadingPublicSettings } = useAuth(); // Auth loading handled by RouteGuard
 
@@ -66,7 +58,8 @@ const AuthenticatedApp = () => {
       <AuthenticatedSnapshotFallback />
       <AppNav />
       <Routes>
-        <Route path="/" element={<RouteGuard><HomeLanding /></RouteGuard>} />
+        {/* "/" shows the Dashboard; users who can't open it are redirected by RouteGuard to their first authorized page */}
+        <Route path="/" element={<RouteGuard><Dashboard /></RouteGuard>} />
         <Route path="/inventory" element={<RouteGuard><Inventory /></RouteGuard>} />
         <Route path="/groups" element={<RouteGuard><Groups /></RouteGuard>} />
         <Route path="/quotes" element={<RouteGuard><Quotes /></RouteGuard>} />

@@ -4,9 +4,9 @@
  */
 import { useRoleContext } from "@/lib/RoleContext";
 import { useAuth } from "@/lib/AuthContext";
-import { canAccessRoute } from "@/lib/roles";
+import { canAccessRoute, getLandingPath } from "@/lib/roles";
 import { isLogisticsManager } from "@/lib/logisticsAssistantConfig";
-import { useLocation } from "react-router-dom";
+import { useLocation, Navigate } from "react-router-dom";
 import { ShieldOff, LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -86,7 +86,11 @@ export default function RouteGuard({ children }) {
   }
 
   // 3.8 Private logistics assistant — authorization is the exact authenticated email only.
+  // Unauthorized route → send the user to their first authorized page (always a page they can open, so no loop)
+  const landing = getLandingPath(role, internalUser?.email);
+
   if (pathname.startsWith("/logistics-assistant")) {
+    if (!isLogisticsManager(user.email) && landing) return <Navigate to={landing} replace />;
     return isLogisticsManager(user.email) ? children : (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
         <div className="text-center space-y-3 max-w-sm">
@@ -117,6 +121,7 @@ export default function RouteGuard({ children }) {
 
   // 5. Authenticated + has role, but can't access this route
   if (!canAccessRoute(role, pathname, internalUser?.email)) {
+    if (landing) return <Navigate to={landing} replace />;
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
         <div className="text-center space-y-3 max-w-sm">
