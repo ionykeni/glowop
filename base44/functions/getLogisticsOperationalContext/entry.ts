@@ -93,7 +93,7 @@ export default async function(req) {
       db.MechinaGroupAssignment.filter({ is_active: true }),
       db.GroupStayPeriod.filter({ status: 'ACTIVE' }),
       db.SleepingAllocation.filter({ status: 'CONFIRMED' }),
-      db.CoffeeCornerRequest.filter({ date, status: 'ACTIVE' }),
+      db.CoffeeCornerRequest.filter({ date }),
       db.MaintenanceIssue.filter({ status: { $in: ['OPEN', 'IN_PROGRESS', 'WAITING_PARTS'] } }),
       db.GroupScheduleItem.filter({ date, status: 'ACTIVE' }),
       db.ActivitySpace.list(),
@@ -140,6 +140,21 @@ export default async function(req) {
       ? await db.OperationalGroupProfile.filter({ group_id: { $in: presentGroups.map(g => g.id) } })
       : [];
     const profileByGroup = Object.fromEntries((profiles || []).map(p => [p.group_id, p]));
+    // Neighborhood reservations covering this night, only for groups present today (no historical notes).
+    const nbReservations = presentGroups.length
+      ? await db.NeighborhoodReservation.filter({ group_id: { $in: presentGroups.map(g => g.id) }, status: 'ACTIVE' })
+      : [];
+    const nbResByGroup = {};
+    for (const r of nbReservations || []) {
+      if (!(r.arrival_date <= date && date < r.departure_date)) continue;
+      (nbResByGroup[r.group_id] ||= []).push({
+        neighborhood: nbMap[r.neighborhood_id]?.name || null,
+        gender_group: r.gender_group,
+        planned_tents: r.planned_tents ?? null,
+        notes: r.notes || null,
+        shared_neighborhood_reason: r.shared_neighborhood_allowed ? (r.shared_neighborhood_reason || null) : null,
+      });
+    }
 
     const groupsOut = [];
     for (const g of presentGroups) {
@@ -154,6 +169,7 @@ export default async function(req) {
         stay_period_notes: periodToday?.notes || null,
         profile: profileOperationalInfo(profileByGroup[g.id]),
         sleeping_tonight: nightAllocs.map(a => mapAllocation(a, tentMap, nbMap)),
+        neighborhood_reservations_tonight: c.sleeps_tonight ? (nbResByGroup[g.id] || []) : [],
         id: g.id,
         name: g.group_name,
         group_type: g.group_type,
@@ -176,9 +192,12 @@ export default async function(req) {
       .map(g => ({ id: g.id, name: g.name, night: date, is_arrival: g.is_arrival, is_mechina: g.is_mechina }));
 
     // Coffee — scheduled data only; no readiness field exists, never claim ready.
-    const coffee = (coffeeAll || []).filter(c => groupMap[c.group_id])
-      .filter(c => !fromTime || !c.start_time || c.start_time >= fromTime)
+    // from_time never removes requests; it only labels them (PASSED / IN_PROGRESS / UPCOMING).
+    const coffeeForGroups = (coffeeAll || []).filter(c => groupMap[c.group_id]);
+    const coffeeCancelled = coffeeForGroups.filter(c => c.status === 'CANCELLED').length;
+    const coffee = coffeeForGroups.filter(c => c.status === 'ACTIVE')
       .map(c => ({
+        time_state: timeState(c.start_time, c.end_time, fromTime) || (fromTime ? 'UPCOMING' : null),
         id: c.id,
         group_name: groupMap[c.group_id].group_name,
         start_time: c.start_time,
@@ -273,6 +292,10 @@ export default async function(req) {
         departures: departures.length,
         day_use: dayUse.length,
         coffee_corners: coffee.length,
+        coffee_corners_passed: coffee.filter(c => c.time_state === 'PASSED').length,
+        coffee_corners_in_progress: coffee.filter(c => c.time_state === 'IN_PROGRESS').length,
+        coffee_corners_upcoming: coffee.filter(c => c.time_state === 'UPCOMING').length,
+        coffee_corners_cancelled: coffeeCancelled,
         open_maintenance: maintenance.length,
         spaces_for_preparation: spacesForPrep.length,
         sleeping_missing_allocation: sleepingMissing.length,
