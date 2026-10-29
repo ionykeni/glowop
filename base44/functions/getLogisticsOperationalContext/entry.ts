@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { isArrivalDate, isDepartureDate, occupiesSleepingNight, isDateInsideStayPeriods } from '../../shared/groupStayPeriods.js';
 import { isGroupOperationallyEnabled } from '../../shared/groupOperationalIsolation.js';
+import { profileOperationalInfo, mapAllocation, mapSpaceRequest, mapMaintenance, mapBrief } from '../../shared/logisticsAssistantData.js';
 
 // Private assistant — exact authenticated email is the authority.
 const LOGISTICS_MANAGER_EMAIL = 'hospitality@glow-glamping.com';
@@ -80,6 +81,13 @@ export default async function(req) {
 
     // Meeting summaries — secondary planning context.
     // Bounded: latest 8 SAVED summaries on/before the requested date, most recent first.
+    const [briefs, neighborhoods, standaloneRes, standaloneAssign, spaceRequests] = await Promise.all([
+      db.DailyStaffBrief.filter({ date }),
+      db.Neighborhood.list(),
+      db.StandaloneActivityReservation.filter({ event_date: date, status: 'ACTIVE' }),
+      db.StandaloneActivitySpaceAssignment.list('-created_date', 500),
+      db.CommonSpaceBookingRequest.filter({ date, status: { $in: ['PENDING', 'APPROVED', 'CHANGE_REQUESTED', 'CANCELLATION_REQUESTED'] } }),
+    ]);
     const [allGroups, mechinaAssignments, allPeriods, confirmedAllocs, coffeeAll, maintIssues, scheduleItems, spaces, spaceBlocks, tents, meetingSummariesRaw] = await Promise.all([
       db.Group.list('-created_date', 1000),
       db.MechinaGroupAssignment.filter({ is_active: true }),
@@ -123,12 +131,29 @@ export default async function(req) {
     const allocsCoveringNight = (groupId) => (confirmedAllocs || []).filter(a =>
       a.group_id === groupId && a.arrival_date <= date && date < a.departure_date);
 
-    const groupsOut = [];
-    for (const g of groups) {
+    const nbMap = Object.fromEntries((neighborhoods || []).map(n => [n.id, n]));
+    const presentGroups = groups.filter(g => {
       const c = classify(g, date, periodsByGroup[g.id] || []);
-      if (!c.is_on_site && !c.is_arrival && !c.is_departure) continue;
+      return c.is_on_site || c.is_arrival || c.is_departure;
+    });
+    const profiles = presentGroups.length
+      ? await db.OperationalGroupProfile.filter({ group_id: { $in: presentGroups.map(g => g.id) } })
+      : [];
+    const profileByGroup = Object.fromEntries((profiles || []).map(p => [p.group_id, p]));
+
+    const groupsOut = [];
+    for (const g of presentGroups) {
+      const c = classify(g, date, periodsByGroup[g.id] || []);
       const nightAllocs = c.sleeps_tonight ? allocsCoveringNight(g.id) : [];
+      const periodToday = (periodsByGroup[g.id] || []).find(p => p.start_date <= date && date <= p.end_date);
       groupsOut.push({
+        status: g.status,
+        contact_name: g.contact_name || null,
+        contact_phone: g.contact_phone || null,
+        group_internal_notes: g.internal_notes || null,
+        stay_period_notes: periodToday?.notes || null,
+        profile: profileOperationalInfo(profileByGroup[g.id]),
+        sleeping_tonight: nightAllocs.map(a => mapAllocation(a, tentMap, nbMap)),
         id: g.id,
         name: g.group_name,
         group_type: g.group_type,
@@ -179,7 +204,37 @@ export default async function(req) {
       needs: ['projector', 'screen', 'microphone', 'sound', 'whiteboard', 'chair_circle'].filter(k => s[`needs_${k}`]),
       chairs_count: s.chairs_count,
       logistics_other: s.logistics_other,
+      notes: s.notes || null,
+      is_shared_activity: !!s.is_shared_activity,
     })).sort(byTime('start_time'));
+
+    const assignByRes = {};
+    for (const a of standaloneAssign || []) (assignByRes[a.reservation_id] ||= []).push(a);
+    const standalone_activities = (standaloneRes || []).map(r => ({
+      title: r.title,
+      activity_type: r.activity_type,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      expected_pax: r.expected_pax ?? null,
+      organizer_name: r.organizer_name || null,
+      spaces: (assignByRes[r.id] || []).map(a => ({
+        space_name: spaceMap[a.activity_space_id]?.name || null,
+        needs: ['projector', 'screen', 'microphone', 'sound', 'whiteboard', 'chair_circle'].filter(k => a[`needs_${k}`]),
+        chairs_count: a.chairs_count ?? null,
+        setup_layout: a.setup_layout || null,
+        logistics_other: a.logistics_other || null,
+        notes: a.notes || null,
+      })),
+      general_notes: r.general_notes || null,
+      preparation_notes: r.preparation_notes || null,
+      during_activity_notes: r.during_activity_notes || null,
+      cleanup_notes: r.cleanup_notes || null,
+    })).sort(byTime('start_time'));
+
+    const common_space_requests = (spaceRequests || [])
+      .filter(r => groupMap[r.mechina_group_id])
+      .map(r => ({ ...mapSpaceRequest(r), group_name: groupMap[r.mechina_group_id].group_name }))
+      .sort(byTime('start_time'));
 
     // Default prep checklist excludes Mechina; Mechina activities remain available separately.
     const spacesForPrep = activities.filter(a => a.space_name && !a.is_mechina);
@@ -192,17 +247,7 @@ export default async function(req) {
       ...groupsOut.flatMap(g => g.sleeping_tents_tonight),
     ]);
     const maintenance = (maintIssues || []).map(m => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      category: m.category,
-      priority: m.priority,
-      status: m.status,
-      location_name: m.location_name,
-      location_section: m.location_section,
-      related_group_name: m.related_group_name,
-      assigned_to_name: m.assigned_to_name,
-      created_date: m.created_date,
+      ...mapMaintenance(m),
       location_in_use_on_date: !!m.location_name && usedNames.has(m.location_name),
     }));
 
@@ -241,6 +286,9 @@ export default async function(req) {
       spaces_for_preparation: spacesForPrep,
       mechina_activities: mechinaActivities,
       space_blocks: blocks,
+      standalone_activities,
+      common_space_requests,
+      daily_staff_brief: mapBrief((briefs || []).find(b => b.status !== 'ARCHIVED')),
       maintenance_open: maintenance,
       sleeping_missing_allocation: sleepingMissing,
       meeting_summaries,
