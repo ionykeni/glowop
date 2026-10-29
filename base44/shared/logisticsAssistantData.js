@@ -5,6 +5,22 @@ export function isLogisticsManagerEmail(email) {
   return String(email || '').trim().toLowerCase() === LOGISTICS_MANAGER_EMAIL;
 }
 
+// Drop null / empty values so the assistant receives a compact payload.
+export function compact(value) {
+  if (Array.isArray(value)) return value.map(compact);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      const c = compact(v);
+      if (c === null || c === undefined || c === '') continue;
+      if (typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length === 0) continue;
+      out[k] = c;
+    }
+    return out;
+  }
+  return value;
+}
+
 const clean = (v) => (typeof v === 'string' ? (v.trim() || null) : (v ?? null));
 
 const parseJson = (v) => {

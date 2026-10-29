@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import {
   isLogisticsManagerEmail, profileOperationalInfo, mapAllocation, mapActivity,
-  mapCoffee, mapSpaceRequest, mapMaintenance,
+  mapCoffee, mapSpaceRequest, mapMaintenance, compact,
 } from '../../shared/logisticsAssistantData.js';
 
 // READ-ONLY: full operational overview of one Group for the private logistics assistant.
@@ -56,7 +56,7 @@ export default async function(req) {
     const spaceMap = Object.fromEntries(spaces.map(s => [s.id, s]));
     const byDateTime = (a, b) => `${a.date} ${a.start_time || ''}`.localeCompare(`${b.date} ${b.start_time || ''}`);
 
-    return Response.json({
+    return Response.json(compact({
       found: true,
       group: {
         id: gid,
@@ -99,7 +99,7 @@ export default async function(req) {
       })),
       common_space_requests: spaceReqs.map(mapSpaceRequest).sort(byDateTime),
       maintenance_open: maint.map(mapMaintenance),
-    });
+    }));
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

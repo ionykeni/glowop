@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.52';
 import { isArrivalDate, isDepartureDate, occupiesSleepingNight, isDateInsideStayPeriods } from '../../shared/groupStayPeriods.js';
 import { isGroupOperationallyEnabled } from '../../shared/groupOperationalIsolation.js';
-import { profileOperationalInfo, mapAllocation, mapSpaceRequest, mapMaintenance, mapBrief } from '../../shared/logisticsAssistantData.js';
+import { profileOperationalInfo, mapAllocation, mapSpaceRequest, mapMaintenance, mapBrief, compact } from '../../shared/logisticsAssistantData.js';
 
 // Private assistant — exact authenticated email is the authority.
 const LOGISTICS_MANAGER_EMAIL = 'hospitality@glow-glamping.com';
@@ -111,7 +111,7 @@ export default async function(req) {
         meeting_date: m.meeting_date,
         title: m.title,
         relevant_week_start: m.relevant_week_start || null,
-        content: m.meeting_summary_text || null,
+        content: m.meeting_summary_text ? m.meeting_summary_text.slice(0, 3000) : null,
         topics_tags: m.topics_tags || null,
         mentioned_groups_text: m.mentioned_groups_text || null,
         mentioned_locations_text: m.mentioned_locations_text || null,
@@ -259,7 +259,7 @@ export default async function(req) {
       end_date: b.end_date,
     }));
 
-    return Response.json({
+    return Response.json(compact({
       requested_date: date,
       is_today: date === now.date,
       current_date: now.date,
@@ -278,13 +278,15 @@ export default async function(req) {
         sleeping_missing_allocation: sleepingMissing.length,
       },
       groups: groupsOut,
-      arrivals,
-      departures,
-      day_use: dayUse,
+      // Lists reference groups[].id to avoid duplicating full group objects.
+      arrival_group_ids: arrivals.map(g => g.id),
+      departure_group_ids: departures.map(g => g.id),
+      day_use_group_ids: dayUse.map(g => g.id),
       coffee_corners: coffee,
       activities,
-      spaces_for_preparation: spacesForPrep,
-      mechina_activities: mechinaActivities,
+      // References activities[].id.
+      spaces_for_preparation_ids: spacesForPrep.map(a => a.id),
+      mechina_activity_ids: mechinaActivities.map(a => a.id),
       space_blocks: blocks,
       standalone_activities,
       common_space_requests,
@@ -293,7 +295,7 @@ export default async function(req) {
       sleeping_missing_allocation: sleepingMissing,
       meeting_summaries,
       reminders: includeReminders ? ['תזכורת כללית: לבדוק / להזין שעות עובדות המשק (תזכורת בלבד — אין נתון שמוכיח שחסר)'] : [],
-    });
+    }));
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

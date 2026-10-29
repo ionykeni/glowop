@@ -40,6 +40,7 @@ function statusLabel(status) {
 function toolDisplayName(name) {
   const map = {
     getLogisticsOperationalContext: "קריאת הקשר תפעולי",
+    getLogisticsGroupOverview: "קריאת פרטי קבוצה",
   };
   return map[name] || name || "כלי";
 }
