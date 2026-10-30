@@ -1,0 +1,79 @@
+{
+  "name": "SleepingAllocationProposal",
+  "type": "object",
+  "properties": {
+    "group_id": {
+      "type": "string",
+      "description": "FK to Group"
+    },
+    "group_name": {
+      "type": "string"
+    },
+    "instruction": {
+      "type": "string",
+      "description": "Original natural-language instruction"
+    },
+    "stay_mode": {
+      "type": "string"
+    },
+    "window_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "window_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Checkout (exclusive)"
+    },
+    "items_json": {
+      "type": "string",
+      "description": "JSON array [{tent_id, tent_code, neighborhood_id, neighborhood_name, gender_group, allocated_pax}]"
+    },
+    "warnings_json": {
+      "type": "string",
+      "description": "JSON array of warning strings"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "APPLIED",
+        "DISCARDED"
+      ],
+      "default": "PENDING"
+    },
+    "applied_at": {
+      "type": "string"
+    },
+    "applied_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "group_id",
+    "items_json",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
