@@ -152,7 +152,9 @@ function AllocationStatusBadge({ allocations, profile, pendingCoverage }) {
 }
 
 function GroupAllocationCard({ profile, group, allocations, pendingCoverage }) {
-  const [open, setOpen] = useState(false);
+  const urlParams = new URLSearchParams(window.location.search);
+  const proposalId = urlParams.get("group") === group.id ? urlParams.get("proposal") : null;
+  const [open, setOpen] = useState(!!proposalId);
 
   const boysDist = parseDist(profile.boys_tent_distribution_json);
   const girlsDist = parseDist(profile.girls_tent_distribution_json);
@@ -224,7 +226,7 @@ function GroupAllocationCard({ profile, group, allocations, pendingCoverage }) {
       {/* Physical allocation panel */}
       {open && (
         <div className="border-t border-border bg-slate-50/70 px-3 py-4 sm:px-4">
-          <SleepingAllocationTab groupId={group.id} />
+          <SleepingAllocationTab groupId={group.id} proposalId={proposalId} />
         </div>
       )}
     </div>

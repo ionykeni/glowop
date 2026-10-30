@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 import { ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Loader2, Wrench } from "lucide-react";
 
 function statusIcon(status) {
@@ -41,6 +42,7 @@ function toolDisplayName(name) {
   const map = {
     getLogisticsOperationalContext: "קריאת הקשר תפעולי",
     getLogisticsGroupOverview: "קריאת פרטי קבוצה",
+    prepareSleepingAllocationProposal: "הכנת הצעת שיבוץ לינה",
   };
   return map[name] || name || "כלי";
 }
@@ -107,7 +109,14 @@ export default function MessageBubble({ message }) {
             </div>
           ) : (
             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm shadow-sm">
-              <ReactMarkdown className="prose prose-sm prose-slate max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
+              <ReactMarkdown
+                className="prose prose-sm prose-slate max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm"
+                components={{
+                  a: ({ href, children }) => href?.startsWith("/")
+                    ? <Link to={href} className="not-prose inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground no-underline">{children}</Link>
+                    : <a href={href} target="_blank" rel="noreferrer">{children}</a>,
+                }}
+              >
                 {message.content}
               </ReactMarkdown>
             </div>

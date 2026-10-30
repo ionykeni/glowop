@@ -28,6 +28,7 @@ import TemporalScopeBadge from "./TemporalScopeBadge";
 import SleepingActionButton from "./SleepingActionButton";
 import HistoricalSleepingViewer from "./HistoricalSleepingViewer";
 import ScopedAutoAllocation from "./ScopedAutoAllocation";
+import AssistantProposalPanel from "./proposal/AssistantProposalPanel";
 import { laterStayPeriods } from "@/lib/sleepingPeriodScope";
 import { buildPeriodizedLocationCoverage } from "@/lib/periodizedSleepingOverview";
 import { actionableSleepingRows } from '@/components/sleeping/seriesActions';
@@ -74,7 +75,7 @@ function suggestNeighborhoods(neighborhoods, allTents, neededTents) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function SleepingAllocationTab({ groupId }) {
+export default function SleepingAllocationTab({ groupId, proposalId = null }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
@@ -473,6 +474,7 @@ export default function SleepingAllocationTab({ groupId }) {
         queryClient.invalidateQueries({ queryKey: ["operationalProfile", groupId] });
         setPendingSharedOverride(null);
         setSharedOverrideReason("");
+        return true;
       } else if (res.data?.needs_shared_override) {
         // Backend says: neighborhood conflict but no tent conflict — offer shared override
         setPendingSharedOverride({
@@ -543,6 +545,23 @@ export default function SleepingAllocationTab({ groupId }) {
           selectedId={selectedPeriodId}
           onSelect={setSelectedPeriodId}
           today={todayLocal()}
+        />
+      )}
+
+      {proposalId && (
+        <AssistantProposalPanel
+          proposalId={proposalId}
+          groupId={groupId}
+          isMultiPeriod={isMultiPeriod}
+          profileId={profile.id}
+          arrivalDate={arrivalDate}
+          departureDate={departureDate}
+          allTents={allTents}
+          neighborhoods={neighborhoods}
+          activeNhoodRes={myActiveNhoodRes}
+          logicalAssignments={logicalSeriesData.logical_assignments}
+          onConfirmContinuous={() => handleConfirmAllocations()}
+          onSaved={() => { invalidate(); queryClient.invalidateQueries({ queryKey: ["sleepingProposal", proposalId] }); }}
         />
       )}
 
