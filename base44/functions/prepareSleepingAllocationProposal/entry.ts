@@ -68,6 +68,7 @@ export default async function(req) {
     const windows = isMulti
       ? periods.filter(p => p.end_date > today()).map(p => ({ from: p.start_date, to: p.end_date }))
       : [{ from: group.arrival_date, to: group.departure_date }];
+    windows.sort((a, b) => a.from.localeCompare(b.from));
     if (!windows.length || windows.some(w => !w.from || !w.to || w.to <= w.from)) {
       return Response.json({ success: false, error: 'אין לקבוצה תאריכי לינה פעילים' });
     }
