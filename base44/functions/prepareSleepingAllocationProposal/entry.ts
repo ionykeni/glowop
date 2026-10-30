@@ -21,14 +21,6 @@ function matchNeighborhood(neighborhoods, token) {
     || null;
 }
 
-// Even split: 50 people, 8 per tent → 7 tents of 7/8.
-function split(total, perTent) {
-  if (total <= 0) return [];
-  const count = Math.ceil(total / perTent);
-  const base = Math.floor(total / count);
-  const extra = total % count;
-  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
-}
 
 export default async function(req) {
   try {
@@ -54,6 +46,12 @@ export default async function(req) {
     if (!group) return Response.json({ error: 'Group not found' }, { status: 404 });
     if (['CANCELLED', 'ARCHIVED'].includes(group.status) || !isGroupOperationallyEnabled(group)) {
       return Response.json({ success: false, error: 'הקבוצה אינה פעילה תפעולית' });
+    }
+
+    // Same readiness rule as the לינה screen, so the review link always opens the group's card.
+    const [profile] = await db.OperationalGroupProfile.filter({ group_id: groupId });
+    if (!profile?.is_sleeping_group || !profile?.sleeping_requirements_completed) {
+      return Response.json({ success: false, error: 'יש להשלים קודם את דרישות הלינה של הקבוצה (פרופיל תפעולי) לפני הכנת שיבוץ' });
     }
 
     const [neighborhoods, tents, periods, drafts, confirmed, nhoodRes] = await Promise.all([
@@ -123,19 +121,15 @@ export default async function(req) {
     const out = [];
     for (const [gender, total] of [['BOYS', boys], ['GIRLS', girls]]) {
       const list = items.filter(i => i.gender === gender);
+      // Round-robin one person at a time → even spread that never exceeds a tent's cap.
       let left = Math.min(total, list.reduce((s, i) => s + i.cap, 0));
-      const shares = split(left, Math.max(...list.map(i => i.cap), 1));
-      const used = list.slice(0, shares.length || list.length);
-      used.forEach((i, idx) => {
-        const pax = Math.min(i.cap, shares[idx] ?? 0);
-        left -= pax;
-        out.push({ tent_id: i.tent.id, tent_code: i.tent.code, neighborhood_id: i.n.id, neighborhood_name: i.n.name, gender_group: gender, allocated_pax: pax });
-      });
-      for (const row of out.filter(r => r.gender_group === gender)) {
-        const cap = list.find(i => i.tent.id === row.tent_id).cap;
-        const add = Math.min(left, cap - row.allocated_pax);
-        row.allocated_pax += add; left -= add;
+      const pax = list.map(() => 0);
+      while (left > 0) {
+        for (let k = 0; k < list.length && left > 0; k++) {
+          if (pax[k] < list[k].cap) { pax[k]++; left--; }
+        }
       }
+      list.forEach((i, k) => out.push({ tent_id: i.tent.id, tent_code: i.tent.code, neighborhood_id: i.n.id, neighborhood_name: i.n.name, gender_group: gender, allocated_pax: pax[k] }));
     }
     const finalItems = out.filter(r => r.allocated_pax > 0);
     if (boysLeft) warnings.push(`חסרים אוהלים פנויים ל-${boysLeft} בנים בשכונות שנבחרו`);
