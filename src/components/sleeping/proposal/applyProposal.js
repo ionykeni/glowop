@@ -25,12 +25,17 @@ export async function rollbackAttempt(proposalId, state, groupId) {
     if (a.status !== "DRAFT") { failed.push(`שיבוץ ${id} כבר אושר`); continue; }
     await opWrite.SleepingAllocation.delete(id).catch(() => failed.push(`שיבוץ ${id}`));
   }
-  const removed = new Set(state.created_alloc_ids);
+  // Re-read what actually remains — a failed delete or a confirmed row still depends on its reservation.
+  const remaining = (await base44.entities.SleepingAllocation.filter({ group_id: groupId })).filter(a => a.status !== "CANCELLED");
+  const mine = new Set(state.created_alloc_ids);
   for (const id of state.created_nhood_ids) {
     const res = await base44.entities.NeighborhoodReservation.get(id).catch(() => null);
     if (!res || res.status !== "ACTIVE") continue;
-    const stillUsed = allocs.some(a => a.neighborhood_id === res.neighborhood_id && a.status !== "CANCELLED" && !removed.has(a.id));
-    if (stillUsed) continue;
+    const deps = remaining.filter(a => a.neighborhood_id === res.neighborhood_id);
+    if (deps.length) {
+      if (deps.some(a => mine.has(a.id))) failed.push(`הזמנת שכונה ${id} נשמרה (שיבוץ תלוי עדיין קיים)`);
+      continue;
+    }
     await opWrite.NeighborhoodReservation.delete(id).catch(() => failed.push(`הזמנת שכונה ${id}`));
   }
   const next = failed.length
@@ -88,7 +93,16 @@ export async function applyContinuous({ proposal, rows, groupId, profileId, arri
     throw new Error("יצירת הטיוטות נכשלה — מה שנוצר בניסיון זה בוטל. לא נשמר שיבוץ.");
   }
 
-  const result = await confirm(shared);
+  let result;
+  try { result = await confirm(shared); }
+  catch (err) {
+    // Confirmation may have partially succeeded server-side — reconcile real states first.
+    const now = await base44.entities.SleepingAllocation.filter({ group_id: groupId });
+    const created = now.filter(a => state.created_alloc_ids.includes(a.id) && a.status !== "CANCELLED");
+    if (created.length && created.every(a => a.status === "CONFIRMED")) return "APPLIED";
+    await rollbackAttempt(proposal.id, state, groupId); // deletes only unconfirmed drafts; confirmed ones → recovery_required
+    throw new Error(`האישור נכשל (${err?.message || "שגיאה"}) — הטיוטות שנוצרו מההצעה בוטלו. ניתן לנסות שוב.`);
+  }
   if (result === true) return "APPLIED";
   if (result === "NEEDS_SHARED") return "NEEDS_SHARED"; // drafts kept; retry with a reason reuses them
   await rollbackAttempt(proposal.id, state, groupId);
