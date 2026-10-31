@@ -25,6 +25,14 @@
       "format": "date",
       "description": "Checkout (exclusive)"
     },
+    "requested_boys": {
+      "type": "number",
+      "description": "Boys the admin asked to place in this proposal"
+    },
+    "requested_girls": {
+      "type": "number",
+      "description": "Girls the admin asked to place in this proposal"
+    },
     "items_json": {
       "type": "string",
       "description": "JSON array [{tent_id, tent_code, neighborhood_id, neighborhood_name, gender_group, allocated_pax}]"
@@ -32,6 +40,10 @@
     "warnings_json": {
       "type": "string",
       "description": "JSON array of warning strings"
+    },
+    "apply_state_json": {
+      "type": "string",
+      "description": "Approval attempt state: {created_alloc_ids, created_nhood_ids, recovery_required, recovery_ids}"
     },
     "status": {
       "type": "string",

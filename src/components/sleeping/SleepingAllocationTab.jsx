@@ -483,12 +483,14 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
           errors: res.data.errors || [],
         });
         setSharedOverrideReason("");
+        return "NEEDS_SHARED";
       } else {
         const errMsg = res.data?.error || null;
         const errList = res.data?.errors || (errMsg ? [errMsg] : ["שגיאה לא ידועה"]);
         console.error("[SleepingAllocationTab] Confirm allocation error:", errList, res.data?.debug);
         toast.error("לא ניתן לאשר — " + errList[0]);
         if (errList.length > 1) errList.slice(1).forEach(e => toast.error(e));
+        return false;
       }
     } catch (err) {
       console.error("[SleepingAllocationTab] Confirm allocation exception:", err);
@@ -553,14 +555,16 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
           proposalId={proposalId}
           groupId={groupId}
           isMultiPeriod={isMultiPeriod}
-          profileId={profile.id}
+          profile={profile}
           arrivalDate={arrivalDate}
           departureDate={departureDate}
           allTents={allTents}
           neighborhoods={neighborhoods}
           activeNhoodRes={myActiveNhoodRes}
+          groupAllocs={myAllocations}
+          otherActiveAllocs={allActiveAllocations}
           logicalAssignments={logicalSeriesData.logical_assignments}
-          onConfirmContinuous={() => handleConfirmAllocations()}
+          onConfirmContinuous={(opts) => handleConfirmAllocations(opts)}
           onSaved={() => { invalidate(); queryClient.invalidateQueries({ queryKey: ["sleepingProposal", proposalId] }); }}
         />
       )}

@@ -152,6 +152,7 @@ export default async function(req) {
     const proposal = await db.SleepingAllocationProposal.create({
       group_id: groupId, group_name: group.group_name, instruction: String(body.instruction || '').slice(0, 500),
       stay_mode: summary.stay_mode, window_start, window_end,
+      requested_boys: boys, requested_girls: girls,
       items_json: JSON.stringify(finalItems), warnings_json: JSON.stringify(warnings), status: 'PENDING',
     });
     return Response.json({
