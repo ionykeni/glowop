@@ -7,7 +7,7 @@ export default function QuoteCombinedPdfTemplate({ optionA, optionB, group, logo
   return <div id="quote-pdf-root" style={{ background: "#fff", direction: "rtl" }}>
     <QuotePricingPage d={a} logoUrl={logoUrl} optionLabel="אפשרות א׳" showShared />
     <QuotePricingPage d={b} logoUrl={logoUrl} optionLabel="אפשרות ב׳" showShared={false} />
-    {!a.isDayUse && <QuoteLodgingInfoPage clientNotes={a.clientNotes} />}
+    <QuoteLodgingInfoPage clientNotes={a.clientNotes} />
     <QuoteTermsPage logoUrl={logoUrl} quoteNumber={a.quoteNumber} footerUrl={footerUrl} requiresAdvancePayment={a.requiresAdvancePayment} />
     <QuoteContentCatalogPage logoUrl={logoUrl} quoteNumber={a.quoteNumber} />
   </div>;

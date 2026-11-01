@@ -316,7 +316,7 @@ function CompactHeader({ quoteNumber, logoUrl }) {
 
 function SectionHeading({ children }) {
   return (
-    <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, borderBottom: `2px solid ${BLUE}`, paddingBottom: 4, marginTop: 14, marginBottom: 8 }}>
+    <div style={{ fontSize: 14, fontWeight: 700, fontFamily: HEADING_FONT, color: BLUE, borderBottom: `2px solid ${BLUE}`, paddingBottom: 4, marginTop: 14, marginBottom: 8, breakAfter: "avoid", pageBreakAfter: "avoid" }}>
       {children}
     </div>
   );
@@ -366,7 +366,6 @@ export function QuotePricingPage({ d, logoUrl, optionLabel, showShared = true })
       </tbody></table>
       {(d.requiresAdvancePayment || d.paymentTerms) && <div style={{ marginTop: 12, fontSize: 11.5, fontFamily: BODY_FONT }}><strong style={{ color: BLUE }}>תנאי תשלום: </strong>{d.requiresAdvancePayment && <>מקדמה: <strong>₪{fmt(deposit)}</strong> | יתרה: <strong>₪{fmt(balance)}</strong></>}{d.requiresAdvancePayment && d.paymentTerms && <span> | </span>}{d.paymentTerms && <span>{d.paymentTerms}</span>}</div>}
       <div style={{ marginTop: 8, fontSize: 10.5, color: "#555" }}><strong>ח.פ:</strong> קרן שמש הדור הבא (ע״ר) — 580786812 | <strong>בנק הפועלים:</strong> סניף 170 חשבון 368365 | גרסה: {d.version} | סטטוס: {d.status}</div>
-      {showShared && d.isDayUse && d.clientNotes && <><SectionHeading>הערות כלליות ללקוח</SectionHeading><div style={{ whiteSpace: "pre-wrap" }}>{d.clientNotes}</div></>}
       {d.optionNotes && <><SectionHeading>הערות לאפשרות</SectionHeading><div style={{ whiteSpace: "pre-wrap" }}>{d.optionNotes}</div></>}
       <LegalFooter />
     </div>
@@ -593,7 +592,7 @@ export default function QuotePdfTemplate({ quote, group, logoUrl, footerUrl }) {
   return (
     <div id="quote-pdf-root" style={{ background: "#fff" }}>
       <QuotePricingPage d={d} logoUrl={logoUrl} />
-      {!d.isDayUse && <QuoteLodgingInfoPage clientNotes={d.clientNotes} />}
+      <QuoteLodgingInfoPage clientNotes={d.clientNotes} />
       <QuoteTermsPage logoUrl={logoUrl} quoteNumber={d.quoteNumber} footerUrl={footerUrl} requiresAdvancePayment={d.requiresAdvancePayment} />
       <QuoteContentCatalogPage logoUrl={logoUrl} quoteNumber={d.quoteNumber} />
     </div>

@@ -40,17 +40,17 @@ const pageStyle = {
   color: "#1a1a1a",
 };
 
-/** Page 2 for LODGING Quotes: always starts on a new page; long notes flow onto following pages. */
+/** Page 2 for ALL Quote types: always starts on a new page; long notes flow onto following pages. */
 export default function QuoteLodgingInfoPage({ clientNotes }) {
   return (
     <div style={pageStyle}>
       {INFO.map(([kind, text], i) => kind === "h"
         ? <div key={i} style={headingStyle}>{text}</div>
         : <p key={i} style={paraStyle}>{text}</p>)}
-      {clientNotes?.trim() && <>
+      {clientNotes?.trim() && <div>
         <div style={headingStyle}>הערות</div>
-        <div style={{ ...paraStyle, whiteSpace: "pre-wrap" }}>{clientNotes}</div>
-      </>}
+        <div style={{ ...paraStyle, whiteSpace: "pre-wrap", orphans: 3, widows: 3 }}>{clientNotes}</div>
+      </div>}
       <LegalFooter />
     </div>
   );
