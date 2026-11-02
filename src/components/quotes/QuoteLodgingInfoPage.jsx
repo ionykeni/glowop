@@ -1,4 +1,5 @@
 import { LegalFooter } from "./QuotePdfTemplate";
+import QuoteClientNotes from "./QuoteClientNotes";
 
 const HEADING_FONT = '"Kav16", "Arial Hebrew", Arial, sans-serif';
 const BODY_FONT = '"SimplerPro", "Arial Hebrew", Arial, sans-serif';
@@ -49,7 +50,7 @@ export default function QuoteLodgingInfoPage({ clientNotes }) {
         : <p key={i} style={paraStyle}>{text}</p>)}
       {clientNotes?.trim() && <div>
         <div style={headingStyle}>הערות</div>
-        <div style={{ ...paraStyle, whiteSpace: "pre-wrap", orphans: 3, widows: 3 }}>{clientNotes}</div>
+        <QuoteClientNotes text={clientNotes} style={paraStyle} />
       </div>}
       <LegalFooter />
     </div>
