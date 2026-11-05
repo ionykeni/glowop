@@ -103,6 +103,16 @@ export default function StudentNeighborhoodPanel({
     reason: effectiveSharedReason,
   }] : [];
 
+  const sharedCheckbox = !readOnly && isMultiPeriod && hasNeighborhoodConflict ? (
+    <SharedNeighborhoodCheckbox
+      otherGroupNames={lockByOtherGroup.group_names || [lockByOtherGroup.group_name]}
+      checked={sharedChecked}
+      onCheckedChange={setSharedAllowed}
+      reason={sharedReason}
+      onReasonChange={setSharedReason}
+    />
+  ) : null;
+
   const handleReserve = () => {
     // If neighborhood is used by another group, require conscious shared override
     if (isLockedByOther && !sharedAllowed) return;
@@ -325,17 +335,7 @@ export default function StudentNeighborhoodPanel({
         </div>
       )}
 
-      {!readOnly && isMultiPeriod && hasNeighborhoodConflict && (
-        <div className="border-t border-amber-200 px-4 py-3">
-          <SharedNeighborhoodCheckbox
-            otherGroupNames={lockByOtherGroup.group_names || [lockByOtherGroup.group_name]}
-            checked={sharedChecked}
-            onCheckedChange={setSharedAllowed}
-            reason={sharedReason}
-            onReasonChange={setSharedReason}
-          />
-        </div>
-      )}
+      {sharedCheckbox && <div className="border-t border-amber-200 px-4 py-3">{sharedCheckbox}</div>}
 
       {/* Tent distribution editor */}
       <TentDistributionEditor
@@ -357,6 +357,7 @@ export default function StudentNeighborhoodPanel({
         seriesValidation={seriesValidation}
         activeStayPeriods={activeStayPeriods}
         sharedNeighborhoods={sharedNeighborhoodIntent}
+        sharedNeighborhoodControl={sharedCheckbox}
       />
 
       {/* Expand form */}

@@ -260,7 +260,7 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
       if (r.group_id === groupId) return;
       if (r.departure_date <= today) return; // stay already ended
       const overlapsGroup = isMultiPeriod
-        ? visibleStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, r.arrival_date, r.departure_date))
+        ? activeStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, r.arrival_date, r.departure_date))
         : datesOverlap(arrivalDate, departureDate, r.arrival_date, r.departure_date);
       if (!overlapsGroup) return;
       const name = groupById[r.group_id]?.group_name || r.group_id;
@@ -269,7 +269,7 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
       map[r.neighborhood_id] = { group_name: names.join(", "), group_names: names, gender_group: r.gender_group };
     });
     return map;
-  }, [allNhoodReservations, groupId, arrivalDate, departureDate, groupById, isMultiPeriod, visibleStayPeriods]);
+  }, [allNhoodReservations, groupId, arrivalDate, departureDate, groupById, isMultiPeriod, activeStayPeriods]);
 
   // VIP tent conflict map: tentId → { gender_group, group_id } for OTHER groups
   const vipTentConflictMap = useMemo(() => {

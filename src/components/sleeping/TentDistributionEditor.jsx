@@ -59,6 +59,7 @@ export default function TentDistributionEditor({
   seriesValidation = null,
   activeStayPeriods = [],
   sharedNeighborhoods = [],
+  sharedNeighborhoodControl = null,
 }) {
   const queryClient = useQueryClient();
 
@@ -637,6 +638,8 @@ export default function TentDistributionEditor({
             );
           })}
         </div>
+
+        {sharedNeighborhoodControl}
 
         {/* Summary */}
         <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm">
