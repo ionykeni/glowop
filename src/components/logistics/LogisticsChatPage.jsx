@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { Send, Sparkles } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import WhatsAppConnectButton from "./WhatsAppConnectButton";
-import { LOGISTICS_AGENT_NAME, isLogisticsManager } from "@/lib/logisticsAssistantConfig";
+import ConversationSwitcher from "./ConversationSwitcher";
+import useLogisticsConversations from "@/hooks/useLogisticsConversations";
 
 const SUGGESTIONS = [
   "מה יש לי היום?",
@@ -14,42 +15,15 @@ const SUGGESTIONS = [
   "מה עדיין פתוח בתחזוקה?",
 ];
 
-export default function LogisticsChatPage({ userEmail }) {
-  const [conversation, setConversation] = useState(null);
-  const [messages, setMessages] = useState([]);
+export default function LogisticsChatPage({ userId }) {
+  const {
+    conversations, conversation, messages, setMessages, initializing, notice,
+    openConversation, startNew, ensureConversation, refreshList,
+  } = useLogisticsConversations(userId);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState(null);
   const scrollRef = useRef(null);
-
-  // Create conversation on mount
-  useEffect(() => {
-    let unsub = null;
-    let cancelled = false;
-
-    async function init() {
-      try {
-        const conv = await base44.agents.createConversation({
-          agent_name: LOGISTICS_AGENT_NAME,
-          metadata: { name: "עוזר לוגיסטיקה", description: "צ'אט פרטי עם עוזר הלוגיסטיקה" },
-        });
-        if (cancelled) return;
-        setConversation(conv);
-        setMessages(conv.messages || []);
-
-        unsub = base44.agents.subscribeToConversation(conv.id, (data) => {
-          setMessages(data.messages || []);
-        });
-      } catch (err) {
-        console.error("Failed to init logistics conversation:", err);
-      }
-    }
-
-    init();
-    return () => {
-      cancelled = true;
-      if (unsub) unsub();
-    };
-  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -60,19 +34,25 @@ export default function LogisticsChatPage({ userEmail }) {
 
   const handleSend = useCallback(async (text) => {
     const content = (text ?? input).trim();
-    if (!content || !conversation || loading) return;
+    if (!content || initializing || loading) return;
 
     setInput("");
+    setSendError(null);
     setLoading(true);
 
     try {
-      await base44.agents.addMessage(conversation, { role: "user", content });
+      const conv = await ensureConversation();
+      setMessages(m => [...m, { role: "user", content }]);
+      await base44.agents.addMessage(conv, { role: "user", content });
+      refreshList().catch(() => {});
     } catch (err) {
       console.error("Failed to send message:", err);
+      setInput(content);
+      setSendError("שליחת ההודעה נכשלה. נסה שוב.");
     } finally {
       setLoading(false);
     }
-  }, [conversation, input, loading]);
+  }, [input, loading, initializing, ensureConversation, setMessages, refreshList]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -95,11 +75,27 @@ export default function LogisticsChatPage({ userEmail }) {
           <p className="text-[11px] text-slate-400">קופילוט תפעולי פרטי · קריאה בלבד</p>
         </div>
         <WhatsAppConnectButton />
+        <div className="mr-auto">
+          <ConversationSwitcher
+            conversations={conversations}
+            currentId={conversation?.id}
+            onSelect={openConversation}
+            onNew={startNew}
+            disabled={initializing || loading}
+          />
+        </div>
       </div>
+
+      {notice && (
+        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-800">{notice}</div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50/50">
-        {!hasMessages && (
+        {initializing && (
+          <div className="flex items-center justify-center h-full text-xs text-slate-400">טוען שיחות…</div>
+        )}
+        {!initializing && !hasMessages && (
           <div className="flex flex-col items-center justify-center h-full text-center gap-4 py-8">
             <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 text-primary">
               <Sparkles className="w-7 h-7" />
@@ -141,6 +137,7 @@ export default function LogisticsChatPage({ userEmail }) {
 
       {/* Input */}
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
+        {sendError && <p className="text-xs text-destructive mb-1.5">{sendError}</p>}
         <div className="flex items-end gap-2">
           <textarea
             value={input}

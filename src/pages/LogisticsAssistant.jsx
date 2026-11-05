@@ -22,5 +22,5 @@ export default function LogisticsAssistant() {
     );
   }
 
-  return <LogisticsChatPage userEmail={user.email} />;
+  return <LogisticsChatPage userId={user.id} />;
 }
