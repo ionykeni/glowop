@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Lock, CheckCircle2, ChevronDown, ChevronUp, Plus, X, LayoutGrid, AlertTriangle, Users } from "lucide-react";
 import TentDistributionEditor from "./TentDistributionEditor";
+import SharedNeighborhoodCheckbox from "./SharedNeighborhoodCheckbox";
 import AutoAllocationButton from "./AutoAllocationButton";
 import { releaseSleepingNeighborhood } from '@/components/sleeping/seriesActions';
 import { toast } from 'sonner';
@@ -78,7 +79,7 @@ export default function StudentNeighborhoodPanel({
     notes: "",
   });
   // Shared neighborhood override state
-  const [sharedAllowed, setSharedAllowed] = useState(false);
+  const [sharedAllowed, setSharedAllowed] = useState(null);
   const [sharedReason, setSharedReason] = useState("");
 
   const totalBeds = tents.reduce((s, t) => s + (t.capacity || 0), 0);
@@ -99,8 +100,9 @@ export default function StudentNeighborhoodPanel({
   } : null);
   // Is this neighborhood already shared (approved on existing reservation)?
   const isAlreadyShared = !!(lockByThisGroup?.shared_neighborhood_allowed);
-  const effectiveSharedReason = sharedReason.trim() || lockByThisGroup?.shared_neighborhood_reason?.trim() || "";
-  const sharedNeighborhoodIntent = (sharedAllowed || isAlreadyShared) && effectiveSharedReason ? [{
+  const sharedChecked = sharedAllowed ?? isAlreadyShared;
+  const effectiveSharedReason = sharedReason.trim() || lockByThisGroup?.shared_neighborhood_reason?.trim() || "אושר שיתוף שכונה על ידי מנהל";
+  const sharedNeighborhoodIntent = sharedChecked ? [{
     neighborhood_id: neighborhood.id,
     shared_neighborhood_allowed: true,
     reason: effectiveSharedReason,
@@ -328,35 +330,15 @@ export default function StudentNeighborhoodPanel({
         </div>
       )}
 
-      {!readOnly && isMultiPeriod && hasNeighborhoodConflict && hasPhysicallyAvailableTent && !isAlreadyShared && (
-        <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
-          <p className="text-xs text-amber-800">
-            השכונה משותפת עם {lockByOtherGroup.group_name}. אישור זה עוקף רק את התנגשות השכונה; אוהל תפוס נשאר חסום.
-          </p>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={sharedAllowed}
-              onChange={e => {
-                setSharedAllowed(e.target.checked);
-                if (!e.target.checked) setSharedReason("");
-              }}
-              className="w-4 h-4 accent-amber-600"
-            />
-            <span className="text-xs font-semibold text-amber-900">שימוש משותף בשכונה</span>
-          </label>
-          {sharedAllowed && (
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-amber-900">סיבת שימוש משותף *</label>
-              <Textarea
-                value={sharedReason}
-                onChange={e => setSharedReason(e.target.value)}
-                placeholder="יש לפרט את סיבת האישור"
-                className="text-xs min-h-[56px] border-amber-300 focus:border-amber-500"
-              />
-              {!sharedReason.trim() && <p className="text-[10px] text-red-600">סיבה חובה</p>}
-            </div>
-          )}
+      {!readOnly && isMultiPeriod && hasNeighborhoodConflict && (
+        <div className="border-t border-amber-200 px-4 py-3">
+          <SharedNeighborhoodCheckbox
+            otherGroupNames={lockByOtherGroup.group_names || [lockByOtherGroup.group_name]}
+            checked={sharedChecked}
+            onCheckedChange={setSharedAllowed}
+            reason={sharedReason}
+            onReasonChange={setSharedReason}
+          />
         </div>
       )}
 

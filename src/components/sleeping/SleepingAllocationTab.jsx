@@ -263,7 +263,10 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
         ? visibleStayPeriods.some(period => datesOverlap(period.start_date, period.end_date, r.arrival_date, r.departure_date))
         : datesOverlap(arrivalDate, departureDate, r.arrival_date, r.departure_date);
       if (!overlapsGroup) return;
-      map[r.neighborhood_id] = { group_name: groupById[r.group_id]?.group_name || r.group_id, gender_group: r.gender_group };
+      const name = groupById[r.group_id]?.group_name || r.group_id;
+      const prev = map[r.neighborhood_id];
+      const names = prev ? [...new Set([...prev.group_names, name])] : [name];
+      map[r.neighborhood_id] = { group_name: names.join(", "), group_names: names, gender_group: r.gender_group };
     });
     return map;
   }, [allNhoodReservations, groupId, arrivalDate, departureDate, groupById, isMultiPeriod, visibleStayPeriods]);
