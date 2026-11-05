@@ -89,11 +89,6 @@ export default function StudentNeighborhoodPanel({
   const isLockedByMe = isMultiPeriod ? logicalNeighborhoodAssignments.length > 0 : !!lockByThisGroup;
   const hasNeighborhoodConflict = !!lockByOtherGroup;
   const isLockedByOther = hasNeighborhoodConflict && !isLockedByMe;
-  const blockedTentIds = new Set(allActiveAllocs
-    .filter(allocation => allocation.group_id !== groupId && allocation.status !== "CANCELLED" &&
-      activeStayPeriods.some(period => period.start_date < allocation.departure_date && allocation.arrival_date < period.end_date))
-    .map(allocation => allocation.tent_id));
-  const hasPhysicallyAvailableTent = tents.some(tent => !blockedTentIds.has(tent.id));
   const effectiveReservation = lockByThisGroup || (isMultiPeriod ? {
     gender_group: logicalNeighborhoodAssignments[0]?.gender_group || form.gender_group,
     planned_tents: logicalNeighborhoodAssignments.length || Number(form.planned_tents) || tents.length,
@@ -416,7 +411,7 @@ export default function StudentNeighborhoodPanel({
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={sharedAllowed}
+                  checked={!!sharedAllowed}
                   onChange={e => {
                     setSharedAllowed(e.target.checked);
                     if (!e.target.checked) setSharedReason("");
