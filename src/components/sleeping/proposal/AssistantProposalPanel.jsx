@@ -6,6 +6,7 @@ import { Sparkles, Plus, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import ProposalRow from "./ProposalRow";
 import ProposalReconciliation from "./ProposalReconciliation";
+import ProposalMissingList from "./ProposalMissingList";
 import { applyContinuous, applyMultiPeriod, parseState, rollbackAttempt } from "./applyProposal";
 
 const parse = (v) => { try { return JSON.parse(v || "[]"); } catch { return []; } };
@@ -94,8 +95,9 @@ export default function AssistantProposalPanel({ proposalId, groupId, isMultiPer
 
   return (
     <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2" dir="rtl">
-      <div className="flex items-center gap-2 font-semibold text-sm"><Sparkles className="w-4 h-4 text-primary" /> השיבוץ מוכן לבדיקה — הוכן ע״י העוזר הלוגיסטי</div>
+      <div className="flex items-center gap-2 font-semibold text-sm"><Sparkles className="w-4 h-4 text-primary" /> {proposal.completeness === "INCOMPLETE" ? "הצעת שיבוץ חלקית לבדיקה" : "השיבוץ מוכן לבדיקה"} — הוכן ע״י העוזר הלוגיסטי</div>
       <p className="text-xs text-muted-foreground">{rows.length} אוהלים. ניתן לערוך כל שורה לפני האישור. שום שיבוץ לא נשמר עד לחיצה על ״אשר שיבוץ״.</p>
+      <ProposalMissingList proposal={proposal} />
       <ProposalReconciliation proposal={proposal} rows={rows} existing={existing} profile={profile} />
       {parse(proposal.warnings_json).map(w => <div key={w} className="flex gap-1 text-xs text-amber-700"><AlertTriangle className="w-3 h-3 mt-0.5" />{w}</div>)}
       {state.recovery_required && <div className="rounded border border-destructive bg-destructive/10 px-2 py-1 text-xs text-destructive">ניסיון אישור קודם לא הושלם ונדרש טיפול ידני: {(state.recovery_ids || []).join(", ")}</div>}

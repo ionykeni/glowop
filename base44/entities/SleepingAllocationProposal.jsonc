@@ -41,6 +41,22 @@
       "type": "string",
       "description": "JSON array of warning strings"
     },
+    "completeness": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "INCOMPLETE"
+      ],
+      "description": "Whether the proposal covers the entire original request"
+    },
+    "missing_json": {
+      "type": "string",
+      "description": "JSON array of requested tents/students not included [{tent_code, neighborhood, gender_group, pax, status, reason, blocked_by}]"
+    },
+    "request_json": {
+      "type": "string",
+      "description": "JSON snapshot of the structured request the proposal was generated from"
+    },
     "apply_state_json": {
       "type": "string",
       "description": "Approval attempt state: {created_alloc_ids, created_nhood_ids, recovery_required, recovery_ids}"
