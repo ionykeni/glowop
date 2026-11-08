@@ -194,7 +194,9 @@ export default function MechinaSpaces() {
 
   useEffect(() => {
     if (!isMechinaUser || !internalUser?.email) return;
-    base44.entities.MechinaGroupAssignment.filter({ user_email: internalUser.email, is_active: true }).then(setAssignments);
+    const email = internalUser.email.trim().toLowerCase();
+    base44.entities.MechinaGroupAssignment.filter({ is_active: true })
+      .then(rows => setAssignments(rows.filter(a => String(a.user_email || "").trim().toLowerCase() === email)));
   }, [isMechinaUser, internalUser?.email]);
 
   useEffect(() => {

@@ -58,12 +58,12 @@ export default async function(req) {
 
     // ── Verify group assignment if not admin ─────────────────────────────────
     if (!isAdmin) {
+      const normEmail = (e) => String(e || "").trim().toLowerCase();
       const assignments = await base44.asServiceRole.entities.MechinaGroupAssignment.filter({
-        user_email: user.email,
         group_id: mechina_group_id,
         is_active: true,
       });
-      if (!assignments || assignments.length === 0) {
+      if (!assignments.some(a => normEmail(a.user_email) === normEmail(user.email))) {
         return Response.json({ success: false, error: "אין הרשאה לשלוח בקשה עבור מכינה זו" }, { status: 200 });
       }
     }
