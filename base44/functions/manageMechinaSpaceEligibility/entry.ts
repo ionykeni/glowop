@@ -18,9 +18,10 @@ export default async function(req) {
       const page = await base44.entities.ActivitySpace.filter({}, { sort: 'name', limit: 50, ...(body.cursor ? { cursor: body.cursor } : {}) });
       return Response.json({ success: true, spaces: page.items.map(presentMechinaSpace), next_cursor: page.next_cursor, has_more: page.has_more });
     }
-    const internalRows = await base44.asServiceRole.entities.InternalUser.filter({ email: user.email });
-    const internalUser = internalRows[0];
-    if (user.role !== 'admin' || internalUser?.active === false || !['ADMIN', 'SUPER_ADMIN'].includes(internalUser?.role)) {
+    const normEmail = String(user.email || '').trim().toLowerCase();
+    const internalRows = await base44.asServiceRole.entities.InternalUser.filter({ active: true });
+    const internalUser = internalRows.find(row => String(row.email || '').trim().toLowerCase() === normEmail);
+    if (!internalUser || !['ADMIN', 'SUPER_ADMIN'].includes(internalUser.role)) {
       return Response.json({ success: false, error: 'אין הרשאה לשנות זמינות בקשות מכינה' }, { status: 403 });
     }
     if (!['preview', 'set'].includes(body.action) || typeof body.space_id !== 'string' || !body.space_id) {
