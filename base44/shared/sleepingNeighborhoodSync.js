@@ -2,7 +2,8 @@ import { liveSleeping, overlapSleeping, readSleepingRows } from './sleepingActio
 // Recompute only the explicitly affected period/neighborhood pairs, never historical reservations.
 export async function syncSleepingNeighborhoods(db, writes, groupId, affected, today) {
   const [rows, reservations] = await Promise.all([readSleepingRows(db.SleepingAllocation, { group_id: groupId }), readSleepingRows(db.NeighborhoodReservation, { group_id: groupId, status: 'ACTIVE' })]);
-  const pairs = new Map(affected.filter(r => r.departure_date > today).map(r => [`${r.stay_period_id}:${r.neighborhood_id}`, r]));
+  // Alternative staff tent rows never own neighborhood reservations (same as the continuous flow).
+  const pairs = new Map(affected.filter(r => r.departure_date > today && !/__alt_tent__/i.test(r.notes || '')).map(r => [`${r.stay_period_id}:${r.neighborhood_id}`, r]));
   for (const sample of pairs.values()) {
     const own = reservations.filter(r => r.departure_date > today && r.stay_period_id === sample.stay_period_id && r.neighborhood_id === sample.neighborhood_id);
     const occupants = rows.filter(r => liveSleeping(r) && r.departure_date > today && r.allocation_type === 'STUDENT' && r.stay_period_id === sample.stay_period_id && r.neighborhood_id === sample.neighborhood_id);

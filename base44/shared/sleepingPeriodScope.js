@@ -4,6 +4,9 @@ import { validateLinkedSeriesCompleteness } from './logicalSleepingSeries.js';
 export const PAX_SCOPE = Object.freeze({ ONLY: 'SELECTED_ONLY', FORWARD: 'SELECTED_AND_FUTURE' });
 const cleanRow = row => Object.fromEntries(Object.entries(row).filter(([key]) => !['id','created_date','updated_date','created_by_id'].includes(key)));
 const noteMarker = notes => String(notes || '').match(/__(?:vip_req_\d+|alt_tent)__/i)?.[0] || '';
+// Alternative staff tent rows: STAFF in a regular (non-VIP) tent, marked __alt_tent__.
+const isAltTentRow = row => row?.allocation_type === 'STAFF' && /__alt_tent__/i.test(row?.notes || '');
+const ALT_TENT_GENDERS = ['MEN', 'WOMEN', 'MIXED'];
 const sameAssignment = (row, selected) => row.tent_id === selected.tent_id && row.allocation_type === selected.allocation_type && row.gender_group === selected.gender_group && noteMarker(row.notes) === noteMarker(selected.notes);
 
 const actionableScopedRows = (rows, today) => rows.filter(row => liveSleeping(row) && row.departure_date > today);
@@ -109,11 +112,12 @@ export function planScopedTentReassignment(ctx, body) {
   const selected = selectedMatches[0];
 
   const isVip = /__vip_req_\d+__/i.test(selected.notes || '');
-  if (selected.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בשינוי מקום זה');
+  if (selected.allocation_type !== 'STUDENT' && !isVip && !isAltTentRow(selected)) throw new Error('סוג השיבוץ אינו נתמך בשינוי מקום זה');
   const destination = tents.find(tent => tent.id === body.destination_tent_id);
   if (!destination || destination.working_status !== 'WORKING') throw new Error('אוהל היעד אינו זמין');
   if (destination.id === selected.tent_id) throw new Error('יש לבחור אוהל יעד שונה');
   if (isVip && destination.tent_type !== 'VIP') throw new Error('דרישת VIP חייבת להישאר באוהל VIP');
+  if (isAltTentRow(selected) && destination.tent_type === 'VIP') throw new Error('אוהל חילופי חייב להיות אוהל רגיל, לא VIP');
   if (selected.allocation_type === 'STUDENT' && destination.tent_type === 'VIP') throw new Error('שיבוץ חניכים חייב להישאר באוהל רגיל');
   const capacity = destination.tent_type === 'VIP' || destination.is_accessible === true ? Math.max(Number(destination.capacity || 0), 4) : Number(destination.capacity || 0);
   if (Number(selected.allocated_pax) > capacity) throw new Error('מספר האנשים גבוה מקיבולת אוהל היעד');
@@ -179,7 +183,7 @@ export function planScopedRelease(ctx, body) {
   if (selectedMatches.length !== 1) throw new Error('לא נמצא שיבוץ יחיד בתקופה שנבחרה');
   const selected = selectedMatches[0];
   const isVip = /__vip_req_\d+__/i.test(selected.notes || '');
-  if (selected.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בשחרור זה');
+  if (selected.allocation_type !== 'STUDENT' && !isVip && !isAltTentRow(selected)) throw new Error('סוג השיבוץ אינו נתמך בשחרור זה');
 
   const requestedPeriods = mode === PAX_SCOPE.ONLY ? [selectedPeriod] : periods.slice(selectedIndex);
   const affectedPeriods = [];
@@ -270,7 +274,10 @@ function planScopedCreation(ctx, body, source = null) {
   };
   const vipMarker = noteMarker(prototype.notes);
   const isVip = /^__vip_req_\d+__$/i.test(vipMarker);
-  if (prototype.allocation_type !== 'STUDENT' && !isVip) throw new Error('סוג השיבוץ אינו נתמך בהוספה זו');
+  const isAltTent = isAltTentRow(prototype);
+  if (prototype.allocation_type !== 'STUDENT' && !isVip && !isAltTent) throw new Error('סוג השיבוץ אינו נתמך בהוספה זו');
+  if (isAltTent && destination.tent_type === 'VIP') throw new Error('אוהל חילופי חייב להיות אוהל רגיל, לא VIP');
+  if (isAltTent && !ALT_TENT_GENDERS.includes(prototype.gender_group)) throw new Error('יש לבחור מגדר לאוהל החילופי');
   if (!Number.isInteger(Number(prototype.allocated_pax)) || Number(prototype.allocated_pax) < 1) throw new Error('מספר האנשים חייב להיות מספר חיובי');
   if (isVip && destination.tent_type !== 'VIP') throw new Error('דרישת VIP חייבת להישאר באוהל VIP');
   if (prototype.allocation_type === 'STUDENT' && destination.tent_type === 'VIP') throw new Error('שיבוץ חניכים חייב להישאר באוהל רגיל');

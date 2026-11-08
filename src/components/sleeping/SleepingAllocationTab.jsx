@@ -242,6 +242,15 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
 
   const groupById = useMemo(() => Object.fromEntries(allGroups.map(g => [g.id, g])), [allGroups]);
 
+  // Tents physically occupied (any group) during the selected period's remaining dates only.
+  const periodOccupiedTentIds = useMemo(() => {
+    if (!selectedPeriod) return new Set();
+    const start = selectedPeriod.start_date > todayLocal() ? selectedPeriod.start_date : todayLocal();
+    return new Set(allActiveAllocations
+      .filter(a => a.arrival_date < selectedPeriod.end_date && a.departure_date > start)
+      .map(a => a.tent_id));
+  }, [allActiveAllocations, selectedPeriod]);
+
   const myActiveNhoodRes = useMemo(
     () => myNhoodReservations.filter(r => r.status === "ACTIVE" && (!isMultiPeriod || r.departure_date > todayLocal())),
     [myNhoodReservations, isMultiPeriod]
@@ -832,6 +841,10 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
         logicalAssignments={displayedLogicalSeriesData.logical_assignments}
         activeStayPeriods={visibleStayPeriods}
         readOnly={isPeriodView}
+        allowPeriodEdit={isPeriodView && periodState !== "past"}
+        onPeriodAdd={() => setPeriodAddTarget({ kind: "ALT" })}
+        onPeriodLocationEdit={setPeriodLocationTarget}
+        onPeriodRelease={setPeriodReleaseTarget}
       />
 
       {periodPaxTarget && selectedPeriod && (
@@ -882,9 +895,15 @@ export default function SleepingAllocationTab({ groupId, proposalId = null }) {
             tents={allTents}
             neighborhoods={neighborhoods}
             hasLaterPeriods={laterStayPeriods(sortedStayPeriods, selectedPeriod.id).length > 0}
-            defaultPax={Math.max(1, (Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)) - displayedAllocations.filter(row => row.allocation_type === "STUDENT").reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0))}
-            requiredPax={periodAddTarget.kind === "VIP" ? vipRows.reduce((sum, row) => sum + Number(row.people_count || 0), 0) : Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)}
-            allocatedPax={displayedAllocations.filter(row => row.allocation_type === (periodAddTarget.kind === "VIP" ? "STAFF" : "STUDENT")).reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0)}
+            {...(periodAddTarget.kind === "ALT" ? (() => {
+              const altAllocated = displayedAllocations.filter(row => row.allocation_type === "STAFF" && (row.notes || "").includes("__alt_tent__")).reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0);
+              const altRequired = Number(profile.staff_alt_tent_pax || 0);
+              return { defaultPax: Math.max(1, altRequired - altAllocated), requiredPax: altRequired, allocatedPax: altAllocated, occupiedTentIds: periodOccupiedTentIds };
+            })() : {
+              defaultPax: Math.max(1, (Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0)) - displayedAllocations.filter(row => row.allocation_type === "STUDENT").reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0)),
+              requiredPax: periodAddTarget.kind === "VIP" ? vipRows.reduce((sum, row) => sum + Number(row.people_count || 0), 0) : Number(profile.boys_beds_needed ?? profile.boys_count ?? 0) + Number(profile.girls_beds_needed ?? profile.girls_count ?? 0),
+              allocatedPax: displayedAllocations.filter(row => row.allocation_type === (periodAddTarget.kind === "VIP" ? "STAFF" : "STUDENT")).reduce((sum, row) => sum + Number(row.allocated_pax || 0), 0),
+            })}
             defaultGender={defaultGenderGroup}
             onClose={() => setPeriodAddTarget(null)}
             onSaved={() => { setPeriodAddTarget(null); invalidate(); }}

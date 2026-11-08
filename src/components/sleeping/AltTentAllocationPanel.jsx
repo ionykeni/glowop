@@ -12,6 +12,7 @@ import RoleGate from "@/components/RoleGate";
 import { getLogicalAltTentAllocations, ALT_TENT_MARKER } from "@/lib/altTentLogicalAllocations";
 import { toSleepingAssignmentPrototype } from "@/lib/vipLogicalAllocations";
 import { naturalTentCodeCompare, sortTentsNaturally } from "./tentCodeSort";
+import SleepingActionButton from "./SleepingActionButton";
 
 const GENDER_OPTIONS = [
   { value: "MEN",   label: "גברים" },
@@ -609,8 +610,15 @@ export default function AltTentAllocationPanel({
   logicalAssignments = [],
   activeStayPeriods = [],
   readOnly = false,
+  // Selected-period editing (period view only): add / move / release for that period
+  allowPeriodEdit = false,
+  onPeriodAdd,
+  onPeriodLocationEdit,
+  onPeriodRelease,
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const periodTodayIL = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+  const periodRowOf = alloc => alloc.period_rows?.find(row => row.departure_date > periodTodayIL) || alloc;
   const [releasingId, setReleasingId] = useState(null);
 
   const altTentPax   = profile.staff_alt_tent_pax ?? 0;
@@ -737,6 +745,14 @@ export default function AltTentAllocationPanel({
             </Button>
           </RoleGate>
         )}
+        {readOnly && allowPeriodEdit && (
+          <RoleGate permission="MANAGE_ALLOCATION">
+            <Button size="sm" onClick={() => onPeriodAdd?.()} className="gap-1 shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
+              <Plus className="w-3.5 h-3.5" />
+              שבץ באוהל חילופי
+            </Button>
+          </RoleGate>
+        )}
       </div>
 
       {/* Compact list of assigned alt tents */}
@@ -775,6 +791,14 @@ export default function AltTentAllocationPanel({
                       <Unlock className="w-3.5 h-3.5" />
                       {isReleasing ? "משחרר..." : "שחרר"}
                     </Button>
+                  </RoleGate>
+                )}
+                {readOnly && allowPeriodEdit && (
+                  <RoleGate permission="MANAGE_ALLOCATION">
+                    <div className="flex gap-1.5 shrink-0">
+                      <SleepingActionButton onClick={() => onPeriodLocationEdit?.(periodRowOf(alloc))}>שנה אוהל</SleepingActionButton>
+                      <SleepingActionButton tone="destructive" onClick={() => onPeriodRelease?.(periodRowOf(alloc))}>שחרר</SleepingActionButton>
+                    </div>
                   </RoleGate>
                 )}
               </div>
