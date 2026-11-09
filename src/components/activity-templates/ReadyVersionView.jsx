@@ -1,4 +1,5 @@
-import { Lock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Lock, ClipboardList } from "lucide-react";
 import StationReadOnlyCard from "./StationReadOnlyCard";
 import TemplateMessages from "./TemplateMessages";
 
@@ -12,6 +13,10 @@ export default function ReadyVersionView({ template, spacesById, warnings }) {
           <span className="flex items-center gap-1 text-[11px] text-slate-500"><Lock className="w-3.5 h-3.5" /> גרסה {template.version} נעולה</span>
         </div>
         {template.description && <p className="text-sm text-slate-600 whitespace-pre-line">{template.description}</p>}
+        <Link to={`/activity-day-templates/plan?template=${template.id}`}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-1.5 mt-2 hover:bg-primary/90">
+          <ClipboardList className="w-4 h-4" /> תכנון יום מהתבנית
+        </Link>
         {template.ready_at && (
           <p className="text-[11px] text-slate-400">סומנה כמוכנה {new Date(template.ready_at).toLocaleString("he-IL")}{template.ready_by_email ? ` · ${template.ready_by_email}` : ""}</p>
         )}

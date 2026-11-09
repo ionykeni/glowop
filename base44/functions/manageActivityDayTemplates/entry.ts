@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { sanitizeStations, validateTemplate } from '../../shared/activityDayTemplate.js';
+import { resolveInternalRole } from '../../shared/internalRoleAuth.js';
 
 // Planning-only templates. This function reads ActivitySpace for reference validation and
 // reads/writes ONLY ActivityDayTemplate. It never touches operational entities or calendars.
@@ -9,15 +10,9 @@ const MAX_TEMPLATES = 500;
 
 const json = (body, status = 200) => Response.json(body, { status });
 const fail = (status, error, extra = {}) => json({ success: false, error, ...extra }, status);
-const norm = (e) => String(e || '').trim().toLowerCase();
 // Write responses and reads differ in timestamp precision/suffix; compare at millisecond precision.
 const sameStamp = (a, b) => String(a || '').replace(/Z$/, '').slice(0, 23) === String(b || '').replace(/Z$/, '').slice(0, 23);
 
-async function resolveInternalRole(base44, user) {
-  const rows = await base44.asServiceRole.entities.InternalUser.filter({ active: true });
-  const row = rows.find(r => norm(r.email) === norm(user.email));
-  return row?.role || null;
-}
 
 async function loadSpaceInfo(base44, stations) {
   // Malformed ids can't match a real record; they are left out and reported as SPACE_NOT_FOUND.
