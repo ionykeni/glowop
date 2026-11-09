@@ -58,6 +58,7 @@ function buildSnapshot(quote, group) {
     clientTaxId:   quote.client_tax_id   || "",
     // pricing (line item detail for PDF)
     subtotal:        quote.subtotal        || 0,
+    discount_type:    quote.discount_type || "PERCENT",
     discount_percent: quote.discount_percent || 0,
     discount_amount: quote.discount_amount  || 0,
     total_price:     quote.total_price      || 0,

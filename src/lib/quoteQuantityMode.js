@@ -2,6 +2,7 @@ import {
   CONTENT_ADDON_CATALOG, MEAL_ADDON_CATALOG, OPERATOR_ADDON_CATALOG,
   calcAddonLine, calcPackageLine, resolvePackageUnitPrice,
 } from "@/lib/quoteCatalog";
+import { resolveQuoteDiscount } from "@/lib/quoteDiscount";
 
 const parseLines = value => { try { const rows = JSON.parse(value || "[]"); return Array.isArray(rows) ? rows : []; } catch { return []; } };
 const perPersonAddonIds = new Set([...MEAL_ADDON_CATALOG, ...OPERATOR_ADDON_CATALOG].map(item => item.id));
@@ -38,7 +39,7 @@ export function syncOptionPayloadPax(payload, pax, previousPax = pax, nights = 1
   const newTotal = synced.packageLines.reduce((sum, line) => sum + calcPackageLine(line, pricingNights), 0) + synced.addonLines.reduce((sum, line) => sum + calcAddonLine(line, pricingNights), 0);
   const prisaDelta = payload.includes_prisa === true ? (Number(pax) - Number(previousPax)) * 2.5 : 0;
   const subtotal = Number(payload.subtotal || 0) + newTotal - oldTotal + prisaDelta;
-  const discount_amount = Math.round(subtotal * Number(payload.discount_percent || 0) / 100);
-  const total_price = subtotal - discount_amount, advance_payment = Math.round(total_price * 0.3);
-  return { ...payload, package_lines: JSON.stringify(synced.packageLines), new_addon_lines: JSON.stringify(synced.addonLines), subtotal, discount_amount, total_price, advance_payment, balance_payment: total_price - advance_payment };
+  const discount = resolveQuoteDiscount(payload, subtotal);
+  const advance_payment = Math.round(discount.total * 0.3);
+  return { ...payload, package_lines: JSON.stringify(synced.packageLines), new_addon_lines: JSON.stringify(synced.addonLines), subtotal, discount_type: discount.type, discount_amount: discount.amount, total_price: discount.total, advance_payment, balance_payment: discount.total - advance_payment };
 }

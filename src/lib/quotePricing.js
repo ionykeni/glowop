@@ -1,4 +1,7 @@
 import { calcAddonLine, calcPackageLine } from "@/lib/quoteCatalog";
+import { DISCOUNT_TYPE, normalizeDiscountType, resolveQuoteDiscount } from "@/lib/quoteDiscount";
+
+export { DISCOUNT_TYPE, normalizeDiscountType, resolveQuoteDiscount };
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -70,9 +73,8 @@ export function repriceOptionPayload(payload, nights, isDayUse, estimatedPax) {
     prisaEnabled: payload.includes_prisa === true, estimatedPax,
   };
   const priced = priceQuoteParts(parts, nights, isDayUse);
-  const discount_amount = Math.round(priced.subtotal * Number(payload.discount_percent || 0) / 100);
-  const total_price = priced.subtotal - discount_amount;
-  const advance_payment = Math.round(total_price * 0.3);
+  const discount = resolveQuoteDiscount(payload, priced.subtotal);
+  const advance_payment = Math.round(discount.total * 0.3);
   const syncNights = value => JSON.stringify(parseLines(value).map(line => line.rate_type === "day_activity" ? line : { ...line, nights }));
-  return { ...payload, student_lodging_lines: syncNights(payload.student_lodging_lines), adult_lodging_lines: syncNights(payload.adult_lodging_lines), subtotal: priced.subtotal, discount_amount, total_price, advance_payment, balance_payment: total_price - advance_payment };
+  return { ...payload, student_lodging_lines: syncNights(payload.student_lodging_lines), adult_lodging_lines: syncNights(payload.adult_lodging_lines), subtotal: priced.subtotal, discount_type: discount.type, discount_amount: discount.amount, total_price: discount.total, advance_payment, balance_payment: discount.total - advance_payment };
 }

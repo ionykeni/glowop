@@ -187,6 +187,7 @@ export function resolveQuotePdfData(quote, group) {
   }
 
   const subtotal    = Number(quote?.subtotal ?? 0);
+  const discountType = quote?.discount_type === "FIXED" ? "FIXED" : "PERCENT";
   const discountPct = Number(quote?.discount_percent ?? 0);
   const discountAmt = Number(quote?.discount_amount ?? 0);
   const totalPrice  = Number(quote?.total_price ?? 0);
@@ -226,6 +227,7 @@ export function resolveQuotePdfData(quote, group) {
     totalPax:     snap?.totalPax ?? quote?.estimated_pax ?? group?.total_pax ?? "—",
     lineItems,
     subtotal,
+    discountType,
     discountPct,
     discountAmt,
     totalPrice,
@@ -361,7 +363,7 @@ export function QuotePricingPage({ d, logoUrl, optionLabel, showShared = true })
       <SectionHeading>פירוט תמחור</SectionHeading>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}><thead><tr><th style={{ ...thBase, width: "44%" }}>פריט</th><th style={{ ...thBase, textAlign: "center" }}>כמות</th><th style={{ ...thBase, textAlign: "center" }}>מחיר יחידה</th><th style={{ ...thBase, textAlign: "left" }}>סה״כ</th></tr></thead><tbody>
         {d.lineItems.map((item, index) => <tr key={index} style={{ background: index % 2 === 0 ? "#fff" : "#f5f8ff" }}><td style={tdBase}><strong>{item.name}</strong>{item.description && <div style={{ fontSize: 10, color: "#555" }}>{item.description}</div>}</td><td style={{ ...tdBase, textAlign: "center" }}>{item.qty}</td><td style={{ ...tdBase, textAlign: "center" }}>₪{fmtUnit(item.unitPrice)}</td><td style={{ ...tdBase, textAlign: "left", fontWeight: 600 }}>{item.total < 0 ? `-₪${fmt(Math.abs(item.total))}` : `₪${fmt(item.total)}`}</td></tr>)}
-        {d.discountAmt > 0 && <><tr><td colSpan={3} style={tdBase}>סה״כ לפני הנחה</td><td style={{ ...tdBase, textAlign: "left" }}>₪{fmt(d.subtotal)}</td></tr><tr><td colSpan={3} style={{ ...tdBase, color: "#c00" }}>הנחה {d.discountPct}%</td><td style={{ ...tdBase, textAlign: "left", color: "#c00" }}>-₪{fmt(d.discountAmt)}</td></tr></>}
+        {d.discountAmt > 0 && <><tr><td colSpan={3} style={tdBase}>סה״כ לפני הנחה</td><td style={{ ...tdBase, textAlign: "left" }}>₪{fmt(d.subtotal)}</td></tr><tr><td colSpan={3} style={{ ...tdBase, color: "#c00" }}>{d.discountType === "FIXED" ? "הנחה (סכום קבוע)" : `הנחה ${d.discountPct}%`}</td><td style={{ ...tdBase, textAlign: "left", color: "#c00" }}>-₪{fmt(d.discountAmt)}</td></tr></>}
         <tr style={{ background: "#e8f0fc" }}><td colSpan={3} style={{ ...tdBase, fontWeight: 800, color: BLUE }}>סה״כ לתשלום</td><td style={{ ...tdBase, textAlign: "left", fontWeight: 800, color: BLUE }}>₪{fmt(d.totalPrice)}</td></tr>
       </tbody></table>
       {(d.requiresAdvancePayment || d.paymentTerms) && <div style={{ marginTop: 12, fontSize: 11.5, fontFamily: BODY_FONT }}><strong style={{ color: BLUE }}>תנאי תשלום: </strong>{d.requiresAdvancePayment && <>מקדמה: <strong>₪{fmt(deposit)}</strong> | יתרה: <strong>₪{fmt(balance)}</strong></>}{d.requiresAdvancePayment && d.paymentTerms && <span> | </span>}{d.paymentTerms && <span>{d.paymentTerms}</span>}</div>}

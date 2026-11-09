@@ -4,7 +4,7 @@ export const QUOTE_MULTI_OPTION_ROLLOUT = 'QUOTE_AUTHORITIES';
 export const QUOTE_OPTION_FIELDS = [
   'package_lines', 'new_addon_lines', 'student_lodging_lines', 'adult_lodging_lines',
   'workshop_lines', 'lecture_lines', 'coffee_corner_pax', 'includes_prisa', 'addon_lines',
-  'adjustment_lines', 'surcharge_lines', 'discount_percent', 'subtotal', 'discount_amount',
+  'adjustment_lines', 'surcharge_lines', 'discount_type', 'discount_percent', 'subtotal', 'discount_amount',
   'total_price', 'advance_payment', 'balance_payment', 'payment_terms', 'option_notes', 'vip_people',
 ];
 
@@ -55,6 +55,7 @@ export function createEmptyQuoteOption(optionKey = 'B') {
     if (emptyArrays.has(field)) return [field, JSON.stringify([])];
     if (field === 'includes_prisa') return [field, false];
     if (field === 'payment_terms' || field === 'option_notes') return [field, ''];
+    if (field === 'discount_type') return [field, 'PERCENT'];
     return [field, 0];
   }));
 }

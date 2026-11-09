@@ -11,12 +11,13 @@ import { Plus, Trash2, CalendarDays, Users, Coffee, BookOpen, Mic2, Tag, Sliders
 import CapacityWarningBanner from "./CapacityWarningBanner";
 import VipPeopleField from "./VipPeopleField";
 import QuoteNotesEditor from "./QuoteNotesEditor";
+import QuoteDiscountFields from "./QuoteDiscountFields";
 import QuoteAvailabilityCalendar from "./availability/QuoteAvailabilityCalendar";
 import AdultLodgingSection from "./AdultLodgingSection";
 import PackageLinesSection from "./PackageLinesSection";
 import AdjustmentsSection, { calcAdjustmentLine, normalizeAdjustmentRow } from "./AdjustmentsSection";
 import { useRoleContext } from "@/lib/RoleContext";
-import { calcStudentLodgingLine, getQuoteNights, priceQuoteParts, repriceOptionPayload } from "@/lib/quotePricing";
+import { calcStudentLodgingLine, getQuoteNights, priceQuoteParts, repriceOptionPayload, resolveQuoteDiscount } from "@/lib/quotePricing";
 import { isQuotePreparationEnabled } from "@/lib/quotePreparationFlow";
 import { getEffectiveQuoteGroupName } from "@/lib/quoteAudience";
 import { isQuoteMultiOptionEnabled } from "@/lib/quoteMultiOption";
@@ -352,8 +353,9 @@ function SummaryCard({ groupName, activityType, totalPax, staffCount, participan
   );
 }
 
-function PricingCard({ subtotal, discountAmount, discountPct, totalPrice, advance, balance, requiresAdvancePayment }) {
+function PricingCard({ subtotal, discountAmount, discountType, discountPct, totalPrice, advance, balance, requiresAdvancePayment }) {
   const hasDiscount = discountAmount > 0;
+  const discountLabel = discountType === "FIXED" ? "הנחה (סכום קבוע)" : `הנחה ${discountPct}%`;
   return (
     <div className={`${CARD} p-4 border-primary/20`}>
       <div className={SEC_TITLE}><Tag className="w-4 h-4 text-primary" />תמחור חי</div>
@@ -366,7 +368,7 @@ function PricingCard({ subtotal, discountAmount, discountPct, totalPrice, advanc
         )}
         {hasDiscount && (
           <div className="flex justify-between text-red-500">
-            <span>הנחה {discountPct}%</span>
+            <span>{discountLabel}</span>
             <span>−{fmtMoney(discountAmount)}</span>
           </div>
         )}
@@ -449,7 +451,9 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     departure_time:  quote?.departure_time  || group?.departure_time || "",
     estimated_pax:   quote?.estimated_pax   ?? group?.total_pax     ?? "",
     staff_count:     quote?.staff_count     ?? group?.staff_count   ?? "",
+    discount_type:  quote?.discount_type || "PERCENT",
     discount_percent: quote?.discount_percent ?? 0,
+    discount_amount: quote?.discount_amount ?? 0,
     requires_advance_payment: quote?.requires_advance_payment !== false,
     payment_terms:   quote?.payment_terms   || "",
     valid_until:     quote?.valid_until     || "",
@@ -607,8 +611,9 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
   const newAddonLinesTotal = priced.catalogAddons;
   const prisaTotal = priced.prisa;
   const subtotal = priced.subtotal;
-  const discountAmount      = Math.round(subtotal * Number(form.discount_percent || 0) / 100);
-  const total_price         = subtotal - discountAmount;
+  const discount            = resolveQuoteDiscount(form, subtotal);
+  const discountAmount      = discount.amount;
+  const total_price         = discount.total;
   const advance             = Math.round(total_price * 0.3);
   const balance             = total_price - advance;
 
@@ -618,6 +623,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     workshop_lines: JSON.stringify(workshops), lecture_lines: JSON.stringify(lectures),
     coffee_corner_pax: coffeeEnabled ? coffeeCornerPax : 0, includes_prisa: prisaEnabled,
     addon_lines: JSON.stringify(addons), adjustment_lines: JSON.stringify(adjustments), surcharge_lines: JSON.stringify([]),
+    discount_type: form.discount_type || "PERCENT",
     discount_percent: Number(form.discount_percent || 0), subtotal, discount_amount: discountAmount,
     total_price, advance_payment: advance, balance_payment: balance,
     payment_terms: form.payment_terms, option_notes: optionNotes, vip_people: effectiveVipPeople,
@@ -642,7 +648,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
     setCoffeeEnabled(Number(payload.coffee_corner_pax || 0) > 0); setCoffeeCornerPax(Number(payload.coffee_corner_pax || 0));
     setPrisaEnabled(payload.includes_prisa === true); setVipPeople(Number(payload.vip_people || 0));
     setVipMode(payload.vip_people_mode || inferVipMode(payload.vip_people, staffCount));
-    set("discount_percent", payload.discount_percent ?? 0); set("payment_terms", payload.payment_terms || ""); setOptionNotes(payload.option_notes || "");
+    set("discount_type", payload.discount_type || "PERCENT"); set("discount_percent", payload.discount_percent ?? 0); set("discount_amount", payload.discount_amount ?? 0); set("payment_terms", payload.payment_terms || ""); setOptionNotes(payload.option_notes || "");
   };
 
   useEffect(() => {
@@ -824,7 +830,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
         subtotal, discount_amount: discountAmount, total_price, advance_payment: advance, balance_payment: balance,
         version: Number(form.version), estimated_pax: estimatedPax || undefined, staff_count: staffCount || undefined,
         participant_count: participantCount || undefined, coffee_corner_pax: coffeeEnabled ? staffCount : 0,
-        nights, includes_prisa: prisaEnabled, discount_percent: Number(form.discount_percent || 0),
+        nights, includes_prisa: prisaEnabled, discount_type: form.discount_type || "PERCENT", discount_percent: Number(form.discount_percent || 0),
         vip_people: effectiveVipPeople,
       };
       if (hasOptionB) { const legacyOptionA = { ...draftsToSave.A }; delete legacyOptionA.option_notes; quotePayload = applyOptionPayloadToQuote(quotePayload, legacyOptionA); }
@@ -1261,11 +1267,13 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               <div className={`${CARD} px-5 py-4`}>
                 <div className={SEC_TITLE}><Tag className="w-4 h-4 text-primary" />הנחה ותנאי תשלום</div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-500">הנחה (%)</Label>
-                    <Input type="number" min="0" max="100" value={form.discount_percent} onChange={e => set("discount_percent", e.target.value)} />
-                    {discountAmount > 0 && <div className="text-xs text-red-500">−{fmtMoney(discountAmount)}</div>}
-                  </div>
+                  <QuoteDiscountFields
+                    type={form.discount_type}
+                    percent={form.discount_percent}
+                    amount={form.discount_amount}
+                    discountAmount={discountAmount}
+                    onChange={set}
+                  />
                   <div className="space-y-1">
                     <Label className="text-xs text-slate-500">תנאי תשלום</Label>
                     <Input value={form.payment_terms} onChange={e => set("payment_terms", e.target.value)} />
@@ -1321,6 +1329,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
             <PricingCard
               subtotal={subtotal}
               discountAmount={discountAmount}
+              discountType={form.discount_type}
               discountPct={form.discount_percent}
               totalPrice={total_price}
               advance={advance}

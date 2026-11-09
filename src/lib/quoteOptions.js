@@ -1,7 +1,7 @@
 export const QUOTE_OPTION_FIELDS = [
   "package_lines", "new_addon_lines", "student_lodging_lines", "adult_lodging_lines",
   "workshop_lines", "lecture_lines", "coffee_corner_pax", "includes_prisa", "addon_lines",
-  "adjustment_lines", "surcharge_lines", "discount_percent", "subtotal", "discount_amount",
+  "adjustment_lines", "surcharge_lines", "discount_type", "discount_percent", "subtotal", "discount_amount",
   "total_price", "advance_payment", "balance_payment", "payment_terms", "option_notes", "vip_people",
 ];
 
@@ -25,7 +25,7 @@ export function createEmptyQuoteOption() {
   return {
     package_lines: "[]", new_addon_lines: "[]", student_lodging_lines: "[]", adult_lodging_lines: "[]",
     workshop_lines: "[]", lecture_lines: "[]", coffee_corner_pax: 0, includes_prisa: false,
-    addon_lines: "[]", adjustment_lines: "[]", surcharge_lines: "[]", discount_percent: 0,
+    addon_lines: "[]", adjustment_lines: "[]", surcharge_lines: "[]", discount_type: "PERCENT", discount_percent: 0,
     subtotal: 0, discount_amount: 0, total_price: 0, advance_payment: 0, balance_payment: 0,
     payment_terms: "", option_notes: "", vip_people: 0,
   };
@@ -41,11 +41,14 @@ const comparableValue = (field, value) => {
   }
   if (NUMERIC_OPTION_FIELDS.has(field)) return Number(value || 0);
   if (BOOLEAN_OPTION_FIELDS.has(field)) return value === true;
+  if (field === "discount_type") return value || "PERCENT";
   return value || "";
 };
 
 export function isOptionDraftSemanticallyEqual(left = {}, right = {}) {
+  // A fixed discount uses discount_amount as an input, so it is compared; a percentage one derives it.
+  const fixedDiscount = (left.discount_type || right.discount_type) === "FIXED";
   return QUOTE_OPTION_FIELDS
-    .filter(field => !DERIVED_OPTION_FIELDS.has(field))
+    .filter(field => !DERIVED_OPTION_FIELDS.has(field) || (fixedDiscount && field === "discount_amount"))
     .every(field => comparableValue(field, left[field]) === comparableValue(field, right[field]));
 }

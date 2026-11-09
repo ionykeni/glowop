@@ -171,12 +171,22 @@
     "subtotal": {
       "type": "number"
     },
+    "discount_type": {
+      "type": "string",
+      "enum": [
+        "PERCENT",
+        "FIXED"
+      ],
+      "default": "PERCENT",
+      "description": "PERCENT = discount_percent of subtotal; FIXED = discount_amount in NIS. Missing means PERCENT (legacy quotes)."
+    },
     "discount_percent": {
       "type": "number",
       "default": 0
     },
     "discount_amount": {
-      "type": "number"
+      "type": "number",
+      "description": "Computed discount in NIS. For FIXED quotes this is the entered amount, capped at the subtotal."
     },
     "total_price": {
       "type": "number"
