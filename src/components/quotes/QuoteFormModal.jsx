@@ -11,7 +11,7 @@ import { Plus, Trash2, CalendarDays, Users, Coffee, BookOpen, Mic2, Tag, Sliders
 import CapacityWarningBanner from "./CapacityWarningBanner";
 import VipPeopleField from "./VipPeopleField";
 import QuoteNotesEditor from "./QuoteNotesEditor";
-import QuoteDiscountFields from "./QuoteDiscountFields";
+import QuoteDiscountFields, { QuoteDiscountTypeToggle } from "./QuoteDiscountFields";
 import QuoteAvailabilityCalendar from "./availability/QuoteAvailabilityCalendar";
 import AdultLodgingSection from "./AdultLodgingSection";
 import PackageLinesSection from "./PackageLinesSection";
@@ -1266,7 +1266,15 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
               {/* Discount + payment terms */}
               <div className={`${CARD} px-5 py-4`}>
                 <div className={SEC_TITLE}><Tag className="w-4 h-4 text-primary" />הנחה ותנאי תשלום</div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="mb-3">
+                  <QuoteDiscountTypeToggle
+                    value={form.discount_type}
+                    amount={form.discount_amount}
+                    discountAmount={discountAmount}
+                    onChange={set}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3 items-start">
                   <QuoteDiscountFields
                     type={form.discount_type}
                     percent={form.discount_percent}
@@ -1275,7 +1283,7 @@ export default function QuoteFormModal({ quote, group, onClose, onSaved, returnT
                     onChange={set}
                   />
                   <div className="space-y-1">
-                    <Label className="text-xs text-slate-500">תנאי תשלום</Label>
+                    <Label className="text-xs text-slate-500 block">תנאי תשלום</Label>
                     <Input value={form.payment_terms} onChange={e => set("payment_terms", e.target.value)} />
                   </div>
                 </div>

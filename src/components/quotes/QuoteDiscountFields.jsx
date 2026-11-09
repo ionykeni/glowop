@@ -10,30 +10,38 @@ const TYPES = [
 ];
 
 /**
- * Discount type selector + matching value field (percentage or fixed NIS amount).
- * The parent owns the discount state; this component only renders and reports changes.
+ * Discount type selector. Rendered above the discount / payment-terms grid so both
+ * columns keep their labels and inputs on the same row.
  */
-export default function QuoteDiscountFields({ type, percent, amount, discountAmount, onChange }) {
-  const isFixed = type === DISCOUNT_TYPE.FIXED;
+export function QuoteDiscountTypeToggle({ value, amount, discountAmount, onChange }) {
   // Switching to a fixed amount starts from the discount currently shown, never from a stale value.
   const selectType = id => {
     if (id === DISCOUNT_TYPE.FIXED && !(Number(amount) > 0)) onChange("discount_amount", String(discountAmount || 0));
     onChange("discount_type", id);
   };
   return (
+    <div className="flex gap-2">
+      {TYPES.map(opt => (
+        <button
+          key={opt.id}
+          type="button"
+          onClick={() => selectType(opt.id)}
+          className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${value === opt.id ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Discount value field (percentage or fixed NIS amount). The parent owns the state.
+ */
+export default function QuoteDiscountFields({ type, percent, amount, discountAmount, onChange }) {
+  const isFixed = type === DISCOUNT_TYPE.FIXED;
+  return (
     <div className="space-y-1">
-      <div className="flex gap-2">
-        {TYPES.map(opt => (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => selectType(opt.id)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${type === opt.id ? "bg-primary text-white border-primary" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
       <Label className="text-xs text-slate-500 block">{isFixed ? "סכום הנחה (₪)" : "הנחה (%)"}</Label>
       {isFixed
         ? <Input type="number" min="0" step="1" value={amount} onChange={e => onChange("discount_amount", e.target.value)} />
