@@ -39,6 +39,7 @@ import AuthenticatedSnapshotFallback from "@/components/snapshots/AuthenticatedS
 import LogisticsAssistant from "./pages/LogisticsAssistant.jsx";
 import OperationalProcedures from "./pages/OperationalProcedures.jsx";
 import MechinaSleepingReport from "@/pages/MechinaSleepingReport";
+import ActivityDayTemplates from "./pages/ActivityDayTemplates.jsx";
 
 const AuthenticatedApp = () => {
   const { isLoadingPublicSettings } = useAuth(); // Auth loading handled by RouteGuard
@@ -88,6 +89,7 @@ const AuthenticatedApp = () => {
         <Route path="/analytics" element={<RouteGuard><AnalyticsDashboard /></RouteGuard>} />
         <Route path="/logistics-assistant" element={<RouteGuard><LogisticsAssistant /></RouteGuard>} />
         <Route path="/operational-procedures" element={<RouteGuard><OperationalProcedures /></RouteGuard>} />
+        <Route path="/activity-day-templates" element={<RouteGuard><ActivityDayTemplates /></RouteGuard>} />
         {/* Add your page Route elements here */}
         <Route path="*" element={<PageNotFound />} />
       </Routes>

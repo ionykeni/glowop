@@ -44,7 +44,7 @@ export const ROLE_NAV_LINKS = {
 // Pages (route prefixes) each role can access
 export const ROLE_ALLOWED_ROUTES = {
   SUPER_ADMIN: "*", // all
-  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures"],
+  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures", "activity-day-templates"],
   QUOTES_MANAGER: ["dashboard", "groups", "calendar", "quotes"],
   OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-spaces", "mechina-sleeping-report"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "cleaning-hours", "maintenance", "my-shifts", "operational-procedures"],

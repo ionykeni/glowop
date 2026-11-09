@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   Users, FileText, ClipboardList, Boxes, Settings,
-  TrendingUp, ChevronLeft, ShieldAlert, UserCog
+  TrendingUp, ChevronLeft, ShieldAlert, UserCog, CalendarRange
 } from "lucide-react";
 import OrphanCleanupPanel from "@/components/admin/OrphanCleanupPanel";
 import { useRoleContext } from "@/lib/RoleContext";
@@ -39,6 +39,14 @@ const ADMIN_TILES = [
     desc: "שכונות, אוהלים, מתקנים, מרחבי פעילות",
     color: "bg-emerald-50 border-emerald-200 hover:bg-emerald-100",
     iconColor: "text-emerald-600",
+  },
+  {
+    to: "/activity-day-templates",
+    icon: CalendarRange,
+    label: "תבניות ימי פעילות",
+    desc: "תבניות לתוכניות חוזרות — ללא יצירת הזמנות",
+    color: "bg-sky-50 border-sky-200 hover:bg-sky-100",
+    iconColor: "text-sky-600",
   },
   {
     to: "/settings",
