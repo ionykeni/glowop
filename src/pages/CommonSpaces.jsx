@@ -21,6 +21,7 @@ import ActivitySpaceBlocksPanel from "@/components/spaces/ActivitySpaceBlocksPan
 import StandaloneActivityModal from "@/components/standalone-activities/StandaloneActivityModal";
 import StandaloneActivitiesTab from "@/components/standalone-activities/StandaloneActivitiesTab";
 import { invalidateStandaloneActivityQueries } from "@/lib/standaloneActivityQueries";
+import VisualSpaceCalendar from "@/components/spaces/visual/VisualSpaceCalendar";
 
 moment.locale("he");
 
@@ -164,6 +165,7 @@ export default function CommonSpaces() {
     { id: "overview",  label: "סקירה כללית" },
     { id: "daily",     label: "יומי" },
     { id: "weekly",    label: "שבועי" },
+    { id: "visual",    label: "יומן חזותי" },
     { id: "standalone", label: `פעילויות כלליות (${activeStandaloneActivities.length})` },
     { id: "blocks",    label: "חסימות מרחבים" },
     { id: "logistics", label: "📋 דוח לוגיסטיקה" },
@@ -271,6 +273,8 @@ export default function CommonSpaces() {
               />
           </div>
         )}
+
+        {tab === "visual" && <VisualSpaceCalendar />}
 
         {tab === "standalone" && (
           <StandaloneActivitiesTab activities={activeStandaloneActivities} onSelect={selectStandalone} onCancel={cancelStandalone} canCancel={["SUPER_ADMIN", "ADMIN"].includes(role)} />

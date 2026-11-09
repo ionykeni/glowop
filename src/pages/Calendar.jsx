@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import moment from "moment";
 import "moment/locale/he";
-import { ChevronLeft, ChevronRight, CalendarDays, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Users, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isGroupOperationallyEnabled } from "@/lib/groupOperationalIsolation";
@@ -12,6 +12,9 @@ import OperationalDaySummary from "../components/calendar/OperationalDaySummary.
 import { getWeekDatesSunday, getMonthDatesSunday, HEB_DAYS_SUN } from "@/lib/calendarWeek";
 import { classifyGroupsForDate } from "@/lib/groupDateReaders";
 import useGroupStayPeriods from "@/hooks/useGroupStayPeriods";
+import { useRoleContext } from "@/lib/RoleContext";
+import { SPACE_CALENDAR_ROLES } from "@/lib/spaceCalendarView";
+import VisualSpaceCalendar from "@/components/spaces/visual/VisualSpaceCalendar";
 
 moment.locale("he");
 
@@ -388,7 +391,9 @@ export default function Calendar() {
   const [pivot, setPivot] = useState(moment());
   const [view, setView] = useState("week");
   const [selectedDate, setSelectedDate] = useState(null); // moment object — for day summary
-  const [tab, setTab] = useState("operational"); // "operational" | "checkinout"
+  const [tab, setTab] = useState("operational"); // "operational" | "checkinout" | "spaces"
+  const { role } = useRoleContext();
+  const canSeeSpaces = SPACE_CALENDAR_ROLES.includes(role);
 
   const { data: groups = [] } = useQuery({
     queryKey: ["cal-groups"],
@@ -475,6 +480,7 @@ export default function Calendar() {
         <div className="flex gap-1 overflow-x-auto pb-1">
           <Button size="sm" variant={tab === "operational" ? "default" : "outline"} onClick={() => setTab("operational")} className="shrink-0 text-xs">לוח תפעולי</Button>
           <Button size="sm" variant={tab === "checkinout" ? "default" : "outline"} onClick={() => setTab("checkinout")} className="shrink-0 text-xs">צ׳ק אין / אאוט</Button>
+          {canSeeSpaces && <Button size="sm" variant={tab === "spaces" ? "default" : "outline"} onClick={() => setTab("spaces")} className="shrink-0 text-xs">יומן מרחבים</Button>}
         </div>
         {tab === "operational" &&
         <AgendaView
@@ -490,6 +496,7 @@ export default function Calendar() {
 
         }
         {tab === "checkinout" && <CheckInOutCalendar />}
+        {tab === "spaces" && canSeeSpaces && <VisualSpaceCalendar />}
       </div>
 
       {/* ── DESKTOP ──────────────────────────────────────────────────── */}
@@ -513,6 +520,11 @@ export default function Calendar() {
           onClick={() => setTab("checkinout")} className="gap-1.5">
             <Users className="w-4 h-4" /> צ׳ק אין / צ׳ק אאוט
           </Button>
+          {canSeeSpaces &&
+          <Button size="sm" variant={tab === "spaces" ? "default" : "ghost"}
+          onClick={() => setTab("spaces")} className="gap-1.5">
+            <LayoutGrid className="w-4 h-4" /> יומן מרחבים
+          </Button>}
         </div>
 
         {tab === "operational" &&
@@ -545,6 +557,7 @@ export default function Calendar() {
         }
 
         {tab === "checkinout" && <CheckInOutCalendar />}
+        {tab === "spaces" && canSeeSpaces && <VisualSpaceCalendar />}
       </div>
 
       {/* Day summary modal */}
