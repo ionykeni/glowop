@@ -1,0 +1,137 @@
+{
+  "name": "ActivityDayTemplate",
+  "type": "object",
+  "properties": {
+    "family_id": {
+      "type": "string",
+      "description": "Stable identifier shared by all versions of the same program template"
+    },
+    "version": {
+      "type": "number",
+      "description": "Version number inside the family, starting at 1"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "READY"
+      ],
+      "enumColors": [
+        "gray",
+        "green"
+      ],
+      "default": "DRAFT",
+      "description": "READY versions are immutable"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "stations": {
+      "type": "array",
+      "description": "Ordered planning-only station definitions. Never operational identifiers.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "station_id": {
+            "type": "string"
+          },
+          "display_order": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "HH:mm Israel local time"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "HH:mm Israel local time"
+          },
+          "suggested_space_id": {
+            "type": "string",
+            "description": "Optional reference to ActivitySpace. Not a booking."
+          },
+          "needs_projector": {
+            "type": "boolean"
+          },
+          "needs_screen": {
+            "type": "boolean"
+          },
+          "needs_microphone": {
+            "type": "boolean"
+          },
+          "needs_sound": {
+            "type": "boolean"
+          },
+          "needs_whiteboard": {
+            "type": "boolean"
+          },
+          "needs_chair_circle": {
+            "type": "boolean"
+          },
+          "chairs_count": {
+            "type": "number"
+          },
+          "logistics_other": {
+            "type": "string"
+          },
+          "preparation_notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "based_on_template_id": {
+      "type": "string",
+      "description": "Template version this draft was copied from (template data only)"
+    },
+    "created_by_email": {
+      "type": "string"
+    },
+    "updated_by_email": {
+      "type": "string"
+    },
+    "ready_at": {
+      "type": "string"
+    },
+    "ready_by_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "family_id",
+    "version",
+    "status",
+    "name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    }
+  }
+}
