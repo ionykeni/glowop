@@ -3,22 +3,21 @@ import { resolveInternalRole } from '../../shared/internalRoleAuth.js';
 import { isValidDateString } from '../../shared/groupStayPeriods.js';
 import { isGroupOperationallyEnabled } from '../../shared/groupOperationalIsolation.js';
 import {
-  groupDayPresence, isSelectablePresence, stationGroupCheck, evaluateStationSpace,
-  participantIssue, worstStatus, isTime, toMinutes, DAY_END,
+  groupDayPresence, isSelectablePresence, stationGroupCheck, evaluateStationSpace, worstStatus, uniqueGroupsSummary,
 } from '../../shared/activityDayPlanning.js';
 
 // STRICTLY READ-ONLY preview of an activity day built from a READY ActivityDayTemplate.
 // This function performs no create/update/delete on any entity and calls no calendar or notification.
+// Eligibility is date-only for every operational group type; no participant/capacity validation (this workflow only).
 const ALLOWED_ROLES = new Set(['ADMIN', 'SUPER_ADMIN']);
 const ACTIONS = new Set(['load_template', 'load_day', 'preview']);
-const CANDIDATE_STATUSES = new Set(['CONFIRMED', 'PENDING_APPROVAL']);
+const CANDIDATE_STATUSES = ['CONFIRMED', 'PENDING_APPROVAL'];
 const MAX_STATIONS = 50;
-const MAX_GROUPS_PER_STATION = 100;
+const MAX_GROUPS_PER_STATION = 200;
 const LOGISTICS_KEYS = ['needs_projector', 'needs_screen', 'needs_microphone', 'needs_sound', 'needs_whiteboard', 'needs_chair_circle', 'chairs_count', 'logistics_other'];
 
 const json = (body, status = 200) => Response.json(body, { status });
 const fail = (status, error, extra = {}) => json({ success: false, error, ...extra }, status);
-const hhmm = (m) => (m >= DAY_END ? '24:00' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
 const isId = (v) => typeof v === 'string' && /^[a-f0-9]{24}$/i.test(v);
 const text = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
@@ -35,15 +34,19 @@ const presentTemplate = (t) => ({
   updated_date: t.updated_date, stations: t.stations || [],
 });
 
-// Canonical Mechina identification = active MechinaGroupAssignment linked to an existing Group.
-async function loadMechinaDay(db, date) {
-  const assignments = await db.MechinaGroupAssignment.filter({ is_active: true }, 'group_id', 2000);
-  const ids = [...new Set(assignments.map(a => a.group_id).filter(isId))];
-  const groups = ids.length ? await db.Group.filter({ id: { $in: ids } }, 'group_name', 1000) : [];
-  const candidates = groups.filter(g => CANDIDATE_STATUSES.has(g.status) && isGroupOperationallyEnabled(g));
-  const periods = candidates.length
-    ? await db.GroupStayPeriod.filter({ group_id: { $in: candidates.map(g => g.id) }, status: 'ACTIVE' }, 'start_date', 5000)
-    : [];
+// Every operational Group (any type) whose stored dates place it on site on `date`.
+async function loadGroupsForDay(db, date) {
+  const [byGroupDates, coveringPeriods] = await Promise.all([
+    db.Group.filter({ status: { $in: CANDIDATE_STATUSES }, arrival_date: { $lte: date } }, '-arrival_date', 2000),
+    db.GroupStayPeriod.filter({ status: 'ACTIVE', start_date: { $lte: date }, end_date: { $gte: date } }, 'start_date', 2000),
+  ]);
+  const known = new Set(byGroupDates.map(g => g.id));
+  const missingIds = [...new Set(coveringPeriods.map(p => p.group_id).filter(id => isId(id) && !known.has(id)))];
+  const extra = missingIds.length ? await db.Group.filter({ id: { $in: missingIds }, status: { $in: CANDIDATE_STATUSES } }, 'group_name', 1000) : [];
+  const candidates = [...byGroupDates, ...extra].filter(isGroupOperationallyEnabled);
+  const mpIds = candidates.filter(g => g.stay_mode === 'MULTI_PERIOD').map(g => g.id);
+  const periods = mpIds.length ? await db.GroupStayPeriod.filter({ group_id: { $in: mpIds }, status: 'ACTIVE' }, 'start_date', 5000) : [];
+
   const out = [];
   for (const g of candidates) {
     let presence = groupDayPresence(g, periods, date);
@@ -51,31 +54,24 @@ async function loadMechinaDay(db, date) {
     if (g.status !== 'CONFIRMED' && isSelectablePresence(presence)) {
       presence = { state: 'UNVERIFIABLE', reason: 'GROUP_NOT_CONFIRMED', message: 'הקבוצה טרם אושרה סופית', period: presence.period };
     }
-    const pc = Number(g.participant_count), tp = Number(g.total_pax);
-    const participantWarning = !(Number.isFinite(pc) && pc > 0) ? 'כמות המשתתפים בקבוצה אינה ידועה'
-      : (Number.isFinite(tp) && tp > 0 && pc > tp ? 'כמות המשתתפים גבוהה מסך האנשים בקבוצה' : null);
+    const pc = Number(g.participant_count);
     out.push({
-      id: g.id, group_name: g.group_name, stay_mode: g.stay_mode || 'CONTINUOUS', group_type: g.group_type,
-      participant_count: Number.isFinite(pc) ? pc : null, participant_warning: participantWarning,
+      id: g.id, group_name: g.group_name, stay_mode: g.stay_mode || 'CONTINUOUS', group_type: g.group_type || null,
+      participant_count: Number.isFinite(pc) && pc > 0 ? pc : null,
       presence: {
         state: presence.state, reason: presence.reason || null, message: presence.message || null,
-        from: presence.from !== undefined ? hhmm(presence.from) : null, to: presence.to !== undefined ? hhmm(presence.to) : null,
         is_arrival: !!presence.is_arrival, is_departure: !!presence.is_departure, period: presence.period || null,
       },
-      _presence: presence,
     });
   }
   return out.sort((a, b) => String(a.group_name).localeCompare(String(b.group_name), 'he', { numeric: true }));
 }
 
-const publicGroup = ({ _presence, ...rest }) => rest;
-
 function sanitizePlanStations(raw) {
   const list = Array.isArray(raw) ? raw.slice(0, MAX_STATIONS) : [];
   return list.map((s, i) => {
-    const groups = (Array.isArray(s?.groups) ? s.groups : []).slice(0, MAX_GROUPS_PER_STATION)
-      .filter(g => isId(g?.group_id))
-      .map(g => ({ group_id: g.group_id, participants: g.participants === '' || g.participants === null || g.participants === undefined ? null : Number(g.participants) }));
+    const ids = (Array.isArray(s?.groups) ? s.groups : []).map(g => g?.group_id).filter(isId);
+    const groups = [...new Set(ids)].slice(0, MAX_GROUPS_PER_STATION).map(group_id => ({ group_id }));
     const logistics = Object.fromEntries(LOGISTICS_KEYS.map(k => [k, s?.[k] ?? null]));
     return {
       station_id: text(s?.station_id, 64) || `idx-${i}`, title: text(s?.title, 200),
@@ -100,44 +96,28 @@ async function buildPreview(db, date, stations, groupsById) {
     : [];
   const standaloneSpaceIdsByReservation = {};
   for (const a of assignments) (standaloneSpaceIdsByReservation[a.reservation_id] ||= []).push(a.activity_space_id);
+  const ctx = { date, spacesById, blocks, groupItems, standalone, standaloneSpaceIdsByReservation, pendingRequests, stations };
 
-  const withTotals = stations.map(s => ({
-    ...s, total_participants: s.groups.reduce((sum, g) => sum + (Number.isFinite(g.participants) ? g.participants : 0), 0),
-  }));
-  const ctx = { date, spacesById, blocks, groupItems, standalone, standaloneSpaceIdsByReservation, pendingRequests, stations: withTotals };
-
-  const results = withTotals.map(station => {
+  return stations.map(station => {
     const issues = evaluateStationSpace(station, ctx);
     const groupResults = station.groups.map(sel => {
       const group = groupsById[sel.group_id];
-      const check = stationGroupCheck(group?._presence, station.start_time, station.end_time);
-      const notes = [];
-      const pIssue = participantIssue(sel.participants, group);
-      if (pIssue) notes.push(pIssue.message);
-      // A group cannot attend two overlapping stations at the same time.
-      const clash = withTotals.find(o => o.station_id !== station.station_id && o.groups.some(g => g.group_id === sel.group_id)
-        && isTime(o.start_time) && isTime(o.end_time) && isTime(station.start_time) && isTime(station.end_time)
-        && toMinutes(station.start_time) < toMinutes(o.end_time) && toMinutes(o.start_time) < toMinutes(station.end_time));
-      if (clash) notes.push(`משובצת גם בתחנה חופפת "${clash.title || 'ללא שם'}"`);
+      const check = stationGroupCheck(group?.presence);
       return {
-        group_id: sel.group_id, group_name: group?.group_name || 'קבוצה שאינה זמינה בתאריך זה',
-        participants: Number.isFinite(sel.participants) ? sel.participants : null,
+        group_id: sel.group_id, group_name: group?.group_name || 'קבוצה שאינה שוהה באתר בתאריך זה',
         eligible: check.ok, code: check.ok ? null : check.code, message: check.ok ? null : check.message,
-        notes, has_warning: !!pIssue || !!clash,
       };
     });
-    if (station.groups.length === 0) issues.push({ status: 'UNVERIFIABLE', code: 'NO_GROUPS', message: 'לא שובצו מכינות לתחנה' });
-    if (groupResults.some(g => !g.eligible)) issues.push({ status: 'UNVERIFIABLE', code: 'INVALID_GROUP_ASSIGNMENT', message: 'חלק מהמכינות אינן זכאיות או שלא ניתן לאמת את נוכחותן בשעות התחנה' });
-    if (groupResults.some(g => g.has_warning)) issues.push({ status: 'UNVERIFIABLE', code: 'GROUP_WARNINGS', message: 'יש אזהרות בכמויות או בשיבוץ המכינות' });
+    if (station.groups.length === 0) issues.push({ status: 'UNVERIFIABLE', code: 'NO_GROUPS', message: 'לא שובצו קבוצות לתחנה' });
+    if (groupResults.some(g => !g.eligible)) issues.push({ status: 'UNVERIFIABLE', code: 'INVALID_GROUP_ASSIGNMENT', message: 'חלק מהקבוצות אינן שוהות באתר בתאריך זה' });
     const space = spacesById[station.space_id];
     return {
       station_id: station.station_id, title: station.title, start_time: station.start_time, end_time: station.end_time,
-      space_id: station.space_id || null, space_name: space?.name || null, space_capacity: Number.isFinite(Number(space?.capacity)) && Number(space?.capacity) > 0 ? Number(space.capacity) : null,
-      total_participants: station.total_participants, logistics: Object.fromEntries(LOGISTICS_KEYS.map(k => [k, station[k]])),
+      space_id: station.space_id || null, space_name: space?.name || null,
+      logistics: Object.fromEntries(LOGISTICS_KEYS.map(k => [k, station[k]])),
       groups: groupResults, issues, status: worstStatus(issues),
     };
   });
-  return results;
 }
 
 export default async function(req) {
@@ -159,14 +139,14 @@ export default async function(req) {
       const spaces = await db.ActivitySpace.list('name', 500);
       return json({
         success: true, template: presentTemplate(template),
-        spaces: spaces.map(s => ({ id: s.id, name: s.name, capacity: s.capacity ?? null, is_bookable: s.is_bookable !== false, working_status: s.working_status || 'WORKING' })),
+        spaces: spaces.map(s => ({ id: s.id, name: s.name, is_bookable: s.is_bookable !== false, working_status: s.working_status || 'WORKING' })),
       });
     }
 
     if (!isValidDateString(body.date)) return fail(400, 'יש לבחור תאריך תקין');
-    const groups = await loadMechinaDay(db, body.date);
+    const groups = await loadGroupsForDay(db, body.date);
 
-    if (body.action === 'load_day') return json({ success: true, date: body.date, groups: groups.map(publicGroup) });
+    if (body.action === 'load_day') return json({ success: true, date: body.date, groups });
 
     // preview — everything is revalidated here from current records; nothing is stored.
     const stations = sanitizePlanStations(body.stations);
@@ -177,7 +157,7 @@ export default async function(req) {
       success: true, preview_only: true, date: body.date,
       template: { id: template.id, version: template.version, name: template.name, updated_date: template.updated_date },
       template_changed: typeof body.template_updated_date === 'string' && body.template_updated_date.replace(/Z$/, '').slice(0, 23) !== String(template.updated_date).replace(/Z$/, '').slice(0, 23),
-      stations: results, groups: groups.map(publicGroup), checked_at: new Date().toISOString(),
+      stations: results, summary: uniqueGroupsSummary(stations, groupsById), groups, checked_at: new Date().toISOString(),
     });
   } catch (err) {
     console.error('[planActivityDayFromTemplate]', err?.message, err?.stack);

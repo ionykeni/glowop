@@ -1,30 +1,26 @@
 // Pure, read-only planning/validation helpers for previewing an activity day from a READY template.
 // Nothing here writes data. Stay semantics reuse groupStayPeriods.js (the existing source of truth);
 // space-overlap semantics mirror activitySpaceAvailability.js (unchanged production checker).
+//
+// Activity-day planning rules (intentional, this workflow only):
+// - Group eligibility is by CALENDAR DATE only (arrival/departure days inclusive); clock times are ignored.
+// - No participant-count or space-capacity validation; a group may join any number of parallel stations.
+// - Physical space conflicts (bookings, blocks, closed spaces, competing stations) are still detected.
 import { isValidDateString, validateStayPeriods } from './groupStayPeriods.js';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
-export const DAY_END = 24 * 60;
 export const isTime = (t) => TIME_PATTERN.test(String(t || ''));
 export const toMinutes = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
 const overlaps = (s1, e1, s2, e2) => s1 < e2 && s2 < e1;
 const unverifiable = (reason, message, extra = {}) => ({ state: 'UNVERIFIABLE', reason, message, ...extra });
+const NOT_PRESENT = { state: 'NOT_PRESENT' };
 
-// Presence inside one known stay interval. Boundary days require the boundary time; a missing time
-// is reported as UNVERIFIABLE instead of assuming a full day.
-function windowFor(date, start, end, arrivalTime, departureTime, source) {
-  const period = { start_date: start, end_date: end, arrival_time: arrivalTime || null, departure_time: departureTime || null, source };
-  const isArr = date === start;
-  const isDep = date === end;
-  if (isArr && !isTime(arrivalTime)) return unverifiable('MISSING_ARRIVAL_TIME', 'יום הגעה ללא שעת הגעה — לא ניתן לאמת נוכחות', { period });
-  if (isDep && !isTime(departureTime)) return unverifiable('MISSING_DEPARTURE_TIME', 'יום עזיבה ללא שעת עזיבה — לא ניתן לאמת נוכחות', { period });
-  const from = isArr ? toMinutes(arrivalTime) : 0;
-  const to = isDep ? toMinutes(departureTime) : DAY_END;
-  if (to <= from) return unverifiable('CONTRADICTORY_TIMES', 'שעת העזיבה אינה אחרי שעת ההגעה', { period });
-  return { state: isArr || isDep ? 'PARTIAL' : 'FULL_DAY', from, to, is_arrival: isArr, is_departure: isDep, period };
-}
+const present = (date, start, end, source) => ({
+  state: 'PRESENT', is_arrival: date === start, is_departure: date === end,
+  period: { start_date: start, end_date: end, source },
+});
 
-// Date-level presence of one Group. Never treats the MULTI_PERIOD envelope as continuous.
+// Date-level presence of one Group (any group type). Never treats the MULTI_PERIOD envelope as continuous.
 export function groupDayPresence(group, periods, date) {
   if (!isValidDateString(date)) return unverifiable('INVALID_DATE', 'תאריך לא תקין');
   if (group.stay_mode === 'MULTI_PERIOD') {
@@ -32,42 +28,42 @@ export function groupDayPresence(group, periods, date) {
     if (active.length === 0) {
       const inEnvelope = isValidDateString(group.arrival_date) && isValidDateString(group.departure_date)
         && group.arrival_date <= date && date <= group.departure_date;
-      return inEnvelope ? unverifiable('NO_STAY_PERIODS', 'קבוצה רב-תקופתית ללא תקופות שהייה פעילות') : { state: 'NOT_PRESENT' };
+      return inEnvelope ? unverifiable('NO_STAY_PERIODS', 'קבוצה רב-תקופתית ללא תקופות שהייה פעילות') : NOT_PRESENT;
     }
     if (!validateStayPeriods(active).valid) return unverifiable('INVALID_STAY_PERIODS', 'תקופות השהייה של הקבוצה אינן תקינות (חפיפה או תאריך שגוי)');
     const period = active.find(p => p.start_date <= date && date <= p.end_date);
-    if (!period) return { state: 'NOT_PRESENT' };
-    return windowFor(date, period.start_date, period.end_date, period.arrival_time, period.departure_time, 'STAY_PERIOD');
+    return period ? present(date, period.start_date, period.end_date, 'STAY_PERIOD') : NOT_PRESENT;
   }
   const arrival = group.arrival_date;
-  if (!isValidDateString(arrival)) return { state: 'NOT_PRESENT' };
-  if (group.group_type === 'DAY_USE') {
-    return date === arrival ? windowFor(date, arrival, arrival, group.arrival_time, group.departure_time, 'GROUP_DAY_USE') : { state: 'NOT_PRESENT' };
-  }
+  if (!isValidDateString(arrival)) return NOT_PRESENT;
+  if (group.group_type === 'DAY_USE') return date === arrival ? present(date, arrival, arrival, 'GROUP_DAY_USE') : NOT_PRESENT;
   const departure = String(group.departure_date || '').trim();
-  if (!isValidDateString(departure)) {
-    // Existing readers treat a missing departure as "arrival day only"; its end time is unknown.
-    return date === arrival ? unverifiable('MISSING_DEPARTURE_DATE', 'לקבוצה אין תאריך עזיבה') : { state: 'NOT_PRESENT' };
-  }
+  // Existing readers treat a missing departure as "arrival day only".
+  if (!isValidDateString(departure)) return date === arrival ? present(date, arrival, arrival, 'GROUP_ARRIVAL_ONLY') : NOT_PRESENT;
   if (departure < arrival) {
-    return departure <= date && date <= arrival ? unverifiable('CONTRADICTORY_DATES', 'תאריך העזיבה מוקדם מתאריך ההגעה') : { state: 'NOT_PRESENT' };
+    return departure <= date && date <= arrival ? unverifiable('CONTRADICTORY_DATES', 'תאריך העזיבה מוקדם מתאריך ההגעה') : NOT_PRESENT;
   }
-  if (date < arrival || date > departure) return { state: 'NOT_PRESENT' };
-  return windowFor(date, arrival, departure, group.arrival_time, group.departure_time, 'GROUP_CONTINUOUS');
+  return date >= arrival && date <= departure ? present(date, arrival, departure, 'GROUP_CONTINUOUS') : NOT_PRESENT;
 }
 
-export const isSelectablePresence = (p) => p.state === 'FULL_DAY' || p.state === 'PARTIAL';
+export const isSelectablePresence = (p) => p?.state === 'PRESENT';
 
-// Station-level: the whole station interval must fit inside the group's on-site window that day.
-export function stationGroupCheck(presence, startTime, endTime) {
-  if (!presence) return { ok: false, code: 'GROUP_NOT_ELIGIBLE', message: 'הקבוצה אינה שוהה באתר בתאריך זה' };
-  if (presence.state === 'UNVERIFIABLE') return { ok: false, code: 'GROUP_UNVERIFIABLE', message: presence.message };
+// Station-level: only the date presence matters. Station hours never disqualify a group.
+export function stationGroupCheck(presence) {
+  if (presence?.state === 'UNVERIFIABLE') return { ok: false, code: 'GROUP_UNVERIFIABLE', message: presence.message };
   if (!isSelectablePresence(presence)) return { ok: false, code: 'GROUP_NOT_ELIGIBLE', message: 'הקבוצה אינה שוהה באתר בתאריך זה' };
-  if (!isTime(startTime) || !isTime(endTime)) return { ok: false, code: 'GROUP_UNVERIFIABLE', message: 'שעות התחנה חסרות' };
-  if (toMinutes(startTime) < presence.from || toMinutes(endTime) > presence.to) {
-    return { ok: false, code: 'OUTSIDE_STAY_WINDOW', message: 'שעות התחנה חורגות משעות השהייה של הקבוצה ביום זה' };
-  }
   return { ok: true };
+}
+
+// Each selected group's registered headcount counted once, however many stations it joins.
+export function uniqueGroupsSummary(stations, groupsById) {
+  const ids = [...new Set(stations.flatMap(s => s.groups.map(g => g.group_id)))];
+  let total = 0, unknown = 0;
+  for (const id of ids) {
+    const n = Number(groupsById[id]?.participant_count);
+    if (Number.isFinite(n) && n > 0) total += n; else unknown += 1;
+  }
+  return { group_count: ids.length, registered_participants: total, unknown_count: unknown };
 }
 
 const localMinutes = (date, time) => {
@@ -84,10 +80,11 @@ export function blockOverlaps(block, date, startTime, endTime) {
   return start < localMinutes(block.end_date, block.end_time) && blockStart < end;
 }
 
-export const STATUS_ORDER = ['UNAVAILABLE', 'BOOKED', 'OVER_CAPACITY', 'PENDING', 'UNVERIFIABLE', 'AVAILABLE'];
+export const STATUS_ORDER = ['UNAVAILABLE', 'BOOKED', 'PENDING', 'UNVERIFIABLE', 'AVAILABLE'];
 export const worstStatus = (issues) => issues.reduce((w, i) => (STATUS_ORDER.indexOf(i.status) < STATUS_ORDER.indexOf(w) ? i.status : w), 'AVAILABLE');
 
 // ctx: { date, spacesById, blocks, groupItems, standalone, standaloneSpaceIdsByReservation, pendingRequests, stations }
+// Physical checks only — group count, group type, repeated groups and capacity are never considered.
 export function evaluateStationSpace(station, ctx) {
   const issues = [];
   const { start_time: s, end_time: e } = station;
@@ -130,25 +127,5 @@ export function evaluateStationSpace(station, ctx) {
       issues.push({ status: 'BOOKED', code: 'INTER_STATION_CONFLICT', message: `חופף לתחנה "${other.title || 'ללא שם'}" ${other.start_time}–${other.end_time} באותו מרחב` });
     }
   }
-  const total = station.total_participants;
-  const cap = Number(space.capacity);
-  if (!(Number.isFinite(cap) && cap > 0)) {
-    issues.push({ status: 'UNVERIFIABLE', code: 'UNKNOWN_CAPACITY', message: 'קיבולת המרחב אינה ידועה' });
-  } else if (Number.isFinite(total) && total > cap) {
-    issues.push({ status: 'OVER_CAPACITY', code: 'OVER_CAPACITY', message: `${total} משתתפים — מעל קיבולת ${cap}` });
-  }
   return issues;
-}
-
-// participants entered for a group; null/invalid = missing.
-export function participantIssue(value, group) {
-  const n = Number(value);
-  if (value === '' || value === null || value === undefined || !Number.isInteger(n) || n < 0) {
-    return { status: 'UNVERIFIABLE', code: 'MISSING_PARTICIPANTS', message: 'חסרה כמות משתתפים' };
-  }
-  const known = Number(group?.participant_count);
-  if (Number.isFinite(known) && known > 0 && n > known) {
-    return { status: 'UNVERIFIABLE', code: 'PARTICIPANTS_ABOVE_GROUP', message: `הכמות (${n}) גבוהה ממספר המשתתפים בקבוצה (${known})` };
-  }
-  return null;
 }

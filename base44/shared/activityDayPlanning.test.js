@@ -1,78 +1,78 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupDayPresence, stationGroupCheck, evaluateStationSpace, participantIssue, worstStatus, isSelectablePresence } from "./activityDayPlanning.js";
+import { groupDayPresence, stationGroupCheck, evaluateStationSpace, worstStatus, isSelectablePresence, uniqueGroupsSummary } from "./activityDayPlanning.js";
 
 const mp = { id: "g1", stay_mode: "MULTI_PERIOD", group_type: "LODGING", arrival_date: "2026-11-08", departure_date: "2026-11-18" };
 const periods = [
-  { group_id: "g1", start_date: "2026-11-08", end_date: "2026-11-10", arrival_time: "10:00", departure_time: "12:00", status: "ACTIVE" },
+  { group_id: "g1", start_date: "2026-11-08", end_date: "2026-11-10", arrival_time: null, departure_time: null, status: "ACTIVE" },
   { group_id: "g1", start_date: "2026-11-15", end_date: "2026-11-18", arrival_time: "14:00", departure_time: null, status: "ACTIVE" },
 ];
+const presentOn = (g, p, d) => isSelectablePresence(groupDayPresence(g, p, d));
 
-test("MULTI_PERIOD gap excludes group (Nov 12 between 8–10 and 15–18)", () => {
+test("MULTI_PERIOD: eligible on 8, 10, 15, 18 (inclusive boundaries), not on 12", () => {
+  for (const d of ["2026-11-08", "2026-11-10", "2026-11-15", "2026-11-18"]) assert.equal(presentOn(mp, periods, d), true, d);
   assert.equal(groupDayPresence(mp, periods, "2026-11-12").state, "NOT_PRESENT");
-  assert.equal(groupDayPresence(mp, periods, "2026-11-09").state, "FULL_DAY");
-  assert.equal(groupDayPresence(mp, periods, "2026-11-16").state, "FULL_DAY");
 });
 
-test("cancelled periods are ignored and envelope is never used as continuous", () => {
-  const p = [...periods, { group_id: "g1", start_date: "2026-11-11", end_date: "2026-11-13", status: "CANCELLED", arrival_time: "09:00", departure_time: "18:00" }];
+test("missing arrival/departure clock times never exclude a date-eligible group", () => {
+  const cont = { id: "c", stay_mode: "CONTINUOUS", group_type: "LODGING", arrival_date: "2026-11-01", departure_date: "2026-11-04" };
+  for (const d of ["2026-11-01", "2026-11-02", "2026-11-04"]) assert.equal(presentOn(cont, [], d), true, d);
+  assert.equal(presentOn(cont, [], "2026-11-05"), false);
+  assert.equal(stationGroupCheck(groupDayPresence(cont, [], "2026-11-04")).ok, true);
+});
+
+test("cancelled periods ignored; envelope never bridges a gap", () => {
+  const p = [...periods, { group_id: "g1", start_date: "2026-11-11", end_date: "2026-11-13", status: "CANCELLED" }];
   assert.equal(groupDayPresence(mp, p, "2026-11-12").state, "NOT_PRESENT");
 });
 
-test("arrival/departure time boundaries are respected per station", () => {
-  const arr = groupDayPresence(mp, periods, "2026-11-08");
-  assert.equal(arr.state, "PARTIAL");
-  assert.equal(stationGroupCheck(arr, "09:00", "11:00").code, "OUTSIDE_STAY_WINDOW");
-  assert.equal(stationGroupCheck(arr, "10:00", "12:00").ok, true);
-  const dep = groupDayPresence(mp, periods, "2026-11-10");
-  assert.equal(stationGroupCheck(dep, "11:00", "13:00").code, "OUTSIDE_STAY_WINDOW");
-  assert.equal(stationGroupCheck(dep, "09:00", "12:00").ok, true);
+test("DAY_USE present only on its visit date; any group type works", () => {
+  const du = { id: "d", group_type: "DAY_USE", arrival_date: "2026-11-11" };
+  assert.equal(presentOn(du, [], "2026-11-11"), true);
+  assert.equal(presentOn(du, [], "2026-11-12"), false);
+  const other = { id: "o", group_type: "SOMETHING_ELSE", arrival_date: "2026-11-10", departure_date: "2026-11-12" };
+  assert.equal(presentOn(other, [], "2026-11-11"), true);
 });
 
-test("missing boundary time or stay data is unverifiable, not valid", () => {
-  const dep = groupDayPresence(mp, periods, "2026-11-18");
-  assert.equal(dep.state, "UNVERIFIABLE");
-  assert.equal(isSelectablePresence(dep), false);
-  assert.equal(stationGroupCheck(dep, "09:00", "10:00").ok, false);
+test("genuinely missing/contradictory dates are unverifiable, not invented", () => {
   assert.equal(groupDayPresence(mp, [], "2026-11-12").reason, "NO_STAY_PERIODS");
-  assert.equal(groupDayPresence(mp, [], "2026-12-01").state, "NOT_PRESENT");
   const overlapping = [periods[0], { ...periods[0], start_date: "2026-11-09", end_date: "2026-11-11" }];
   assert.equal(groupDayPresence(mp, overlapping, "2026-11-09").reason, "INVALID_STAY_PERIODS");
-  const cont = { id: "c", stay_mode: "CONTINUOUS", group_type: "LODGING", arrival_date: "2026-11-05", departure_date: "2026-11-03" };
-  assert.equal(groupDayPresence(cont, [], "2026-11-04").reason, "CONTRADICTORY_DATES");
-  const noDep = { id: "c", stay_mode: "CONTINUOUS", group_type: "LODGING", arrival_date: "2026-11-05", arrival_time: "10:00" };
-  assert.equal(groupDayPresence(noDep, [], "2026-11-05").reason, "MISSING_DEPARTURE_DATE");
-  assert.equal(groupDayPresence(noDep, [], "2026-11-06").state, "NOT_PRESENT");
+  const bad = { id: "c", group_type: "LODGING", arrival_date: "2026-11-05", departure_date: "2026-11-03" };
+  assert.equal(groupDayPresence(bad, [], "2026-11-04").reason, "CONTRADICTORY_DATES");
+  const noDep = { id: "c", group_type: "LODGING", arrival_date: "2026-11-05" };
+  assert.equal(presentOn(noDep, [], "2026-11-05"), true);
+  assert.equal(presentOn(noDep, [], "2026-11-06"), false);
 });
 
-test("continuous groups use Group dates and times; historical cohorts excluded", () => {
-  const cont = { id: "c", stay_mode: "CONTINUOUS", group_type: "LODGING", arrival_date: "2026-11-01", departure_date: "2026-11-04", arrival_time: "12:00", departure_time: "10:00" };
-  assert.equal(groupDayPresence(cont, [], "2026-11-02").state, "FULL_DAY");
-  assert.equal(groupDayPresence(cont, [], "2026-11-10").state, "NOT_PRESENT");
-  const d = groupDayPresence(cont, [], "2026-11-04");
-  assert.equal(stationGroupCheck(d, "09:00", "10:00").ok, true);
-  assert.equal(stationGroupCheck(d, "09:00", "11:00").ok, false);
+test("headcount summary counts each group once, unknown stays unknown", () => {
+  const stations = [1, 2, 3, 4].map(i => ({ groups: [{ group_id: "a" }, ...(i === 1 ? [{ group_id: "b" }] : [])] }));
+  const s = uniqueGroupsSummary(stations, { a: { participant_count: 70 }, b: { participant_count: null } });
+  assert.deepEqual(s, { group_count: 2, registered_participants: 70, unknown_count: 1 });
 });
 
-const space = { id: "s1", name: "ממ״ד 1", capacity: 40, is_bookable: true, working_status: "WORKING" };
+const space = { id: "s1", name: "ממ״ד 1", capacity: 5, is_bookable: true, working_status: "WORKING" };
 const baseCtx = (extra = {}) => ({ date: "2026-11-09", spacesById: { s1: space }, blocks: [], groupItems: [], standalone: [], standaloneSpaceIdsByReservation: {}, pendingRequests: [], stations: [], ...extra });
-const st = (id, s, e, extra = {}) => ({ station_id: id, title: id, start_time: s, end_time: e, space_id: "s1", total_participants: 30, ...extra });
+const st = (id, s, e, extra = {}) => ({ station_id: id, title: id, start_time: s, end_time: e, space_id: "s1", groups: [], ...extra });
 
-test("two different stations competing for the same space/time conflict; parallel in different spaces is fine", () => {
+test("two distinct stations in the same room/time conflict; parallel rooms and back-to-back are fine", () => {
   const a = st("a", "09:00", "11:00"), b = st("b", "10:00", "12:00"), c = st("c", "09:00", "11:00", { space_id: "s2" });
   const ctx = baseCtx({ stations: [a, b, c], spacesById: { s1: space, s2: { ...space, id: "s2" } } });
   assert.equal(worstStatus(evaluateStationSpace(a, ctx)), "BOOKED");
   assert.equal(worstStatus(evaluateStationSpace(c, ctx)), "AVAILABLE");
-  const back2back = st("d", "11:00", "12:00");
-  assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ stations: [a, back2back] }))), "AVAILABLE");
+  assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ stations: [a, st("d", "11:00", "12:00")] }))), "AVAILABLE");
 });
 
-test("many groups in one station are one physical use (no self-conflict)", () => {
-  const a = st("a", "09:00", "11:00", { groups: [{ group_id: "x" }, { group_id: "y" }] });
-  assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ stations: [a] }))), "AVAILABLE");
+test("3+ groups in one station, same group in parallel stations, small capacity: no conflict", () => {
+  const groups = [{ group_id: "x" }, { group_id: "y" }, { group_id: "z" }];
+  const a = st("a", "09:00", "10:00", { groups });
+  const b = st("b", "09:00", "10:00", { space_id: "s2", groups: [{ group_id: "x" }] });
+  const ctx = baseCtx({ stations: [a, b], spacesById: { s1: space, s2: { ...space, id: "s2", capacity: null } } });
+  assert.equal(worstStatus(evaluateStationSpace(a, ctx)), "AVAILABLE");
+  assert.equal(worstStatus(evaluateStationSpace(b, ctx)), "AVAILABLE");
 });
 
-test("confirmed reservations, pending requests, blocks and disabled spaces", () => {
+test("confirmed reservations, pending requests (non-blocking), blocks and disabled spaces", () => {
   const a = st("a", "09:00", "11:00");
   assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ groupItems: [{ activity_space_id: "s1", status: "ACTIVE", start_time: "10:30", end_time: "12:00" }] }))), "BOOKED");
   assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ standalone: [{ id: "r", status: "ACTIVE", start_time: "08:00", end_time: "09:30" }], standaloneSpaceIdsByReservation: { r: ["s1"] } }))), "BOOKED");
@@ -80,16 +80,4 @@ test("confirmed reservations, pending requests, blocks and disabled spaces", () 
   assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ blocks: [{ activity_space_id: "s1", status: "ACTIVE", start_date: "2026-11-01", start_time: "08:00", is_open_ended: true }] }))), "UNAVAILABLE");
   assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ spacesById: { s1: { ...space, working_status: "CLOSED" } } }))), "UNAVAILABLE");
   assert.equal(worstStatus(evaluateStationSpace(a, baseCtx({ spacesById: { s1: { ...space, is_bookable: false } } }))), "UNAVAILABLE");
-});
-
-test("capacity uses real capacity; unknown capacity is not unlimited", () => {
-  assert.equal(worstStatus(evaluateStationSpace(st("a", "09:00", "11:00", { total_participants: 41 }), baseCtx())), "OVER_CAPACITY");
-  assert.equal(worstStatus(evaluateStationSpace(st("a", "09:00", "11:00", { total_participants: 40 }), baseCtx())), "AVAILABLE");
-  assert.equal(worstStatus(evaluateStationSpace(st("a", "09:00", "11:00"), baseCtx({ spacesById: { s1: { ...space, capacity: null } } }))), "UNVERIFIABLE");
-});
-
-test("participant quantities: missing and above-group are flagged", () => {
-  assert.equal(participantIssue(null, { participant_count: 30 }).code, "MISSING_PARTICIPANTS");
-  assert.equal(participantIssue(35, { participant_count: 30 }).code, "PARTICIPANTS_ABOVE_GROUP");
-  assert.equal(participantIssue(20, { participant_count: 30 }), null);
 });
