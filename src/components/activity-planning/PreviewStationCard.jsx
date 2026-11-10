@@ -1,4 +1,4 @@
-import { MapPin, Users, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { MapPin, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { LogisticsBadges } from "@/components/schedule/LogisticsFields";
 import { STATUS_META } from "@/lib/activityDayPlanning";
 import PlanStatusBadge from "./PlanStatusBadge";
@@ -12,21 +12,17 @@ export default function PreviewStationCard({ station }) {
           <p className="text-xs text-slate-500 flex flex-wrap gap-x-3 mt-0.5">
             <span>{station.start_time}–{station.end_time}</span>
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{station.space_name || "ללא מרחב"}</span>
-            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{station.total_participants}{station.space_capacity ? ` / ${station.space_capacity}` : ""}</span>
           </p>
         </div>
         <PlanStatusBadge status={station.status} />
       </div>
       <LogisticsBadges item={station.logistics} />
       {station.groups.length > 0 && (
-        <ul className="space-y-0.5">
+        <ul className="flex flex-wrap gap-1.5">
           {station.groups.map(g => (
-            <li key={g.group_id} className="text-xs flex items-start gap-1.5">
-              {g.eligible ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />}
-              <span className={g.eligible ? "text-slate-700" : "text-red-700 font-medium"}>
-                {g.group_name} · {g.participants ?? "?"}{!g.eligible && ` — ${g.message}`}
-                {g.notes.length > 0 && <span className="text-amber-700"> ({g.notes.join("; ")})</span>}
-              </span>
+            <li key={g.group_id} className={`text-xs inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${g.eligible ? "bg-slate-100 text-slate-700" : "bg-red-50 text-red-700"}`}>
+              {g.eligible ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <XCircle className="w-3 h-3" />}
+              {g.group_name}{!g.eligible && ` — ${g.message}`}
             </li>
           ))}
         </ul>

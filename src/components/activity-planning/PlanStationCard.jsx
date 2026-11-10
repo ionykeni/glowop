@@ -2,12 +2,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, RotateCcw } from "lucide-react";
 import { LogisticsBadges } from "@/components/schedule/LogisticsFields";
-import { stationTotal } from "@/lib/activityDayPlanning";
 import StationGroupsEditor from "./StationGroupsEditor";
 
 const NO_SPACE = "__none__";
 
-export default function PlanStationCard({ station, index, spaces, groups, defaultCount, onChange }) {
+export default function PlanStationCard({ station, index, spaces, groups, onChange }) {
   if (station.removed) {
     return (
       <div className="flex items-center gap-2 border border-dashed border-slate-300 rounded-xl px-4 py-2 text-sm text-slate-400">
@@ -17,7 +16,6 @@ export default function PlanStationCard({ station, index, spaces, groups, defaul
     );
   }
   const set = (k, v) => onChange({ [k]: v });
-  const capacity = spaces.find(s => s.id === station.space_id)?.capacity;
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
@@ -41,11 +39,8 @@ export default function PlanStationCard({ station, index, spaces, groups, defaul
       </div>
       <LogisticsBadges item={station} />
       <div className="border-t border-slate-100 pt-2 space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="font-semibold text-slate-600">מכינות משתתפות</span>
-          <span className="text-slate-500">סה״כ צפוי: <b className="text-slate-800">{stationTotal(station)}</b>{capacity ? ` / קיבולת ${capacity}` : " · קיבולת לא ידועה"}</span>
-        </div>
-        <StationGroupsEditor station={station} groups={groups} defaultCount={defaultCount} onChange={onChange} />
+        <p className="text-xs font-semibold text-slate-600">קבוצות משתתפות ({station.groups.length})</p>
+        <StationGroupsEditor station={station} groups={groups} onChange={onChange} />
       </div>
     </div>
   );

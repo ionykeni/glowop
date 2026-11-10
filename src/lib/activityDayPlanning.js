@@ -19,31 +19,33 @@ export const STATUS_META = {
   BOOKED: { label: "תפוס", cls: "bg-red-50 text-red-700 border-red-200" },
   PENDING: { label: "ממתין", cls: "bg-amber-50 text-amber-800 border-amber-200" },
   UNAVAILABLE: { label: "לא זמין", cls: "bg-slate-200 text-slate-700 border-slate-300" },
-  OVER_CAPACITY: { label: "חריגה מקיבולת", cls: "bg-orange-50 text-orange-700 border-orange-200" },
   UNVERIFIABLE: { label: "לא ניתן לאמת", cls: "bg-purple-50 text-purple-700 border-purple-200" },
 };
 
-export const isSelectable = (g) => g?.presence?.state === "FULL_DAY" || g?.presence?.state === "PARTIAL";
+export const GROUP_TYPE_LABELS = { LODGING: "לינה", DAY_USE: "ביקור יומי" };
 
-// Fast local hint only — the backend preview is authoritative.
-export function localStationCheck(group, start, end) {
-  if (!isSelectable(group)) return "הקבוצה אינה זכאית בתאריך זה";
-  if (!start || !end) return "שעות התחנה חסרות";
-  if (start < group.presence.from || end > group.presence.to) return `מחוץ לשעות השהייה (${group.presence.from}–${group.presence.to})`;
-  return null;
-}
+// Date-only eligibility, computed by the backend; clock times never matter here.
+export const isSelectable = (g) => g?.presence?.state === "PRESENT";
 
 export const stationFromTemplate = (s) => ({
   station_id: s.station_id, title: s.title || "", start_time: s.start_time || "", end_time: s.end_time || "",
-  space_id: s.suggested_space_id || "", removed: false, groups: {},
+  space_id: s.suggested_space_id || "", removed: false, groups: [],
   ...Object.fromEntries(LOGISTICS_KEYS.map(k => [k, s[k] ?? null])),
 });
 
 export const toPreviewStations = (stations) => stations.filter(s => !s.removed).map(s => ({
   station_id: s.station_id, title: s.title, start_time: s.start_time, end_time: s.end_time, space_id: s.space_id,
-  groups: Object.entries(s.groups).map(([group_id, participants]) => ({ group_id, participants: participants === "" ? null : Number(participants) })),
+  groups: s.groups.map(group_id => ({ group_id })),
   ...Object.fromEntries(LOGISTICS_KEYS.map(k => [k, s[k]])),
 }));
 
-export const stationTotal = (station) =>
-  Object.values(station.groups).reduce((sum, v) => sum + (v === "" || isNaN(Number(v)) ? 0 : Number(v)), 0);
+// Each selected group counted once, however many stations it joins. Informational only.
+export function uniqueGroupsSummary(stations, groupsById) {
+  const ids = [...new Set(stations.filter(s => !s.removed).flatMap(s => s.groups))];
+  let total = 0, unknown = 0;
+  for (const id of ids) {
+    const n = Number(groupsById[id]?.participant_count);
+    if (Number.isFinite(n) && n > 0) total += n; else unknown += 1;
+  }
+  return { group_count: ids.length, registered_participants: total, unknown_count: unknown };
+}

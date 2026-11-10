@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { callPlanner, isSelectable, stationFromTemplate, toPreviewStations } from "@/lib/activityDayPlanning";
+import { callPlanner, isSelectable, stationFromTemplate, toPreviewStations, uniqueGroupsSummary } from "@/lib/activityDayPlanning";
 
 // In-memory plan only. Nothing here is persisted.
 export default function useActivityDayPlan(templateId) {
@@ -25,11 +25,11 @@ export default function useActivityDayPlan(templateId) {
   useEffect(() => {
     if (!dayQuery.data?.success) return;
     const ok = new Set(dayQuery.data.groups.filter(isSelectable).map(g => g.id));
-    const removed = new Set([...pool, ...stations.flatMap(s => Object.keys(s.groups))].filter(id => !ok.has(id)));
+    const removed = new Set([...pool, ...stations.flatMap(s => s.groups)].filter(id => !ok.has(id)));
     setPruned([...removed]);
     if (removed.size === 0) return;
     setPool(p => p.filter(id => ok.has(id)));
-    setStations(list => list.map(s => ({ ...s, groups: Object.fromEntries(Object.entries(s.groups).filter(([id]) => ok.has(id))) })));
+    setStations(list => list.map(s => ({ ...s, groups: s.groups.filter(id => ok.has(id)) })));
   }, [dayQuery.data]);
 
   const payloadStations = toPreviewStations(stations);
@@ -38,10 +38,8 @@ export default function useActivityDayPlan(templateId) {
   const updateStation = (id, patch) => setStations(l => l.map(s => (s.station_id === id ? { ...s, ...patch } : s)));
   const togglePool = (id) => setPool(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
   const selectAllEligible = () => setPool(groups.filter(isSelectable).map(g => g.id));
-  const defaultCount = (id) => (groupsById[id]?.participant_count ?? "");
-  const applyPoolToAll = () => setStations(l => l.map(s => (s.removed ? s : {
-    ...s, groups: Object.fromEntries(pool.map(id => [id, s.groups[id] ?? defaultCount(id)])),
-  })));
+  const applyPoolToAll = () => setStations(l => l.map(s => (s.removed ? s : { ...s, groups: [...pool] })));
+  const summary = uniqueGroupsSummary(stations, groupsById);
 
   const runPreview = async () => {
     setPreviewing(true); setPreviewError("");
@@ -53,7 +51,7 @@ export default function useActivityDayPlan(templateId) {
 
   return {
     tplQuery, template, spaces: tplQuery.data?.spaces || [], date, setDate, dayQuery, groups, groupsById,
-    stations, updateStation, pool, togglePool, selectAllEligible, applyPoolToAll, defaultCount, pruned,
+    stations, updateStation, pool, togglePool, selectAllEligible, applyPoolToAll, summary, pruned,
     preview, previewStale: !!preview && previewKey !== currentKey, previewing, previewError, runPreview,
     canPreview: !!date && payloadStations.length > 0,
   };

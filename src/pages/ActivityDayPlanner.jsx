@@ -6,6 +6,7 @@ import PlanTemplateSection from "@/components/activity-planning/PlanTemplateSect
 import EligibleGroupsSection from "@/components/activity-planning/EligibleGroupsSection";
 import PlanStationCard from "@/components/activity-planning/PlanStationCard";
 import PlanPreviewSection from "@/components/activity-planning/PlanPreviewSection";
+import PlanGroupsSummary from "@/components/activity-planning/PlanGroupsSummary";
 
 export default function ActivityDayPlanner() {
   const templateId = new URLSearchParams(window.location.search).get("template");
@@ -37,9 +38,10 @@ export default function ActivityDayPlanner() {
             <EligibleGroupsSection plan={plan} />
             <section className="space-y-2">
               <h2 className="text-sm font-bold text-slate-500">ג. תחנות</h2>
+              <PlanGroupsSummary summary={plan.summary} />
               {plan.stations.map((s, i) => (
                 <PlanStationCard key={s.station_id} station={s} index={i} spaces={plan.spaces} groups={plan.groups}
-                  defaultCount={plan.defaultCount} onChange={patch => plan.updateStation(s.station_id, patch)} />
+                  onChange={patch => plan.updateStation(s.station_id, patch)} />
               ))}
             </section>
             <PlanPreviewSection plan={plan} />
