@@ -2,7 +2,6 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { WorkingStatusBadge, BedStatusBadge } from "./StatusBadge";
 import EditStatusModal from "./EditStatusModal";
-import { Button } from "@/components/ui/button";
 import { Pencil, ChevronDown, ChevronUp, Home, Shield } from "lucide-react";
 
 export default function TentDrillDown({ tent, beds, isAdmin, onDataChange }) {
@@ -38,9 +37,12 @@ export default function TentDrillDown({ tent, beds, isAdmin, onDataChange }) {
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/50 transition-colors text-right"
+      <div
+        role="button"
+        tabIndex={0}
+        className="w-full flex items-center justify-between px-4 py-3 bg-card hover:bg-muted/50 transition-colors text-right cursor-pointer"
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setExpanded(!expanded); } }}
       >
         <div className="flex items-center gap-3">
           {tent.tent_type === "VIP" ? (
@@ -66,7 +68,7 @@ export default function TentDrillDown({ tent, beds, isAdmin, onDataChange }) {
           )}
           {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="bg-muted/20 px-4 py-3 border-t border-border">

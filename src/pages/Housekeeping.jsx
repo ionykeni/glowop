@@ -471,11 +471,11 @@ export default function Housekeeping() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/cleaning-hours">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Link to="/cleaning-hours">
                   <Clock className="w-3.5 h-3.5" /> שעות עובדות ניקיון
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button variant="outline" size="icon"
                 onClick={() => setStartDate(d => { const nd = new Date(d); nd.setDate(nd.getDate() - 1); return nd.toISOString().slice(0, 10); })}>
                 <ChevronRight className="w-4 h-4" />
