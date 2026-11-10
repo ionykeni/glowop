@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleItemPayload, reconcileStation, executionCounts, activityName } from "./activityDayExecution.js";
+import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleItemPayload, reconcileStation, executionCounts, activityName, pendingStationIds, writePendingStations } from "./activityDayExecution.js";
 import { evaluateStationSpace } from "./activityDayPlanning.js";
 import { buildSpaceCalendar } from "./spaceCalendarModel.js";
 
@@ -90,4 +90,90 @@ test("a shared station with three groups renders as ONE occupancy in the visual 
   const events = cal.events.filter(e => e.kind === "GROUP");
   assert.equal(events.length, 1);
   assert.deepEqual(events[0].group_names, ["אשקלון", "ערד", "אחריי"]);
+});
+
+// In-memory datastore. A thrown create simulates a server interruption: nothing after it runs (no catch-path persist).
+function fakeStore(journal, items = []) {
+  const db = { journal, items: [...items], seq: 0, creates: 0, failAfter: Infinity };
+  const deps = {
+    findExisting: async (st) => db.items.filter(i => i.shared_activity_id === st.shared_activity_id),
+    createItem: async (st, gid) => {
+      if (db.creates >= db.failAfter) throw new Error("INTERRUPTED");
+      db.creates++;
+      const row = { id: `new${++db.seq}`, group_id: gid, shared_activity_id: st.shared_activity_id, status: "ACTIVE" };
+      db.items.push(row);
+      return row;
+    },
+    persist: async (json) => { db.journal = json; },
+  };
+  const resume = () => {
+    const stations = JSON.parse(db.journal);
+    return writePendingStations({ stations, pendingIds: pendingStationIds(stations), ...deps });
+  };
+  return { db, resume };
+}
+const st = (id, gids, items = {}) => ({ station_id: id, shared_activity_id: `shared-${id}`, groups: gids.map(g => ({ group_id: g, group_name: g })), items });
+const assertNoDuplicates = (items) => {
+  const keys = items.map(i => `${i.shared_activity_id}|${i.group_id}`);
+  assert.equal(new Set(keys).size, keys.length);
+};
+
+test("REGRESSION: interrupted resume keeps the full journal; a second resume completes without duplicates", async () => {
+  const journal = JSON.stringify([
+    st("A", ["g1", "g2"], { g1: "a1", g2: "a2" }), // completed
+    st("B", ["g1", "g2", "g3"], { g1: "b1" }),     // partial; b2 exists but its response was lost
+    st("C", ["g1", "g2"]),                          // not started
+  ]);
+  const { db, resume } = fakeStore(journal, [
+    { id: "a1", group_id: "g1", shared_activity_id: "shared-A", status: "ACTIVE" },
+    { id: "a2", group_id: "g2", shared_activity_id: "shared-A", status: "ACTIVE" },
+    { id: "b1", group_id: "g1", shared_activity_id: "shared-B", status: "ACTIVE" },
+    { id: "b2", group_id: "g2", shared_activity_id: "shared-B", status: "ACTIVE" },
+  ]);
+
+  // Resume #1: B is finished (adopts b2, creates g3) and persisted, then the server dies inside C.
+  db.failAfter = 1;
+  await assert.rejects(resume(), /INTERRUPTED/);
+  const mid = JSON.parse(db.journal);
+  assert.deepEqual(mid.map(s => s.station_id), ["A", "B", "C"]); // the old bug persisted only [B]
+  assert.deepEqual(mid[0].items, { g1: "a1", g2: "a2" });
+  assert.equal(mid[0].shared_activity_id, "shared-A");
+  assert.deepEqual(Object.keys(mid[1].items).sort(), ["g1", "g2", "g3"]);
+  assert.equal(mid[1].items.g2, "b2");
+  assertNoDuplicates(db.items);
+
+  // Resume #2 rebuilds from the stored journal and only creates what is truly missing.
+  db.failAfter = Infinity;
+  await resume();
+  const final = JSON.parse(db.journal);
+  assert.deepEqual(final.map(s => [s.station_id, s.shared_activity_id]), [["A", "shared-A"], ["B", "shared-B"], ["C", "shared-C"]]);
+  assert.deepEqual(final[0].items, { g1: "a1", g2: "a2" });
+  assert.deepEqual({ g1: final[1].items.g1, g2: final[1].items.g2 }, { g1: "b1", g2: "b2" });
+  assert.equal(pendingStationIds(final).size, 0);
+  assert.equal(db.items.length, 2 + 3 + 2);
+  assert.equal(db.creates, 3); // B.g3, C.g1, C.g2 — nothing recreated
+  assertNoDuplicates(db.items);
+});
+
+test("interruption inside a batch: successful sibling creates are adopted on the next resume", async () => {
+  const { db, resume } = fakeStore(JSON.stringify([st("A", ["g1", "g2", "g3"])]));
+  db.failAfter = 2; // g1, g2 created; g3 fails
+  await assert.rejects(resume(), /INTERRUPTED/);
+  db.failAfter = Infinity;
+  await resume();
+  assert.equal(db.items.length, 3);
+  assertNoDuplicates(db.items);
+  assert.equal(pendingStationIds(JSON.parse(db.journal)).size, 0);
+});
+
+test("normal execution creates every item once; replay creates nothing", async () => {
+  const { db, resume } = fakeStore(JSON.stringify([st("A", ["g1", "g2"]), st("B", ["g3"])]));
+  await resume();
+  const j = JSON.parse(db.journal);
+  assert.equal(j.length, 2);
+  assert.equal(db.items.length, 3);
+  assert.equal(pendingStationIds(j).size, 0);
+  await resume();
+  assert.equal(db.items.length, 3);
+  assert.deepEqual(JSON.parse(db.journal), j);
 });

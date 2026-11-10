@@ -1,4 +1,4 @@
-// Pure helpers for executing a confirmed activity day. No I/O here.
+// Helpers for executing a confirmed activity day. No direct I/O here (writePendingStations receives it injected).
 // Model: one logical station = one shared_activity_id; one GroupScheduleItem per participating Group,
 // all carrying that same shared_activity_id (the existing shared-activity model). The common-space
 // calendar collapses them into one physical occupancy.
@@ -73,6 +73,28 @@ export function reconcileStation(station, existingItems) {
   }
   const missing = station.groups.map(g => g.group_id).filter(gid => !items[gid]);
   return { items, missing };
+}
+
+export const pendingStationIds = (stations) =>
+  new Set(stations.filter(s => !s.groups.every(g => s.items?.[g.group_id])).map(s => s.station_id));
+
+// Writes the pending stations. I/O is injected. The journal persisted after each station is ALWAYS the full
+// station list (completed + pending), so an interruption can never drop already-recorded stations.
+// Existing items (matched by shared_activity_id) are adopted before anything is created.
+export async function writePendingStations({ stations, pendingIds, findExisting, createItem, persist }) {
+  for (const st of stations) {
+    if (!pendingIds.has(st.station_id)) continue;
+    const { items, missing } = reconcileStation(st, await findExisting(st));
+    st.items = items;
+    for (let i = 0; i < missing.length; i += 3) {
+      const batch = missing.slice(i, i + 3);
+      const results = await Promise.allSettled(batch.map(gid => createItem(st, gid)));
+      results.forEach((r, j) => { if (r.status === 'fulfilled') st.items[batch[j]] = r.value.id; });
+      const failed = results.find(r => r.status === 'rejected');
+      if (failed) throw failed.reason;
+    }
+    await persist(JSON.stringify(stations));
+  }
 }
 
 export function executionCounts(stations) {

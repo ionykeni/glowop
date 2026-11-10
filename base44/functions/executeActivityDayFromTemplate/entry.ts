@@ -6,7 +6,7 @@ import { checkActivitySpaceConflict } from '../../shared/activitySpaceAvailabili
 import { isGroupDeparted } from '../../shared/activityCreationWindow.js';
 import { isId, LOGISTICS_KEYS, loadGroupsForDay, sanitizePlanStations, buildPreview } from '../../shared/activityDayPlanData.js';
 import { json, fail, sameStamp } from '../../shared/activityDayHttp.js';
-import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleItemPayload, reconcileStation, executionCounts } from '../../shared/activityDayExecution.js';
+import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleItemPayload, executionCounts, pendingStationIds, writePendingStations } from '../../shared/activityDayExecution.js';
 
 // Phase C1: turns an explicitly confirmed activity-day plan into real GroupScheduleItem records.
 // - One station = one shared_activity_id; one GroupScheduleItem per participating Group (existing shared model).
@@ -114,25 +114,19 @@ async function revalidate(base44, db, date, planStations, sharedIds, pendingIds)
   return { blockers, warnings, results, profileByGroup };
 }
 
-async function writeStations(db, exec, stations, profileByGroup) {
-  for (const st of stations) {
-    const existing = await db.GroupScheduleItem.filter({ shared_activity_id: st.shared_activity_id }, 'created_date', 500);
-    const { items, missing } = reconcileStation(st, existing);
-    st.items = items;
-    for (let i = 0; i < missing.length; i += 3) {
-      const batch = missing.slice(i, i + 3);
-      const created = await Promise.all(batch.map(gid => db.GroupScheduleItem.create(buildScheduleItemPayload({
-        station: st, groupId: gid, profileId: profileByGroup[gid], execution: exec, logisticsKeys: LOGISTICS_KEYS,
-      }))));
-      created.forEach((row, j) => { st.items[batch[j]] = row.id; });
-    }
-    await db.ActivityDayExecution.update(exec.id, { stations_json: JSON.stringify(stations) });
-  }
-}
+// `stations` is the FULL journal; only `pendingIds` are written, but every persist stores all stations.
+const writeStations = (db, exec, stations, pendingIds, profileByGroup) => writePendingStations({
+  stations, pendingIds,
+  findExisting: (st) => db.GroupScheduleItem.filter({ shared_activity_id: st.shared_activity_id }, 'created_date', 500),
+  createItem: (st, gid) => db.GroupScheduleItem.create(buildScheduleItemPayload({
+    station: st, groupId: gid, profileId: profileByGroup[gid], execution: exec, logisticsKeys: LOGISTICS_KEYS,
+  })),
+  persist: (json) => db.ActivityDayExecution.update(exec.id, { stations_json: json }),
+});
 
 async function run(base44, db, exec, actorEmail) {
   const stations = parse(exec.stations_json, []);
-  const pendingIds = new Set(stations.filter(s => !s.groups.every(g => s.items?.[g.group_id])).map(s => s.station_id));
+  const pendingIds = pendingStationIds(stations);
   if (pendingIds.size === 0) {
     const done = await db.ActivityDayExecution.update(exec.id, { state: 'COMPLETED', completed_at: exec.completed_at || new Date().toISOString(), last_error: '' });
     return json({ success: true, outcome: 'COMPLETED', execution: await present(db, { ...exec, ...done }) });
@@ -145,7 +139,7 @@ async function run(base44, db, exec, actorEmail) {
   }
   await db.ActivityDayExecution.update(exec.id, { state: 'IN_PROGRESS', attempts: (exec.attempts || 1) + 1, actor_email: actorEmail });
   try {
-    await writeStations(db, exec, stations.filter(s => pendingIds.has(s.station_id)), profileByGroup);
+    await writeStations(db, exec, stations, pendingIds, profileByGroup);
   } catch (err) {
     console.error('[executeActivityDay] write failed', err?.message);
     await db.ActivityDayExecution.update(exec.id, { stations_json: JSON.stringify(stations), state: 'INCOMPLETE', last_error: String(err?.message || 'שגיאת כתיבה').slice(0, 500) }).catch(() => {});
