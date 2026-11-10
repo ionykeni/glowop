@@ -7,10 +7,14 @@ import EligibleGroupsSection from "@/components/activity-planning/EligibleGroups
 import PlanStationCard from "@/components/activity-planning/PlanStationCard";
 import PlanPreviewSection from "@/components/activity-planning/PlanPreviewSection";
 import PlanGroupsSummary from "@/components/activity-planning/PlanGroupsSummary";
+import ExecuteSection from "@/components/activity-planning/ExecuteSection";
+import ExecutionResultPanel from "@/components/activity-planning/ExecutionResultPanel";
+import useActivityDayExecution from "@/hooks/useActivityDayExecution";
 
 export default function ActivityDayPlanner() {
   const templateId = new URLSearchParams(window.location.search).get("template");
   const plan = useActivityDayPlan(templateId);
+  const exec = useActivityDayExecution(templateId);
   const { tplQuery, template } = plan;
 
   return (
@@ -25,8 +29,12 @@ export default function ActivityDayPlanner() {
             <ChevronRight className="w-4 h-4" /> לתבנית
           </Link>
         </div>
-        <PreviewOnlyBanner />
-        {!templateId ? (
+        {exec.execution ? (
+          <ExecutionResultPanel execution={exec.execution} running={exec.running} onResume={exec.resume} onCheck={() => exec.checkStatus(exec.execution.execution_key)} onStartNew={exec.startNew} />
+        ) : <PreviewOnlyBanner />}
+        {exec.execution ? null : exec.checking && !exec.problem ? (
+          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+        ) : !templateId ? (
           <p className="text-sm text-red-600 text-center py-10">לא נבחרה תבנית</p>
         ) : tplQuery.isLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
@@ -45,6 +53,7 @@ export default function ActivityDayPlanner() {
               ))}
             </section>
             <PlanPreviewSection plan={plan} />
+            <ExecuteSection plan={plan} exec={exec} />
           </>
         )}
       </div>

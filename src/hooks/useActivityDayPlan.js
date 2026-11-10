@@ -52,7 +52,7 @@ export default function useActivityDayPlan(templateId) {
   return {
     tplQuery, template, spaces: tplQuery.data?.spaces || [], date, setDate, dayQuery, groups, groupsById,
     stations, updateStation, pool, togglePool, selectAllEligible, applyPoolToAll, summary, pruned,
-    preview, previewStale: !!preview && previewKey !== currentKey, previewing, previewError, runPreview,
+    payloadStations, preview, previewStale: !!preview && previewKey !== currentKey, previewing, previewError, runPreview,
     canPreview: !!date && payloadStations.length > 0,
   };
 }

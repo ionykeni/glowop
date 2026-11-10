@@ -1,0 +1,96 @@
+{
+  "name": "ActivityDayExecution",
+  "type": "object",
+  "properties": {
+    "execution_key": {
+      "type": "string",
+      "description": "Client-generated UUID identifying one confirmed execution (idempotency key)"
+    },
+    "request_fingerprint": {
+      "type": "string",
+      "description": "SHA-256 of the confirmed plan; a key reused with a different plan is rejected"
+    },
+    "template_id": {
+      "type": "string"
+    },
+    "template_family_id": {
+      "type": "string"
+    },
+    "template_version": {
+      "type": "number"
+    },
+    "template_name": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "IN_PROGRESS",
+        "COMPLETED",
+        "INCOMPLETE"
+      ],
+      "enumColors": [
+        "yellow",
+        "green",
+        "red"
+      ],
+      "default": "IN_PROGRESS"
+    },
+    "stations_json": {
+      "type": "string",
+      "description": "JSON array of stations: {station_id, title, space_id, space_name, space_code, start_time, end_time, shared_activity_id, logistics, groups:[{group_id, group_name}], items:{group_id: GroupScheduleItem id}}"
+    },
+    "warnings_json": {
+      "type": "string",
+      "description": "Nonblocking warnings (pending requests) at confirmation time"
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "actor_email": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "number",
+      "default": 1
+    }
+  },
+  "required": [
+    "execution_key",
+    "template_id",
+    "date",
+    "state"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

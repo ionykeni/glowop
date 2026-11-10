@@ -11,10 +11,10 @@ import VscWeekGrid from "./VscWeekGrid";
 import "./visualSpaceCalendar.css";
 
 // Shared, read-only visual calendar of common spaces (used by admins and VIEWER).
-export default function VisualSpaceCalendar() {
+export default function VisualSpaceCalendar({ initialDate }) {
   const now = israelNow();
   const [mode, setMode] = useState("day");
-  const [date, setDate] = useState(now.date);
+  const [date, setDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialDate || "") ? initialDate : now.date);
   const [filters, setFilters] = useState({ space: "all", group: "all", type: "all" });
   const week = weekDates(date);
   const { data, isLoading, error } = useSpaceCalendar(week[0], week[6]);

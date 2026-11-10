@@ -1,0 +1,46 @@
+{
+  "name": "ActivityDayExecutionLock",
+  "type": "object",
+  "properties": {
+    "lock_key": {
+      "type": "string",
+      "description": "Single global key serializing activity-day executions"
+    },
+    "holder_execution_key": {
+      "type": "string",
+      "description": "Execution currently holding the lock; empty when free"
+    },
+    "acquired_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "Lease expiry (ISO). An expired lease may be taken over via compare-and-set."
+    }
+  },
+  "required": [
+    "lock_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

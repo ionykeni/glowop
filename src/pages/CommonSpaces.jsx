@@ -29,7 +29,8 @@ export default function CommonSpaces() {
   const { role } = useRoleContext();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [tab, setTab] = useState("overview");
+  const urlParams = new URLSearchParams(window.location.search);
+  const [tab, setTab] = useState(urlParams.get("tab") === "visual" ? "visual" : "overview");
   const [standaloneModal, setStandaloneModal] = useState(null);
   const [selectedDate, setSelectedDate] = useState(moment().format("YYYY-MM-DD"));
   const [weekPivot, setWeekPivot] = useState(moment());
@@ -274,7 +275,7 @@ export default function CommonSpaces() {
           </div>
         )}
 
-        {tab === "visual" && <VisualSpaceCalendar />}
+        {tab === "visual" && <VisualSpaceCalendar initialDate={urlParams.get("date")} />}
 
         {tab === "standalone" && (
           <StandaloneActivitiesTab activities={activeStandaloneActivities} onSelect={selectStandalone} onCancel={cancelStandalone} canCancel={["SUPER_ADMIN", "ADMIN"].includes(role)} />

@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { sanitizeStations, validateTemplate } from '../../shared/activityDayTemplate.js';
 import { resolveInternalRole } from '../../shared/internalRoleAuth.js';
+import { json, fail, sameStamp } from '../../shared/activityDayHttp.js';
 
 // Planning-only templates. This function reads ActivitySpace for reference validation and
 // reads/writes ONLY ActivityDayTemplate. It never touches operational entities or calendars.
@@ -8,10 +9,6 @@ const ALLOWED_ROLES = new Set(['ADMIN', 'SUPER_ADMIN']);
 const ACTIONS = new Set(['list', 'get_family', 'create', 'save_draft', 'new_version', 'mark_ready']);
 const MAX_TEMPLATES = 500;
 
-const json = (body, status = 200) => Response.json(body, { status });
-const fail = (status, error, extra = {}) => json({ success: false, error, ...extra }, status);
-// Write responses and reads differ in timestamp precision/suffix; compare at millisecond precision.
-const sameStamp = (a, b) => String(a || '').replace(/Z$/, '').slice(0, 23) === String(b || '').replace(/Z$/, '').slice(0, 23);
 
 
 async function loadSpaceInfo(base44, stations) {
