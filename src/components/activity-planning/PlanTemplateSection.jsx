@@ -9,7 +9,7 @@ const shiftDate = (d, n) => {
 
 export default function PlanTemplateSection({ template, date, onDateChange }) {
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+    <section className="activity-day-section space-y-4">
       <h2 className="text-sm font-bold text-slate-500">א. תבנית ותאריך</h2>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <p className="text-lg font-bold text-slate-800">{template.name}</p>

@@ -15,23 +15,23 @@ export default function StationGroupsEditor({ station, groups, onChange }) {
       <div className="flex flex-wrap gap-1.5">
         {station.groups.length === 0 && <span className="text-xs text-slate-400">לא נבחרו קבוצות</span>}
         {station.groups.map(id => (
-          <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5">
+          <span key={id} className="activity-day-chip inline-flex items-center gap-1 bg-primary/5 text-primary text-xs">
             {names[id] || "קבוצה"}
             <button onClick={() => toggle(id)} aria-label="הסר"><X className="w-3 h-3" /></button>
           </span>
         ))}
       </div>
       {selectable.length > 0 && (
-        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-xs text-primary hover:underline">
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex items-center gap-2 rounded-md px-2 text-sm text-primary hover:bg-primary/5">
           <Pencil className="w-3 h-3" /> {open ? "סגור עריכת קבוצות" : "ערוך קבוצות לתחנה זו"}
         </button>
       )}
       {open && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 rounded-lg border border-slate-100 p-2">
           {selectable.map(g => (
-            <label key={g.id} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-slate-50 cursor-pointer">
+            <label key={g.id} className="activity-day-choice flex items-center gap-3 rounded-md border border-transparent px-2 py-2 hover:bg-muted cursor-pointer">
               <Checkbox checked={station.groups.includes(g.id)} onCheckedChange={() => toggle(g.id)} />
-              <span className="text-xs text-slate-700 truncate">{g.group_name}</span>
+              <span className="text-sm text-foreground break-words">{g.group_name}</span>
             </label>
           ))}
         </div>

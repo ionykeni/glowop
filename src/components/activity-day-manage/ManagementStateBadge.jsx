@@ -18,5 +18,5 @@ export function resolveState(ex, today) {
 
 export default function ManagementStateBadge({ state }) {
   const [label, cls] = STYLES[state] || STYLES.ACTIVE;
-  return <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${cls}`}>{label}</span>;
+  return <span className={`activity-day-status inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${cls}`}>{label}</span>;
 }

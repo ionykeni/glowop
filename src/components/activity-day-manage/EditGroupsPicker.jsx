@@ -11,9 +11,9 @@ export default function EditGroupsPicker({ current, dayGroups, selected, onChang
   ];
   const toggle = (id) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
   return (
-    <div className="border border-slate-200 rounded-lg max-h-56 overflow-y-auto divide-y divide-slate-100">
+    <div className="activity-day-groups-picker border border-border rounded-lg max-h-56 overflow-y-auto divide-y divide-border">
       {options.map(o => (
-        <label key={o.id} className={`flex items-center gap-2 px-3 py-2 text-sm ${o.disabled ? "opacity-50" : "cursor-pointer hover:bg-slate-50"}`}>
+        <label key={o.id} className={`activity-day-choice flex items-center gap-2 px-3 py-3 text-sm ${o.disabled ? "opacity-50" : "cursor-pointer hover:bg-slate-50"}`}>
           <Checkbox checked={selected.includes(o.id)} disabled={o.disabled && !selected.includes(o.id)} onCheckedChange={() => toggle(o.id)} />
           <span className="flex-1 text-slate-800">{o.name}</span>
           {o.note && <span className="text-xs text-slate-400">{o.note}</span>}

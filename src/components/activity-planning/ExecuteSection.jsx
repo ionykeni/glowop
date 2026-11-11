@@ -23,7 +23,7 @@ export default function ExecuteSection({ plan, exec }) {
   };
 
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+    <section className="activity-day-section activity-day-commit space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <h2 className="text-sm font-bold text-slate-500 flex-1">ה. יצירת הפעילויות</h2>
         <Button onClick={() => setOpen(true)} disabled={!ready || exec.running} className="gap-1.5">

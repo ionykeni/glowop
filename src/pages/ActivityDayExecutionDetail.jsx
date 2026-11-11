@@ -1,3 +1,4 @@
+import "@/components/activity-templates/activity-day-ui.css";
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, Loader2, CalendarDays, XCircle } from "lucide-react";
@@ -23,7 +24,7 @@ export default function ActivityDayExecutionDetail() {
   const editable = ex?.capabilities.editable && !ex.operation;
 
   return (
-    <div className="min-h-screen bg-slate-50" dir="rtl">
+    <div className="activity-day-ui activity-day-page min-h-screen bg-background" dir="rtl">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
         <Link to={executionsListPath} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 w-fit">
           <ChevronRight className="w-4 h-4" /> לרשימת ימי הפעילות
@@ -32,7 +33,7 @@ export default function ActivityDayExecutionDetail() {
           : error || !ex ? <div className="text-center text-sm text-red-700 py-12">{error?.message || "יום הפעילות לא נמצא"}</div>
           : (
             <>
-              <div className="bg-white border border-slate-200 rounded-lg p-4 flex items-start justify-between gap-3 flex-wrap">
+              <div className="activity-day-section flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl font-bold text-slate-800">{ex.template_name}</h1>
@@ -44,7 +45,7 @@ export default function ActivityDayExecutionDetail() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <Button asChild size="sm" variant="outline"><Link to={calendarLink(ex.date)}><CalendarDays /> ביומן החדרים</Link></Button>
-                  {editable && <Button size="sm" variant="outline" className="text-red-600" onClick={() => setCancelling(null)}><XCircle /> ביטול היום כולו</Button>}
+                  {editable && <Button size="sm" variant="outline" className="activity-day-danger" onClick={() => setCancelling(null)}><XCircle /> ביטול היום כולו</Button>}
                 </div>
               </div>
               {!ex.capabilities.editable && <div className="text-sm text-slate-600 bg-slate-100 rounded-lg p-3">{ex.capabilities.reason}</div>}

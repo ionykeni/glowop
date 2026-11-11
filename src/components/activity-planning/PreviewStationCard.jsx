@@ -5,7 +5,7 @@ import PlanStatusBadge from "./PlanStatusBadge";
 
 export default function PreviewStationCard({ station }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+    <div className="activity-day-station bg-card border border-border rounded-xl space-y-3">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-800">{station.title || "ללא שם"}</p>
@@ -30,7 +30,7 @@ export default function PreviewStationCard({ station }) {
       {station.issues.length > 0 && (
         <ul className="space-y-0.5 border-t border-slate-100 pt-1.5">
           {station.issues.map((i, idx) => (
-            <li key={idx} className="text-[11px] flex items-start gap-1.5 text-slate-600">
+            <li key={idx} data-status={i.status} className="activity-day-issue text-xs flex items-start gap-2">
               <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
               <span><b>{STATUS_META[i.status]?.label}</b> — {i.message}</span>
             </li>

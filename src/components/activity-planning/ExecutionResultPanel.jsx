@@ -7,7 +7,7 @@ export default function ExecutionResultPanel({ execution, running, onResume, onC
   const done = execution.state === "COMPLETED";
   const { counts, calendar_sync: sync } = execution;
   return (
-    <section className={`rounded-xl border p-4 space-y-3 ${done ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"}`}>
+    <section className={`rounded-xl border border-s-4 bg-card p-4 sm:p-5 space-y-4 ${done ? "border-green-300" : "border-amber-300"}`}>
       <div className="flex items-start gap-2">
         {done ? <CheckCircle2 className="w-5 h-5 text-green-700 shrink-0" /> : <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />}
         <div className="flex-1">

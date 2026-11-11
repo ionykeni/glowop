@@ -40,7 +40,7 @@ export default function StationEditDialog({ execution, station, run, onClose, on
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="activity-day-ui activity-day-dialog max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>עריכת תחנה</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label>שם התחנה</Label><Input value={form.title} onChange={e => set({ title: e.target.value })} /></div>

@@ -3,7 +3,7 @@ import { LogisticsBadges } from "@/components/schedule/LogisticsFields";
 
 export default function StationReadOnlyCard({ station, index, spaceName }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-1.5">
+    <div className="activity-day-station bg-card border border-border rounded-xl space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold text-primary bg-primary/10 rounded-full w-6 h-6 flex items-center justify-center shrink-0">{index + 1}</span>
         <p className="font-semibold text-slate-800">{station.title || "—"}</p>

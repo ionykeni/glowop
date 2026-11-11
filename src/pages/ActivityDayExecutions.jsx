@@ -1,3 +1,4 @@
+import "@/components/activity-templates/activity-day-ui.css";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -22,9 +23,9 @@ export default function ActivityDayExecutions() {
   if (filter === "upcoming") rows.sort((a, b) => a.date.localeCompare(b.date));
 
   return (
-    <div className="min-h-screen bg-slate-50" dir="rtl">
+    <div className="activity-day-ui activity-day-page min-h-screen bg-background" dir="rtl">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="activity-day-header flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarCheck className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-bold text-slate-800">ימי פעילות שאושרו</h1>
@@ -35,7 +36,7 @@ export default function ActivityDayExecutions() {
         </div>
         <div className="flex gap-2">
           {FILTERS.map(([k, label]) => (
-            <button key={k} onClick={() => setFilter(k)} className={`text-sm px-3 py-1 rounded-full border ${filter === k ? "bg-primary text-primary-foreground border-primary" : "bg-white text-slate-600 border-slate-200"}`}>{label}</button>
+            <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)} className={`text-sm font-medium px-4 py-2 rounded-md border ${filter === k ? "bg-primary text-primary-foreground border-primary" : "bg-white text-slate-600 border-slate-200"}`}>{label}</button>
           ))}
         </div>
         {isLoading ? (

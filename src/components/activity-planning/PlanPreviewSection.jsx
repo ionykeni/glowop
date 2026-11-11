@@ -14,7 +14,7 @@ export default function PlanPreviewSection({ plan }) {
   const { preview, previewStale, previewing, previewError, runPreview, canPreview } = plan;
   const counts = preview ? preview.stations.reduce((acc, s) => ({ ...acc, [s.status]: (acc[s.status] || 0) + 1 }), {}) : {};
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+    <section className="activity-day-section space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
         <h2 className="text-sm font-bold text-slate-500 flex-1">ד. בדיקה ותצוגה מקדימה</h2>
         <Button onClick={runPreview} disabled={!canPreview || previewing} className="gap-1.5">

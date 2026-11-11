@@ -6,8 +6,8 @@ export default function ManagedStationCard({ station, editable, onEdit, onCancel
   const cancelled = station.status === "CANCELLED";
   const warn = station.out_of_sync || station.duplicates > 0 || station.detached > 0;
   return (
-    <div className={`bg-white border rounded-lg p-4 space-y-2 ${cancelled ? "border-slate-200 opacity-60" : "border-slate-200"}`}>
-      <div className="flex items-start justify-between gap-3">
+    <div className={`activity-day-station bg-card border rounded-lg p-4 space-y-3 ${cancelled ? "border-slate-200 opacity-60" : "border-slate-200"}`}>
+      <div className="activity-day-managed-head flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-slate-800">{station.title || "תחנה"}</span>
@@ -22,7 +22,7 @@ export default function ManagedStationCard({ station, editable, onEdit, onCancel
         {editable && !cancelled && (
           <div className="flex gap-1 shrink-0">
             <Button size="sm" variant="outline" onClick={onEdit}><Pencil /> עריכה</Button>
-            <Button size="sm" variant="outline" className="text-red-600" onClick={onCancel}><XCircle /> ביטול</Button>
+            <Button size="sm" variant="outline" className="activity-day-danger" onClick={onCancel}><XCircle /> ביטול</Button>
           </div>
         )}
       </div>

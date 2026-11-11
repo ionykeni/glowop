@@ -26,13 +26,13 @@ export default function CancelDialog({ execution, stationId, run, onClose, onMes
 
   return (
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="activity-day-ui activity-day-dialog max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>{stationId ? "ביטול תחנה" : "ביטול יום הפעילות כולו"}</DialogTitle></DialogHeader>
         {error ? <div className="text-sm text-red-700 bg-red-50 rounded p-2">{error}</div>
           : !preview ? <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
           : (
             <div className="space-y-3 text-sm">
-              <p className="text-slate-700">הפעילויות הבאות יבוטלו עבור כל הקבוצות, והחדרים ישוחררו ביומן. הרשומות נשמרות להיסטוריה.</p>
+              <p className="activity-day-cancel-summary text-foreground">הפעילויות הבאות יבוטלו עבור כל הקבוצות, והחדרים ישוחררו ביומן. הרשומות נשמרות להיסטוריה.</p>
               <div className="border border-slate-200 rounded divide-y divide-slate-100">
                 {preview.stations.map(s => (
                   <div key={s.station_id} className="p-2">

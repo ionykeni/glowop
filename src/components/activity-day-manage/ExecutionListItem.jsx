@@ -8,12 +8,12 @@ const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
 
 export default function ExecutionListItem({ ex, today }) {
   return (
-    <Link to={executionPath(ex.id)} className="block bg-white border border-slate-200 rounded-lg p-4 hover:border-primary/40 transition-colors">
+    <Link to={executionPath(ex.id)} className="activity-day-list-item block bg-card border border-border hover:border-primary/40 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-slate-800">{fmtDate(ex.date)}</span>
-            <span className="text-slate-700 truncate">{ex.template_name}</span>
+            <span className="font-bold text-primary tabular-nums">{fmtDate(ex.date)}</span>
+            <span className="activity-day-template-name font-semibold text-foreground">{ex.template_name}</span>
             <span className="text-xs text-slate-400">גרסה {ex.template_version}</span>
             <ManagementStateBadge state={resolveState(ex, today)} />
             {ex.pending_operation && <span className="text-xs text-red-600">פעולה ממתינה</span>}

@@ -16,7 +16,7 @@ export default function CalendarVerifyPanel({ executionId }) {
   };
   const problems = (res?.items || []).filter(i => i.state !== "OK" && i.state !== "REMOVED");
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+    <div className="activity-day-section space-y-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-semibold text-slate-800">בדיקת התאמה ליומן Google</div>
         <Button size="sm" variant="outline" disabled={busy} onClick={check}>{busy ? <Loader2 className="animate-spin" /> : <CalendarSearch />} בדיקה</Button>
