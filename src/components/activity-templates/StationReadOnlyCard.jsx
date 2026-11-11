@@ -9,7 +9,7 @@ export default function StationReadOnlyCard({ station, index, spaceName }) {
         <p className="font-semibold text-slate-800">{station.title || "—"}</p>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{station.start_time || "--:--"}–{station.end_time || "--:--"}</span>
+        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /><bdi dir="ltr">{station.start_time || "--:--"}–{station.end_time || "--:--"}</bdi></span>
         {station.suggested_space_id && (
           <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{spaceName || "מרחב לא זמין"} (מוצע)</span>
         )}

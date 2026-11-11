@@ -43,10 +43,10 @@ export default function StationEditDialog({ execution, station, run, onClose, on
       <DialogContent className="activity-day-ui activity-day-dialog max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader><DialogTitle>עריכת תחנה</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div><Label>שם התחנה</Label><Input value={form.title} onChange={e => set({ title: e.target.value })} /></div>
+          <div><Label>שם התחנה</Label><Input aria-label="שם התחנה" value={form.title} onChange={e => set({ title: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>שעת התחלה</Label><Input type="time" value={form.start_time} onChange={e => set({ start_time: e.target.value })} /></div>
-            <div><Label>שעת סיום</Label><Input type="time" value={form.end_time} onChange={e => set({ end_time: e.target.value })} /></div>
+            <div><Label>שעת התחלה</Label><Input aria-label="שעת התחלה" type="time" value={form.start_time} onChange={e => set({ start_time: e.target.value })} /></div>
+            <div><Label>שעת סיום</Label><Input aria-label="שעת סיום" type="time" value={form.end_time} onChange={e => set({ end_time: e.target.value })} /></div>
           </div>
           <div>
             <Label>חדר</Label>

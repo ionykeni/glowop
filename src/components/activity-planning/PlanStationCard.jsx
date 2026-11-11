@@ -24,8 +24,8 @@ export default function PlanStationCard({ station, index, spaces, groups, onChan
         <button onClick={() => set("removed", true)} className="rounded-md p-2.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="הסר מהתוכנית בלבד (לא מהתבנית)" title="הסר מהתוכנית בלבד (לא מהתבנית)"><Trash2 className="w-4 h-4" /></button>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">התחלה</label><Input type="time" value={station.start_time} onChange={e => set("start_time", e.target.value)} /></div>
-        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">סיום</label><Input type="time" value={station.end_time} onChange={e => set("end_time", e.target.value)} /></div>
+        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">התחלה</label><Input aria-label="שעת התחלה" type="time" value={station.start_time} onChange={e => set("start_time", e.target.value)} /></div>
+        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">סיום</label><Input aria-label="שעת סיום" type="time" value={station.end_time} onChange={e => set("end_time", e.target.value)} /></div>
         <div className="col-span-2 space-y-0.5">
           <label className="text-[11px] text-slate-500">מרחב</label>
           <Select value={station.space_id || NO_SPACE} onValueChange={v => set("space_id", v === NO_SPACE ? "" : v)}>

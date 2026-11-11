@@ -19,7 +19,7 @@ export default function PlanTemplateSection({ template, date, onDateChange }) {
       <div className="flex items-end gap-2 flex-wrap">
         <div className="space-y-1">
           <label className="text-xs text-slate-500">תאריך יום הפעילות</label>
-          <Input type="date" value={date} onChange={e => onDateChange(e.target.value)} className="w-44" />
+          <Input aria-label="תאריך יום הפעילות" type="date" value={date} onChange={e => onDateChange(e.target.value)} className="w-44" />
         </div>
         {date && (
           <div className="flex gap-1">

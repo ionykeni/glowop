@@ -10,7 +10,7 @@ export default function PreviewStationCard({ station }) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-slate-800">{station.title || "ללא שם"}</p>
           <p className="text-xs text-slate-500 flex flex-wrap gap-x-3 mt-0.5">
-            <span>{station.start_time}–{station.end_time}</span>
+            <bdi dir="ltr">{station.start_time}–{station.end_time}</bdi>
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{station.space_name || "ללא מרחב"}</span>
           </p>
         </div>

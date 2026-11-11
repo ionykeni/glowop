@@ -18,8 +18,8 @@ export default function StationEditorCard({ station, index, total, spaces, error
         <button type="button" onClick={onRemove} className="p-1.5 text-slate-300 hover:text-red-500" aria-label="הסר תחנה"><Trash2 className="w-4 h-4" /></button>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">שעת התחלה</label><Input type="time" value={station.start_time} onChange={e => set("start_time", e.target.value)} /></div>
-        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">שעת סיום</label><Input type="time" value={station.end_time} onChange={e => set("end_time", e.target.value)} /></div>
+        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">שעת התחלה</label><Input aria-label="שעת התחלה" type="time" value={station.start_time} onChange={e => set("start_time", e.target.value)} /></div>
+        <div className="space-y-0.5"><label className="text-[11px] text-slate-500">שעת סיום</label><Input aria-label="שעת סיום" type="time" value={station.end_time} onChange={e => set("end_time", e.target.value)} /></div>
         <div className="col-span-2 space-y-0.5">
           <label className="text-[11px] text-slate-500">מרחב מוצע (המלצה בלבד, לא הזמנה)</label>
           <Select value={station.suggested_space_id || NO_SPACE} onValueChange={v => set("suggested_space_id", v === NO_SPACE ? "" : v)}>

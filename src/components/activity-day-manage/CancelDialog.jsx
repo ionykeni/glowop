@@ -36,7 +36,7 @@ export default function CancelDialog({ execution, stationId, run, onClose, onMes
               <div className="border border-slate-200 rounded divide-y divide-slate-100">
                 {preview.stations.map(s => (
                   <div key={s.station_id} className="p-2">
-                    <div className="font-medium text-slate-800">{s.title} · {s.start_time}–{s.end_time} · {s.space_name}</div>
+                    <div className="font-medium text-slate-800">{s.title} · <bdi dir="ltr">{s.start_time}–{s.end_time}</bdi> · {s.space_name}</div>
                     <div className="text-xs text-slate-500">{s.groups.join(", ") || "—"}</div>
                   </div>
                 ))}
