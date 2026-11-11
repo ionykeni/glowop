@@ -112,6 +112,6 @@ export function executionCapabilities(exec, today) {
 
 // Compare-and-set query that starts an operation only if nobody changed the execution since it was read.
 export function startOperationQuery(execId, expectedRevision) {
-  const rev = expectedRevision === 0 ? { $or: [{ revision: 0 }, { revision: { $exists: false } }] } : { revision: expectedRevision };
+  const rev = expectedRevision === 0 ? { $or: [{ revision: { $in: [0, null] } }, { revision: { $exists: false } }] } : { revision: expectedRevision };
   return { id: execId, operation_id: { $in: [null, ''] }, ...rev };
 }
