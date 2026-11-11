@@ -15,7 +15,7 @@ export default function EligibleGroupRow({ group, checked, onToggle }) {
     p.is_departure && p.period?.start_date !== p.period?.end_date ? "יום עזיבה" : null,
   ].filter(Boolean);
   return (
-    <label className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${selectable ? "border-slate-200 bg-white cursor-pointer hover:border-primary/40" : "border-purple-200 bg-purple-50/50 cursor-not-allowed"}`}>
+    <label className={`activity-day-choice flex items-start gap-3 rounded-lg border px-3 py-3 ${selectable ? "border-slate-200 bg-white cursor-pointer hover:border-primary/40" : "border-purple-200 bg-purple-50/50 cursor-not-allowed"}`}>
       <Checkbox checked={checked} disabled={!selectable} onCheckedChange={onToggle} className="mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm text-slate-800">{group.group_name}</p>

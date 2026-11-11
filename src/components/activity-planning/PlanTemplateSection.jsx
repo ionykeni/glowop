@@ -9,7 +9,7 @@ const shiftDate = (d, n) => {
 
 export default function PlanTemplateSection({ template, date, onDateChange }) {
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+    <section className="activity-day-section space-y-4">
       <h2 className="text-sm font-bold text-slate-500">א. תבנית ותאריך</h2>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <p className="text-lg font-bold text-slate-800">{template.name}</p>
@@ -19,7 +19,7 @@ export default function PlanTemplateSection({ template, date, onDateChange }) {
       <div className="flex items-end gap-2 flex-wrap">
         <div className="space-y-1">
           <label className="text-xs text-slate-500">תאריך יום הפעילות</label>
-          <Input type="date" value={date} onChange={e => onDateChange(e.target.value)} className="w-44" />
+          <Input aria-label="תאריך יום הפעילות" type="date" value={date} onChange={e => onDateChange(e.target.value)} className="w-44" />
         </div>
         {date && (
           <div className="flex gap-1">

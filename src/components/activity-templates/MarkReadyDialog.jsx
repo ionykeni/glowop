@@ -6,7 +6,7 @@ import {
 export default function MarkReadyDialog({ open, onOpenChange, stationCount, onConfirm }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent dir="rtl">
+      <AlertDialogContent dir="rtl" className="activity-day-ui activity-day-dialog">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-right">לסמן את הגרסה כמוכנה?</AlertDialogTitle>
           <AlertDialogDescription className="text-right space-y-2">

@@ -1,6 +1,6 @@
 import React from "react";
 
-const Row = ({ label, children }) => <div className="flex gap-2"><span className="text-slate-500 w-24 shrink-0">{label}</span><span className="text-slate-800">{children}</span></div>;
+const Row = ({ label, children }) => <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-3 py-1"><span className="text-muted-foreground">{label}</span><span className="text-slate-800">{children}</span></div>;
 const names = (list) => list.map(g => g.group_name).join(", ");
 
 export default function EditPreviewPanel({ preview, station }) {

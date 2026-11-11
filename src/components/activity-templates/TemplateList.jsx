@@ -19,7 +19,7 @@ export default function TemplateList({ onOpen, onCreate }) {
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש לפי שם תבנית..." className="pr-9 bg-white" />
+          <Input aria-label="חיפוש לפי שם תבנית" value={search} onChange={e => setSearch(e.target.value)} placeholder="חיפוש לפי שם תבנית..." className="pr-9 bg-white" />
         </div>
         <Button onClick={onCreate} className="gap-1.5"><Plus className="w-4 h-4" /> תבנית חדשה</Button>
       </div>
@@ -32,9 +32,9 @@ export default function TemplateList({ onOpen, onCreate }) {
         <div className="space-y-2">
           {families.map(f => (
             <button key={f.family_id} onClick={() => onOpen(f.family_id)}
-              className="w-full text-right bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-primary/40 transition-colors flex items-center gap-3">
+              className="activity-day-list-item w-full text-right bg-card border border-border rounded-xl hover:border-primary/40 transition-colors flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-800 truncate">{f.name}</p>
+                <p className="activity-day-template-name font-semibold text-foreground">{f.name}</p>
                 <p className="text-xs text-slate-500 mt-0.5">
                   גרסה {f.latest_version} · {f.station_count} תחנות
                   {f.ready_version && f.latest_status !== "READY" ? ` · גרסה מוכנה אחרונה: ${f.ready_version}` : ""}

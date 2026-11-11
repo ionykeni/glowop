@@ -1,3 +1,4 @@
+import "@/components/activity-templates/activity-day-ui.css";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronRight, CalendarRange } from "lucide-react";
 import TemplateOnlyNotice from "@/components/activity-templates/TemplateOnlyNotice";
@@ -10,9 +11,9 @@ export default function ActivityDayTemplates() {
   const open = (id) => setParams({ family: id });
 
   return (
-    <div className="min-h-screen bg-slate-50" dir="rtl">
+    <div className="activity-day-ui activity-day-page min-h-screen bg-background" dir="rtl">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="activity-day-header flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CalendarRange className="w-6 h-6 text-primary" />
             <h1 className="text-xl font-bold text-slate-800">תבניות ימי פעילות</h1>

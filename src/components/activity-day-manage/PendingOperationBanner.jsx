@@ -15,7 +15,7 @@ export default function PendingOperationBanner({ execution, run, onMessage }) {
     onMessage(r.ok ? { type: "ok", text: direction === "revert" ? "המצב הקודם שוחזר" : "הפעולה הושלמה" } : { type: "error", text: r.message, blockers: r.result?.blockers });
   };
   return (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+    <div role="alert" className="activity-day-feedback bg-red-50 border border-red-200 border-s-4 rounded-lg p-4 space-y-3">
       <div className="flex items-start gap-2 text-sm text-red-800">
         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
         <div>

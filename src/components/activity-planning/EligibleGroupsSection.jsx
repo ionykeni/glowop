@@ -5,7 +5,7 @@ import EligibleGroupRow from "./EligibleGroupRow";
 export default function EligibleGroupsSection({ plan }) {
   const { date, dayQuery, groups, pool, togglePool, selectAllEligible, applyPoolToAll, pruned } = plan;
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+    <section className="activity-day-section space-y-4">
       <h2 className="text-sm font-bold text-slate-500">ב. קבוצות השוהות בתאריך</h2>
       {!date ? (
         <p className="text-sm text-slate-500">יש לבחור תאריך כדי לטעון את הקבוצות השוהות באתר.</p>

@@ -8,7 +8,7 @@ export default function ExecuteConfirmDialog({ open, onOpenChange, preview, onCo
   const groupNames = [...new Set(preview.stations.flatMap(s => s.groups.map(g => g.group_name)))];
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent dir="rtl" className="max-w-lg max-h-[85vh] overflow-y-auto text-right">
+      <AlertDialogContent dir="rtl" className="activity-day-ui activity-day-dialog max-w-lg max-h-[85vh] overflow-y-auto text-right">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-right">יצירת יום פעילות</AlertDialogTitle>
           <AlertDialogDescription className="text-right text-slate-700">
@@ -22,7 +22,7 @@ export default function ExecuteConfirmDialog({ open, onOpenChange, preview, onCo
           <ul className="border border-slate-200 rounded-lg divide-y divide-slate-100">
             {preview.stations.map(s => (
               <li key={s.station_id} className="px-3 py-1.5 text-xs">
-                <span className="font-semibold">{s.start_time}–{s.end_time}</span> · {s.title || "ללא שם"} · {s.space_name}
+                <bdi dir="ltr" className="font-semibold">{s.start_time}–{s.end_time}</bdi> · {s.title || "ללא שם"} · {s.space_name}
                 <span className="block text-slate-500">{s.groups.map(g => g.group_name).join(", ")}</span>
               </li>
             ))}
