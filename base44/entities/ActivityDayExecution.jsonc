@@ -38,11 +38,12 @@
         "green",
         "red"
       ],
-      "default": "IN_PROGRESS"
+      "default": "IN_PROGRESS",
+      "description": "C1 creation state only. Phase C2 management uses management_state."
     },
     "stations_json": {
       "type": "string",
-      "description": "JSON array of stations: {station_id, title, space_id, space_name, space_code, start_time, end_time, shared_activity_id, logistics, groups:[{group_id, group_name}], items:{group_id: GroupScheduleItem id}}"
+      "description": "JSON array of stations: {station_id, title, space_id, space_name, space_code, start_time, end_time, shared_activity_id, logistics, groups:[{group_id, group_name}], items:{group_id: GroupScheduleItem id}, status?, cancelled_at?, cancelled_by?, original?}"
     },
     "warnings_json": {
       "type": "string",
@@ -63,6 +64,44 @@
     "attempts": {
       "type": "number",
       "default": 1
+    },
+    "revision": {
+      "type": "number",
+      "description": "C2 optimistic-concurrency revision; incremented when a management operation starts"
+    },
+    "management_state": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "UPDATING",
+        "NEEDS_RECOVERY",
+        "CANCELLED"
+      ],
+      "enumColors": [
+        "green",
+        "yellow",
+        "red",
+        "gray"
+      ],
+      "description": "C2 management state; empty means ACTIVE"
+    },
+    "operation_id": {
+      "type": "string",
+      "description": "UUID of the C2 operation in progress; empty when none"
+    },
+    "operation_json": {
+      "type": "string",
+      "description": "JSON of the C2 operation in progress: {op_id, type: EDIT|CANCEL_STATION|CANCEL_DAY, station_id?, station_ids?, target?, previous?, started_at, by}"
+    },
+    "history_json": {
+      "type": "string",
+      "description": "JSON array of completed C2 operations (audit trail)"
+    },
+    "last_modified_at": {
+      "type": "string"
+    },
+    "last_modified_by": {
+      "type": "string"
     }
   },
   "required": [
