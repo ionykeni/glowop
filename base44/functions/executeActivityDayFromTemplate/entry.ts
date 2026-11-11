@@ -6,6 +6,7 @@ import { checkActivitySpaceConflict } from '../../shared/activitySpaceAvailabili
 import { isGroupDeparted } from '../../shared/activityCreationWindow.js';
 import { isId, LOGISTICS_KEYS, loadGroupsForDay, sanitizePlanStations, buildPreview } from '../../shared/activityDayPlanData.js';
 import { json, fail, sameStamp } from '../../shared/activityDayHttp.js';
+import { acquireLock, releaseLock } from '../../shared/activityDayLock.js';
 import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleItemPayload, executionCounts, pendingStationIds, writePendingStations } from '../../shared/activityDayExecution.js';
 
 // Phase C1: turns an explicitly confirmed activity-day plan into real GroupScheduleItem records.
@@ -15,8 +16,6 @@ import { isExecutionKey, planFingerprintSource, classifyPreview, buildScheduleIt
 //   Other booking modules do not take this lock (documented limitation).
 // - No Google Calendar calls and no CalendarSync writes here: the existing entity workflow mirrors items as usual.
 const ALLOWED_ROLES = new Set(['ADMIN', 'SUPER_ADMIN']);
-const LOCK_KEY = 'GLOBAL';
-const LEASE_MS = 6 * 60 * 1000; // longer than the 5-minute request limit, so a live holder never loses it
 const failWith = (status, outcome, error, extra = {}) => fail(status, error, { outcome, ...extra });
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
 
@@ -25,27 +24,6 @@ async function sha256(text) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function acquireLock(db, key) {
-  let rows = await db.ActivityDayExecutionLock.filter({ lock_key: LOCK_KEY }, 'created_date', 5);
-  if (!rows.length) {
-    await db.ActivityDayExecutionLock.create({ lock_key: LOCK_KEY });
-    rows = await db.ActivityDayExecutionLock.filter({ lock_key: LOCK_KEY }, 'created_date', 5);
-  }
-  const lock = rows[0]; // oldest row is the canonical lock for every caller
-  const nowIso = new Date().toISOString();
-  const held = !!lock.holder_execution_key && !(lock.expires_at && lock.expires_at < nowIso);
-  if (held) return null;
-  const query = lock.holder_execution_key
-    ? { id: lock.id, holder_execution_key: lock.holder_execution_key, expires_at: lock.expires_at }
-    : { id: lock.id, holder_execution_key: null };
-  const res = await db.ActivityDayExecutionLock.updateMany(query, {
-    $set: { holder_execution_key: key, acquired_at: nowIso, expires_at: new Date(Date.now() + LEASE_MS).toISOString() },
-  });
-  return res?.updated === 1 ? lock.id : null;
-}
-
-const releaseLock = (db, lockId, key) =>
-  db.ActivityDayExecutionLock.updateMany({ id: lockId, holder_execution_key: key }, { $unset: { holder_execution_key: '', expires_at: '' } }).catch(e => console.error('[executeActivityDay] lock release failed', e?.message));
 
 async function findExecution(db, key) {
   return (await db.ActivityDayExecution.filter({ execution_key: key }, 'created_date', 1))[0] || null;
