@@ -144,5 +144,6 @@ export async function syncStation(db, exec, station, target, ctx = {}) {
 
   const after = stationLiveState(working, rowsFor(await loadRows(db, [station]), station));
   if (!planIsEmpty(planStationApply(after, target, desired))) throw codeError('VERIFY_FAILED', 'האימות לאחר השמירה נכשל');
-  return { ...working, items: target ? itemsMap(after) : station.items, original: station.original || stationSnapshot(station) };
+  if (!target) return station;
+  return { ...working, items: itemsMap(after), original: station.original || stationSnapshot(station) };
 }
