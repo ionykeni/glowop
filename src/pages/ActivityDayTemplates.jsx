@@ -22,9 +22,12 @@ export default function ActivityDayTemplates() {
               <ChevronRight className="w-4 h-4" /> לרשימת התבניות
             </button>
           ) : (
-            <Link to="/admin" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-              <ChevronRight className="w-4 h-4" /> לניהול
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link to="/activity-day-templates/executions" className="text-sm text-primary hover:underline">ימי פעילות שאושרו</Link>
+              <Link to="/admin" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+                <ChevronRight className="w-4 h-4" /> לניהול
+              </Link>
+            </div>
           )}
         </div>
         <TemplateOnlyNotice />

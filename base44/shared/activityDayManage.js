@@ -89,10 +89,11 @@ export async function validateEdit(base44, db, exec, station, live, target) {
 
   const profiles = diff.added.length ? await db.OperationalGroupProfile.filter({ group_id: { $in: diff.added } }, 'created_date', 2000) : [];
   const hasProfile = new Set(profiles.map(p => p.group_id));
+  const absentNames = await groupNames(db, diff.added.filter(id => !byId[id]), []);
   for (const gid of diff.added) {
     const g = byId[gid];
     const check = stationGroupCheck(g?.presence);
-    if (!g || !check.ok) blockers.push(`${g?.group_name || 'קבוצה'}: ${check.message || 'הקבוצה אינה שוהה באתר בתאריך זה'}`);
+    if (!g || !check.ok) blockers.push(`${g?.group_name || absentNames[gid] || 'קבוצה'}: ${check.message || 'הקבוצה אינה שוהה באתר בתאריך זה'}`);
     else if (isGroupDeparted(g)) blockers.push(`הקבוצה "${g.group_name}" כבר עזבה את האתר`);
     else if (!hasProfile.has(gid)) blockers.push(`לא נמצא פרופיל תפעולי לקבוצה "${g.group_name}"`);
   }

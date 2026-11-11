@@ -41,6 +41,8 @@ import OperationalProcedures from "./pages/OperationalProcedures.jsx";
 import MechinaSleepingReport from "@/pages/MechinaSleepingReport";
 import ActivityDayTemplates from "./pages/ActivityDayTemplates.jsx";
 import ActivityDayPlanner from "./pages/ActivityDayPlanner.jsx";
+import ActivityDayExecutions from "./pages/ActivityDayExecutions.jsx";
+import ActivityDayExecutionDetail from "./pages/ActivityDayExecutionDetail.jsx";
 
 const AuthenticatedApp = () => {
   const { isLoadingPublicSettings } = useAuth(); // Auth loading handled by RouteGuard
@@ -92,6 +94,8 @@ const AuthenticatedApp = () => {
         <Route path="/operational-procedures" element={<RouteGuard><OperationalProcedures /></RouteGuard>} />
         <Route path="/activity-day-templates" element={<RouteGuard><ActivityDayTemplates /></RouteGuard>} />
         <Route path="/activity-day-templates/plan" element={<RouteGuard><ActivityDayPlanner /></RouteGuard>} />
+        <Route path="/activity-day-templates/executions" element={<RouteGuard><ActivityDayExecutions /></RouteGuard>} />
+        <Route path="/activity-day-templates/executions/:id" element={<RouteGuard><ActivityDayExecutionDetail /></RouteGuard>} />
         {/* Add your page Route elements here */}
         <Route path="*" element={<PageNotFound />} />
       </Routes>

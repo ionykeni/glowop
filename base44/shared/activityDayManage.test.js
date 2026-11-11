@@ -214,8 +214,9 @@ test("16b. two simultaneous requests: the lease lets only one run", async () => 
   const S = await seed();
   const op_id = uuid();
   const [a, b] = await Promise.all([doEdit(S, editTarget(S), { op_id }), doEdit(S, editTarget(S), { op_id })].map(p => p.then(body)));
-  assert.deepEqual([a.outcome, b.outcome].sort(), ["BUSY", "COMPLETED"].sort().length === 2 ? [a.outcome, b.outcome].sort() : []);
+  // Either the second request hit the lease (BUSY) or ran after the first and was replayed; never two writers.
   assert.ok([a.outcome, b.outcome].includes("COMPLETED"));
+  assert.ok([a, b].every(r => r.outcome === "COMPLETED" || r.outcome === "BUSY"));
   assert.equal(active(S, S.shared).length, 3);
   assert.equal(S.tables.GroupScheduleItem.filter(r => r.group_id === S.g.galil && r.shared_activity_id === S.shared).length, 1);
 });
