@@ -188,7 +188,7 @@ export default function ShiftFormModal({ shift, defaults, workers, requests = []
                 <Select value={form.worker_id} onValueChange={(v) => set("worker_id", v)}>
                   <SelectTrigger><SelectValue placeholder="בחר עובד" /></SelectTrigger>
                   <SelectContent>
-                    {workers.map((w) => <SelectItem key={w.id} value={w.id}><span>{w.full_name} · <span className={w.internal_user_id ? "text-emerald-600" : "text-slate-400"}>{w.internal_user_id ? "משתמש מערכת מקושר" : "ללא משתמש מערכת"}</span></span></SelectItem>)}
+                    {workers.map((w) => <SelectItem key={w.id} value={w.id}><span>{w.full_name} · <span className={w.is_linked ? "text-emerald-600" : "text-slate-400"}>{w.is_linked ? "משתמש מערכת מקושר" : "ללא משתמש מערכת"}</span></span></SelectItem>)}
                     <SelectItem value={NEW_WORKER}>➕ עובד חדש...</SelectItem>
                   </SelectContent>
                 </Select>

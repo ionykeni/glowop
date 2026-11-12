@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UsersRound } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { invokeWorkforce } from "@/lib/workforceApi";
 import { ROW_BY_TYPE, fmtShiftTime } from "@/lib/workScheduleConfig";
 
 const SHIFT_TYPES = ["OPERATIONS_MORNING", "OPERATIONS_EVENING", "NIGHT_ON_CALL"];
@@ -12,10 +13,12 @@ export default function DashboardOperationsShifts({ selectedDate }) {
     queryFn: () => base44.entities.WorkShift.filter({ date: selectedDate, status: "PLANNED" }),
   });
   const relevantShifts = useMemo(() => shifts.filter(shift => SHIFT_TYPES.includes(shift.row_type)), [shifts]);
+  // Names only, and only for shifts that lack a worker_name snapshot
+  const missingNameIds = useMemo(() => [...new Set(relevantShifts.filter(s => !s.worker_name && s.worker_id).map(s => s.worker_id))].sort(), [relevantShifts]);
   const { data: workers = [] } = useQuery({
-    queryKey: ["dashboardShiftWorkers"],
-    queryFn: () => base44.entities.WorkerProfile.list("full_name", 300),
-    enabled: relevantShifts.length > 0,
+    queryKey: ["dashboardShiftWorkers", missingNameIds.join(",")],
+    queryFn: async () => (await invokeWorkforce("getWorkerDirectory", { action: "names", worker_ids: missingNameIds })).workers,
+    enabled: missingNameIds.length > 0,
   });
   const workerById = useMemo(() => Object.fromEntries(workers.map(worker => [worker.id, worker])), [workers]);
   if (relevantShifts.length === 0) return null;

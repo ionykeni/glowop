@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { invokeWorkforce } from "@/lib/workforceApi";
 import { ROLE_LABELS, ROLES } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,18 +33,16 @@ export default function UserManagement() {
   const [editingId, setEditingId] = useState(null);
   const [formError, setFormError] = useState("");
 
-  const { data: users = [], isLoading } = useQuery({
+  const [actionError, setActionError] = useState("");
+
+  const { data: users = [], isLoading, error: listError } = useQuery({
     queryKey: ["internalUsers"],
-    queryFn: () => base44.entities.InternalUser.list("-created_date", 200),
+    queryFn: async () => (await invokeWorkforce("manageInternalUsers", { action: "list" })).users,
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (data) => {
-      if (editingId) {
-        return base44.entities.InternalUser.update(editingId, data);
-      }
-      return base44.entities.InternalUser.create({ ...data, active: true });
-    },
+    mutationFn: (data) => invokeWorkforce("manageInternalUsers", { action: "save", user_id: editingId || "", user: data }),
+    onError: (err) => setFormError(err.message),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["internalUsers"] });
       setShowForm(false);
@@ -55,7 +53,9 @@ export default function UserManagement() {
   });
 
   const toggleActive = useMutation({
-    mutationFn: ({ id, active }) => base44.entities.InternalUser.update(id, { active }),
+    mutationFn: ({ id, active }) => invokeWorkforce("manageInternalUsers", { action: "set_active", user_id: id, active }),
+    onMutate: () => setActionError(""),
+    onError: (err) => setActionError(err.message),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["internalUsers"] }),
   });
 
@@ -187,7 +187,10 @@ export default function UserManagement() {
             {isLoading && (
               <p className="text-slate-400 text-sm">טוען משתמשים...</p>
             )}
-            {!isLoading && users.length === 0 && (
+            {(listError || actionError) && (
+              <p className="text-sm text-red-300 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">{actionError || listError.message}</p>
+            )}
+            {!isLoading && !listError && users.length === 0 && (
               <div className="bg-slate-800 rounded-xl p-6 text-center text-slate-400 text-sm">
                 אין משתמשים רשומים עדיין. הוסף את המשתמש הראשון.
               </div>

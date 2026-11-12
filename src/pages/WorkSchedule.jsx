@@ -5,7 +5,8 @@ import { useRoleContext } from "@/lib/RoleContext";
 import { hasPermission } from "@/lib/roles";
 import { useToast } from "@/components/ui/use-toast";
 import { AlertTriangle, CalendarClock, FileText } from "lucide-react";
-import { getWeekStart, addDays, dayNameOf, TEAM_FILTERS, ROW_BY_TYPE } from "@/lib/workScheduleConfig";
+import { getWeekStart, addDays, dayNameOf, TEAM_FILTERS } from "@/lib/workScheduleConfig";
+import { invokeWorkforce } from "@/lib/workforceApi";
 import { Button } from "@/components/ui/button";
 import WeekToolbar from "@/components/work-schedule/WeekToolbar";
 import ScheduleGrid from "@/components/work-schedule/ScheduleGrid";
@@ -17,8 +18,6 @@ import CopyShiftModal from "@/components/work-schedule/CopyShiftModal";
 import ScheduleReports from "@/components/work-schedule/reports/ScheduleReports";
 import { usePendingWorkScheduleRequests } from "@/hooks/usePendingWorkScheduleRequests";
 
-const NIGHT_ON_CALL_SOURCE = "OPERATIONS_EVENING_TO_NIGHT_ON_CALL";
-const OPS_MORNING_SOURCE = "NIGHT_ON_CALL_TO_OPERATIONS_MORNING";
 
 export default function WorkSchedule() {
   const { role, internalUser } = useRoleContext();
@@ -50,8 +49,8 @@ export default function WorkSchedule() {
   });
 
   const { data: workers = [] } = useQuery({
-    queryKey: ["workerProfiles"],
-    queryFn: () => base44.entities.WorkerProfile.filter({ is_active: true }, "full_name", 500),
+    queryKey: ["workerProfiles"], enabled: canManage,
+    queryFn: async () => (await invokeWorkforce("getWorkerDirectory", { action: "scheduling" })).workers,
   });
   const { data: assignmentRequests = [] } = useQuery({
     queryKey: ["workScheduleRequests"], enabled: canManage,
@@ -64,75 +63,35 @@ export default function WorkSchedule() {
     queryClient.invalidateQueries({ queryKey: ["workerProfiles"] });
   };
 
-  const ensureSchedule = async () => {
-    if (schedule) return schedule;
-    const created = await base44.entities.WorkSchedule.create({
-      week_start_date: weekStart, status: "DRAFT", created_by: userEmail || undefined,
-    });
-    invalidate();
-    return created;
-  };
-
-  const getLinkedNightOnCallShifts = (sourceShift) => base44.entities.WorkShift.filter({
-    work_schedule_id: sourceShift.work_schedule_id,
-    linked_source_shift_id: sourceShift.id,
-    auto_created_from: NIGHT_ON_CALL_SOURCE,
-  }, "-created_date", 50);
-
-  const deleteLinkedNightOnCallShifts = async (sourceShift) => {
-    const linked = await getLinkedNightOnCallShifts(sourceShift);
-    await Promise.all(linked.map((s) => base44.entities.WorkShift.delete(s.id)));
-  };
+  // All schedule/shift writes go through the secured manageWorkSchedule backend function
+  const schedulePost = (action, payload = {}) => invokeWorkforce("manageWorkSchedule", { action, ...payload });
+  const showError = (err) => toast({ description: err.message || "שגיאה", variant: "destructive" });
 
   const handleCreateDraft = async () => {
     if (!canManage) return;
     setBusy(true);
-    await ensureSchedule();
-    toast({ description: "נוצרה טיוטת סידור לשבוע זה" });
+    try {
+      await schedulePost("ensure_schedule", { week_start_date: weekStart });
+      invalidate();
+      toast({ description: "נוצרה טיוטת סידור לשבוע זה" });
+    } catch (err) { showError(err); }
     setBusy(false);
   };
 
+  // Errors propagate to ShiftFormModal, which shows them inline
   const handleSaveShift = async (payload) => {
     if (!canManage) return;
-    const s = await ensureSchedule();
-    if (modal?.shift) {
-      await base44.entities.WorkShift.update(modal.shift.id, { ...payload, updated_by: userEmail || undefined });
-      if (modal.shift.row_type === "OPERATIONS_EVENING") {
-        const linked = await getLinkedNightOnCallShifts(modal.shift);
-        if (payload.row_type === "OPERATIONS_EVENING") {
-          await Promise.all(linked.map((nightShift) => base44.entities.WorkShift.update(nightShift.id, {
-            date: payload.date,
-            worker_id: payload.worker_id,
-            worker_name: payload.worker_name,
-            updated_by: userEmail || undefined,
-          })));
-        } else {
-          await Promise.all(linked.map((nightShift) => base44.entities.WorkShift.delete(nightShift.id)));
-        }
-      }
-    } else {
-      await base44.entities.WorkShift.create({ ...payload, work_schedule_id: s.id, created_by: userEmail || undefined });
-    }
+    await schedulePost("save_shift", { shift_id: modal?.shift?.id || "", week_start_date: weekStart, shift: payload });
     invalidate();
   };
 
-  const handleCancelShift = async (shift) => {
-    if (!canManage) return;
-    await base44.entities.WorkShift.update(shift.id, { status: "CANCELLED", updated_by: userEmail || undefined });
-    if (shift.row_type === "OPERATIONS_EVENING") await deleteLinkedNightOnCallShifts(shift);
+  const runShiftAction = async (action, payload) => {
+    try { await schedulePost(action, payload); } catch (err) { showError(err); }
     invalidate();
   };
-
-  const handleDeleteShift = async (shift) => {
-    if (!canManage) return;
-    if (shift.row_type === "OPERATIONS_EVENING") await deleteLinkedNightOnCallShifts(shift);
-    try {
-      await base44.entities.WorkShift.delete(shift.id);
-    } catch {
-      // Shift already removed (stale cache or deleted elsewhere) — refresh to clear the ghost card
-    }
-    invalidate();
-  };
+  const handleCancelShift = (shift) => canManage && runShiftAction("cancel_shift", { shift_id: shift.id });
+  // Already-deleted shifts succeed on the server, so stale cards are cleared by the refresh
+  const handleDeleteShift = (shift) => canManage && runShiftAction("delete_shift", { shift_id: shift.id });
 
   const handleCopyShift = async (targetDates) => {
     if (!canManage || !copyShift) return;
@@ -182,92 +141,35 @@ export default function WorkSchedule() {
     }
   };
 
-  const handleToggleNightOnCall = async (shift, shouldCreate) => {
+  const handleToggleNightOnCall = (shift, shouldCreate) => {
     if (!canManage || shift.row_type !== "OPERATIONS_EVENING") return;
-    const linked = await getLinkedNightOnCallShifts(shift);
-    if (shouldCreate) {
-      if (linked.some((s) => s.status === "PLANNED")) return;
-      const nightRow = ROW_BY_TYPE.NIGHT_ON_CALL;
-      await base44.entities.WorkShift.create({
-        work_schedule_id: shift.work_schedule_id,
-        date: shift.date,
-        row_type: "NIGHT_ON_CALL",
-        row_label: nightRow.label,
-        row_order: nightRow.order,
-        worker_id: shift.worker_id,
-        worker_name: shift.worker_name,
-        notes: "נוצר מתפעול ערב",
-        status: "PLANNED",
-        linked_source_shift_id: shift.id,
-        auto_created_from: NIGHT_ON_CALL_SOURCE,
-        created_by: userEmail || undefined,
-      });
-    } else {
-      await Promise.all(linked.map((s) => base44.entities.WorkShift.delete(s.id)));
-    }
-    invalidate();
+    return runShiftAction("toggle_night_on_call", { shift_id: shift.id, enabled: shouldCreate });
   };
 
   const handleCopyPrev = async () => {
     if (!canManage) return;
+    if (shifts.length > 0 && !window.confirm("כבר קיימים משמרות בשבוע זה. להעתיק בכל זאת? (המשמרות הקיימות יישארו)")) return;
     setBusy(true);
     try {
-      const prevStart = addDays(weekStart, -7);
-      const prevScheds = await base44.entities.WorkSchedule.filter({ week_start_date: prevStart });
-      if (!prevScheds[0]) {
-        toast({ description: "לא נמצא סידור בשבוע הקודם", variant: "destructive" });
-        setBusy(false);
-        return;
+      const res = await schedulePost("copy_previous_week", { week_start_date: weekStart });
+      if (res.status === "no_previous") toast({ description: "לא נמצא סידור בשבוע הקודם", variant: "destructive" });
+      else if (res.status === "no_shifts") toast({ description: "אין משמרות להעתקה בשבוע הקודם" });
+      else {
+        invalidate();
+        toast({ description: `הועתקו ${res.count} משמרות מהשבוע הקודם (טיוטה)` });
       }
-      if (shifts.length > 0) {
-        const ok = window.confirm("כבר קיימים משמרות בשבוע זה. להעתיק בכל זאת? (המשמרות הקיימות יישארו)");
-        if (!ok) { setBusy(false); return; }
-      }
-      const prevShifts = await base44.entities.WorkShift.filter(
-        { work_schedule_id: prevScheds[0].id, status: "PLANNED" }, "date", 500
-      );
-      if (prevShifts.length === 0) {
-        toast({ description: "אין משמרות להעתקה בשבוע הקודם" });
-        setBusy(false);
-        return;
-      }
-      const target = await ensureSchedule();
-      await base44.entities.WorkShift.bulkCreate(prevShifts.map((s) => {
-        const isCleaning = s.row_type === "HOUSEKEEPING_MORNING" || s.row_type === "HOUSEKEEPING_EVENING";
-        return {
-          work_schedule_id: target.id,
-          date: addDays(s.date, 7),
-          row_type: s.row_type,
-          row_label: s.row_label,
-          row_order: s.row_order,
-          worker_id: isCleaning ? "" : (s.worker_id || undefined),
-          worker_name: isCleaning ? "" : (s.worker_name || undefined),
-          start_time: isCleaning ? "" : (s.start_time || undefined),
-          end_time: isCleaning ? "" : (s.end_time || undefined),
-          worker_count: s.worker_count || undefined,
-          notes: s.notes || undefined,
-          status: "PLANNED",
-          created_by: userEmail || undefined,
-        };
-      }));
-      invalidate();
-      toast({ description: `הועתקו ${prevShifts.length} משמרות מהשבוע הקודם (טיוטה)` });
-    } catch (err) {
-      toast({ description: err.message || "שגיאה בהעתקה", variant: "destructive" });
-    }
+    } catch (err) { showError(err); }
     setBusy(false);
   };
 
   const handlePublish = async () => {
     if (!canManage || !schedule) return;
     setBusy(true);
-    await base44.entities.WorkSchedule.update(schedule.id, {
-      status: "PUBLISHED",
-      published_at: new Date().toISOString(),
-      updated_by: userEmail || undefined,
-    });
-    invalidate();
-    toast({ description: "הסידור פורסם — העובדים יכולים לראות את המשמרות שלהם" });
+    try {
+      await schedulePost("publish", { schedule_id: schedule.id });
+      invalidate();
+      toast({ description: "הסידור פורסם — העובדים יכולים לראות את המשמרות שלהם" });
+    } catch (err) { showError(err); }
     setBusy(false);
   };
 
