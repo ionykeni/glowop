@@ -194,7 +194,9 @@ export default function MechinaSpaces() {
 
   useEffect(() => {
     if (!isMechinaUser || !internalUser?.email) return;
-    base44.entities.MechinaGroupAssignment.filter({ user_email: internalUser.email, is_active: true }).then(setAssignments);
+    // Legacy rows keep the typed casing; new assignments are stored normalized — match both.
+    const emails = [...new Set([internalUser.email, internalUser.email.trim().toLowerCase()])];
+    base44.entities.MechinaGroupAssignment.filter({ user_email: { $in: emails }, is_active: true }).then(setAssignments);
   }, [isMechinaUser, internalUser?.email]);
 
   useEffect(() => {
