@@ -21,7 +21,9 @@ export function createDoc(JsPDF, fonts, orientation) {
 const W = (doc) => doc.internal.pageSize.getWidth();
 const H = (doc) => doc.internal.pageSize.getHeight();
 const font = (doc, size, bold = false) => { doc.setFont('Alef', bold ? 'bold' : 'normal'); doc.setFontSize(size); };
-const rtl = (doc, text, xRight, y) => doc.text(toVisual(text), xRight, y, { align: 'right' });
+// The string is already visual; these options make jsPDF's built-in bidi pass a no-op (visual LTR → visual LTR).
+export const NO_BIDI = { isInputVisual: true, isOutputVisual: true, isInputRtl: false, isOutputRtl: false };
+const rtl = (doc, text, xRight, y) => doc.text(toVisual(text), xRight, y, { align: 'right', ...NO_BIDI });
 
 // Word wrap on the logical string, then each line is converted to visual order.
 export function wrap(doc, text, maxW) {

@@ -191,6 +191,34 @@ test("worker PDF: 1, 2, 4 weeks and custom range; only that worker; drafts only 
   assert.ok(!drawn.some((t) => /HOURLY|GLOBAL|₪/.test(t)));
 });
 
+// Decodes the glyph strings actually written into the PDF through its ToUnicode maps.
+function extractPdfStrings(bytes) {
+  const data = bytes.toString("latin1");
+  const maps = [...data.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)].map((m) => {
+    const d = {};
+    for (const [, a, b] of m[1].matchAll(/<([0-9a-fA-F]+)>\s*<([0-9a-fA-F]+)>/g)) d[a.toLowerCase().padStart(4, "0")] = String.fromCodePoint(parseInt(b, 16));
+    return d;
+  });
+  return [...data.matchAll(/<([0-9a-fA-F]+)>\s*Tj/g)].map(([, h]) => maps.map((d) => {
+    let s = "";
+    for (let i = 0; i < h.length; i += 4) s += d[h.slice(i, i + 4).toLowerCase()] ?? "\uFFFD";
+    return s;
+  }));
+}
+
+test("PDF bytes contain exactly the visual-order strings (no extra reordering by jsPDF)", { skip: !pdfReady }, () => {
+  const { shifts, schedules } = manyShifts(14, ["w1", "w2"]);
+  const r = buildScheduleReport({ start: "2026-10-25", end: "2026-11-07", shifts, schedules, workers });
+  const { doc, drawn } = spyDoc((P) => buildTeamPdf(P, fonts, r, { includeDrafts: true }));
+  const expected = new Set(drawn);
+  const found = extractPdfStrings(Buffer.from(doc.output("arraybuffer")));
+  assert.ok(found.length > 50);
+  for (const options of found) assert.ok(options.some((s) => expected.has(s)), `unexpected PDF text: ${options.join(" | ")}`);
+  const flat = found.map((o) => o.find((s) => expected.has(s)));
+  assert.ok(flat.includes(toVisual("טווח: 25/10/2026 – 07/11/2026")));
+  assert.ok(flat.includes("07:00–16:00"));
+});
+
 test("team PDF: multi-page landscape with repeated headers and every worker", { skip: !pdfReady }, () => {
   const ids = Array.from({ length: 9 }, (_, i) => "w" + (i + 1));
   const many = ids.map((id, i) => ({ id, full_name: `עובד ${i + 1}`, default_team: "OPERATIONS" }));
