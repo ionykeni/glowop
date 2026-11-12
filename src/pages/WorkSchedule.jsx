@@ -14,7 +14,7 @@ import WeeklyScheduleReportModal from "@/components/work-schedule/WeeklySchedule
 import AdminRequestsPanel from "@/components/work-schedule/AdminRequestsPanel";
 import WorkerManagementPanel from "@/components/work-schedule/WorkerManagementPanel";
 import CopyShiftModal from "@/components/work-schedule/CopyShiftModal";
-import MonthlyWorkReport from "@/components/work-schedule/MonthlyWorkReport";
+import ScheduleReports from "@/components/work-schedule/reports/ScheduleReports";
 import { usePendingWorkScheduleRequests } from "@/hooks/usePendingWorkScheduleRequests";
 
 const NIGHT_ON_CALL_SOURCE = "OPERATIONS_EVENING_TO_NIGHT_ON_CALL";
@@ -292,10 +292,10 @@ export default function WorkSchedule() {
         <Button type="button" size="sm" variant={activeTab === "schedule" ? "default" : "ghost"} onClick={() => setActiveTab("schedule")}>סידור עבודה</Button>
         <Button type="button" size="sm" variant={activeTab === "requests" ? "default" : "ghost"} onClick={() => setActiveTab("requests")}>בקשות{pendingRequestCount > 0 && <span className="mr-1 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">{pendingRequestCount}</span>}</Button>
         <Button type="button" size="sm" variant={activeTab === "workers" ? "default" : "ghost"} onClick={() => setActiveTab("workers")}>ניהול עובדים</Button>
-        <Button type="button" size="sm" variant={activeTab === "monthly" ? "default" : "ghost"} onClick={() => setActiveTab("monthly")}>דוח חודשי</Button>
+        <Button type="button" size="sm" variant={activeTab === "monthly" ? "default" : "ghost"} onClick={() => setActiveTab("monthly")}>דוחות סידור עבודה</Button>
       </div>}
 
-      {activeTab === "monthly" && canManage ? <MonthlyWorkReport /> : activeTab === "workers" && canManage ? <WorkerManagementPanel /> : activeTab === "requests" && canManage ? <AdminRequestsPanel weekStart={weekStart} setWeekStart={setWeekStart} /> : <>
+      {activeTab === "monthly" && canManage ? <ScheduleReports /> : activeTab === "workers" && canManage ? <WorkerManagementPanel /> : activeTab === "requests" && canManage ? <AdminRequestsPanel weekStart={weekStart} setWeekStart={setWeekStart} /> : <>
       <WeekToolbar
         weekStart={weekStart}
         setWeekStart={setWeekStart}
