@@ -21,7 +21,7 @@ export default function NeighborhoodCard({ unit, canComplete, busy, onClean, onV
         )}
       </div>
       <p className="text-[11px] text-muted-foreground leading-snug min-h-[2.2em]">
-        {hasRecord ? `ניקוי אחרון: ${formatDate(unit.last_completed_at)} · ${unit.last_completed_by}` : "לא תועד ניקוי"}
+        {hasRecord ? `ניקוי אחרון: ${formatDate(unit.last_completed_at)} · ${unit.last_completed_by}` : "אין ניקוי קודם במערכת"}
       </p>
       <Button size="sm" className="w-full h-10 gap-1.5" disabled={!canComplete || busy} onClick={onClean}>
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
