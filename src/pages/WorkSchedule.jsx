@@ -36,17 +36,14 @@ export default function WorkSchedule() {
   const [activeTab, setActiveTab] = useState("schedule");
   const [busy, setBusy] = useState(false);
 
-  const { data: schedules = [] } = useQuery({
-    queryKey: ["workSchedule", weekStart],
-    queryFn: () => base44.entities.WorkSchedule.filter(canManage ? { week_start_date: weekStart } : { week_start_date: weekStart, status: "PUBLISHED" }),
+  // Server decides draft visibility (managers: any status; other viewers: published only)
+  const { data: weekView } = useQuery({
+    queryKey: ["workScheduleWeek", weekStart],
+    queryFn: () => invokeWorkforce("getWorkScheduleView", { action: "week", week_start_date: weekStart }),
+    enabled: canView,
   });
-  const schedule = schedules[0] || null;
-
-  const { data: shifts = [] } = useQuery({
-    queryKey: ["workShifts", schedule?.id],
-    queryFn: () => base44.entities.WorkShift.filter({ work_schedule_id: schedule.id }, "date", 500),
-    enabled: !!schedule,
-  });
+  const schedule = weekView?.schedule || null;
+  const shifts = weekView?.shifts || [];
 
   const { data: workers = [] } = useQuery({
     queryKey: ["workerProfiles"], enabled: canManage,
@@ -58,8 +55,7 @@ export default function WorkSchedule() {
   });
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["workSchedule", weekStart] });
-    queryClient.invalidateQueries({ queryKey: ["workShifts"] });
+    queryClient.invalidateQueries({ queryKey: ["workScheduleWeek"] });
     queryClient.invalidateQueries({ queryKey: ["workerProfiles"] });
   };
 

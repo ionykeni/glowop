@@ -7,6 +7,7 @@ import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useRoleContext } from "@/lib/RoleContext";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Printer } from "lucide-react";
 import ReactDOM from "react-dom";
@@ -38,12 +39,9 @@ export default function CleaningReport() {
   const [applied, setApplied] = useState(def);
 
   const { data: user } = useQuery({ queryKey: ["me"], queryFn: () => base44.auth.me() });
-  const { data: internalUsers = [] } = useQuery({
-    queryKey: ["internalUsers"],
-    queryFn: () => base44.entities.InternalUser.filter({ email: user?.email }),
-    enabled: !!user?.email,
-  });
-  const myRole = internalUsers[0]?.role || user?.role || "VIEWER";
+  // Role resolved on the server for the signed-in identity (no direct InternalUser read)
+  const { role } = useRoleContext();
+  const myRole = role || "VIEWER";
   const canEdit = CAN_EDIT_ROLES.includes(myRole);
 
   const { data: shifts = [] } = useQuery({

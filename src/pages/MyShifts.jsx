@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import useMyWorkerProfile from "@/lib/useMyWorkerProfile";
+import { invokeWorkforce } from "@/lib/workforceApi";
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Download } from "lucide-react";
 import { addDays, getWeekStart } from "@/lib/workScheduleConfig";
@@ -16,12 +17,14 @@ export default function MyShifts() {
   const [requestOpen, setRequestOpen] = useState(false);
   const queryClient = useQueryClient();
   const { profile, isLoading: loadingProfile } = useMyWorkerProfile();
-  const { data: schedule = null, isLoading: loadingSchedule } = useQuery({ queryKey: ["myPublishedSchedule", weekStart], queryFn: async () => (await base44.entities.WorkSchedule.filter({ week_start_date: weekStart, status: "PUBLISHED" }))[0] || null });
-  const { data: shifts = [], isLoading: loadingShifts } = useQuery({ queryKey: ["myWeeklyShifts", schedule?.id, profile?.id], enabled: !!schedule && !!profile, queryFn: async () => (await base44.entities.WorkShift.filter({ work_schedule_id: schedule.id, worker_id: profile.id, status: "PLANNED" }, "date", 100)).filter((shift) => shift.status !== "CANCELLED") });
+  // Own published shifts only — the server resolves the worker profile from the signed-in identity
+  const { data: myWeek, isLoading: loadingWeek } = useQuery({ queryKey: ["myWeeklyShifts", weekStart, profile?.id], enabled: !!profile, queryFn: () => invokeWorkforce("getWorkScheduleView", { action: "my_week", week_start_date: weekStart }) });
+  const schedule = myWeek?.schedule || null;
+  const shifts = myWeek?.shifts || [];
   const { data: requests = [] } = useQuery({ queryKey: ["myWorkScheduleRequests", profile?.id], enabled: !!profile, queryFn: async () => (await base44.functions.invoke("manageWorkScheduleRequests", { action: "mine" })).data.requests || [] });
   const refreshRequests = () => { queryClient.invalidateQueries({ queryKey: ["myWorkScheduleRequests", profile?.id] }); queryClient.invalidateQueries({ queryKey: ["workScheduleRequests"] }); queryClient.invalidateQueries({ queryKey: ["workScheduleRequestsPendingCount"] }); };
   const cancelRequest = async (request) => { await base44.functions.invoke("manageWorkScheduleRequests", { action: "cancel", request_id: request.id }); refreshRequests(); };
-  const loading = loadingProfile || loadingSchedule || loadingShifts;
+  const loading = loadingProfile || loadingWeek;
 
   return <div className="max-w-screen-xl mx-auto px-4 py-6 space-y-4" dir="rtl">
     <div className="flex items-center gap-2"><CalendarClock className="w-5 h-5 text-primary" /><h1 className="text-xl font-bold">המשמרות שלי</h1></div>

@@ -194,9 +194,8 @@ export default function MechinaSpaces() {
 
   useEffect(() => {
     if (!isMechinaUser || !internalUser?.email) return;
-    // Legacy rows keep the typed casing; new assignments are stored normalized — match both.
-    const emails = [...new Set([internalUser.email, internalUser.email.trim().toLowerCase()])];
-    base44.entities.MechinaGroupAssignment.filter({ user_email: { $in: emails }, is_active: true }).then(setAssignments);
+    // Own assignments resolved on the server from the signed-in identity (email matched case-insensitively)
+    base44.functions.invoke("getMyMechinaAssignments", {}).then((res) => setAssignments(res.data.assignments || []));
   }, [isMechinaUser, internalUser?.email]);
 
   useEffect(() => {
