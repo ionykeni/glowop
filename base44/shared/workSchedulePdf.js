@@ -100,28 +100,71 @@ function shiftHours(it) {
 
 const rangeLabel = (report) => `${fmtDate(report.period.start)} – ${fmtDate(report.period.end)}`;
 
-export function buildWorkerPdf(JsPDF, fonts, report, worker, { includeDrafts = false } = {}) {
+const WORKER_COLS = [{ w: 24 }, { w: 16 }, { w: 46 }, { w: 18 }, { w: 22 }, { w: 24 }, { w: 36 }];
+const WORKER_HEAD = ['תאריך', 'יום', 'משמרת', 'התחלה', 'סיום', 'שעות מתוכננות', 'סטטוס'];
+const WEEK_STATUS = { DRAFT: 'טרם פורסם (טיוטה) – לא נכלל', MISSING: 'אין סידור לשבוע זה – לא נכלל' };
+
+function workerRowCells(it) {
+  const status = it.status === 'draft' ? { text: DRAFT_LABEL, color: [180, 83, 9], bold: true } : 'פורסם';
+  const label = it.is_on_call ? { text: 'כונן לילה', bold: true, color: [14, 116, 144] } : it.row_label;
+  const endTxt = it.end_time ? (it.overnight ? `${it.end_time} (+1)` : it.end_time) : '—';
+  return { cells: [fmtDate(it.date), it.weekday, label, it.start_time || '—', endTxt, shiftHours(it), status], fill: it.is_on_call ? [236, 254, 255] : it.status === 'draft' ? [255, 251, 235] : null };
+}
+
+// Weeks of the period clipped to the range, each with its schedule status (used by the multi-week worker PDF).
+export function periodWeeks(report) {
+  return report.weeks.map((w) => ({ ...w, from: w.week_start < report.period.start ? report.period.start : w.week_start, to: w.week_end > report.period.end ? report.period.end : w.week_end }));
+}
+
+export function weekBandText(wk, items, cont) {
+  const shifts = items.filter((it) => !it.is_on_call && it.in_period_start).length;
+  const onCall = items.filter((it) => it.is_on_call && it.in_period_start).length;
+  const info = wk.status === 'PUBLISHED' ? `${shifts} משמרות${onCall ? ` · ${onCall} כונן לילה` : ''}` : (WEEK_STATUS[wk.status] || 'לא פורסם – לא נכלל');
+  return `שבוע ${fmtDate(wk.from)} – ${fmtDate(wk.to)} · ${info}${cont ? ' (המשך)' : ''}`;
+}
+
+// weekly=true: multi-week personal document (title carries the date range, one band per week, unpublished weeks named).
+export function buildWorkerPdf(JsPDF, fonts, report, worker, { includeDrafts = false, weekly = false } = {}) {
   const doc = createDoc(JsPDF, fonts, 'portrait');
-  const title = 'סידור עבודה אישי – משמרות מתוכננות';
+  const title = weekly ? `סידור עבודה אישי – ${rangeLabel(report)}` : 'סידור עבודה אישי – משמרות מתוכננות';
   const items = worker.items.filter((it) => includeDrafts || it.status === 'published');
   let y = pageHeader(doc, title);
   const notes = [NOTE];
   if (includeDrafts) notes.push('תצוגה מקדימה למנהל: כולל משמרות בסידור שטרם פורסם, מסומנות "טיוטה – לא פורסם".');
   if (items.some((it) => it.period_minutes !== it.minutes)) notes.push('* משמרת שחלקה מחוץ לטווח: נספר רק החלק שבתוך הטווח.');
+  const weeks = weekly ? periodWeeks(report) : [];
+  const missing = weeks.filter((w) => w.status !== 'PUBLISHED');
+  if (weekly && !includeDrafts && missing.length) notes.push(`המסמך אינו מלא: שבועות שטרם פורסמו ואינם כלולים – ${missing.map((w) => `${fmtDate(w.from)} – ${fmtDate(w.to)}`).join(', ')}`);
   y = infoBlock(doc, y, [`עובד/ת: ${worker.worker_name}`, `טווח: ${rangeLabel(report)}`, `הופק: ${generatedLabel(report.generated_at)} (שעון ישראל)`], notes);
 
-  const cols = [{ w: 24 }, { w: 16 }, { w: 46 }, { w: 18 }, { w: 22 }, { w: 24 }, { w: 36 }];
-  const head = ['תאריך', 'יום', 'משמרת', 'התחלה', 'סיום', 'שעות מתוכננות', 'סטטוס'];
-  const header = () => { drawRow(doc, y, cols, head, 7, { header: true, fill: [239, 246, 255] }); y += 7; };
+  const cols = WORKER_COLS;
+  const header = () => { drawRow(doc, y, cols, WORKER_HEAD, 7, { header: true, fill: [239, 246, 255] }); y += 7; };
+  const ensure = (h, onBreak) => { if (y + h > H(doc) - 16) { doc.addPage(); y = pageHeader(doc, title); header(); onBreak?.(); } };
+  const drawItem = (it, onBreak) => { ensure(7, onBreak); const r = workerRowCells(it); drawRow(doc, y, cols, r.cells, 7, { fill: r.fill }); y += 7; };
   header();
-  if (!items.length) { font(doc, 9); rtl(doc, 'אין משמרות בטווח שנבחר.', W(doc) - M - 2, y + 6); y += 10; }
-  for (const it of items) {
-    if (y + 7 > H(doc) - 16) { doc.addPage(); y = pageHeader(doc, title); header(); }
-    const status = it.status === 'draft' ? { text: DRAFT_LABEL, color: [180, 83, 9], bold: true } : 'פורסם';
-    const label = it.is_on_call ? { text: 'כונן לילה', bold: true, color: [14, 116, 144] } : it.row_label;
-    const endTxt = it.end_time ? (it.overnight ? `${it.end_time} (+1)` : it.end_time) : '—';
-    drawRow(doc, y, cols, [fmtDate(it.date), it.weekday, label, it.start_time || '—', endTxt, shiftHours(it), status], 7, { fill: it.is_on_call ? [236, 254, 255] : it.status === 'draft' ? [255, 251, 235] : null });
-    y += 7;
+  if (weekly) {
+    const first = weeks[0]?.week_start;
+    // Overnight shifts that started the day before the range belong to the first week band.
+    const weekOf = (date) => { const wk = weekStartOf(date); return wk < first ? first : wk; };
+    for (const wk of weeks) {
+      const wkItems = items.filter((it) => weekOf(it.date) === wk.week_start);
+      const band = (cont) => {
+        doc.setFillColor(...(wk.status === 'PUBLISHED' ? [219, 234, 254] : [254, 243, 199]));
+        doc.rect(M, y, W(doc) - 2 * M, 7, 'F');
+        font(doc, 9.5, true); doc.setTextColor(...(wk.status === 'PUBLISHED' ? [30, 58, 138] : [146, 64, 14]));
+        rtl(doc, weekBandText(wk, wkItems, cont), W(doc) - M - 2, y + 4.8);
+        doc.setTextColor(0, 0, 0); y += 7;
+      };
+      ensure(14); band(false);
+      if (!wkItems.length) {
+        font(doc, 8.5); rtl(doc, wk.status === 'PUBLISHED' ? 'אין משמרות בשבוע זה.' : 'הסידור לשבוע זה טרם פורסם – המשמרות אינן כלולות במסמך.', W(doc) - M - 2, y + 4.6); y += 8;
+      }
+      for (const it of wkItems) drawItem(it, () => band(true));
+      y += 2;
+    }
+  } else {
+    if (!items.length) { font(doc, 9); rtl(doc, 'אין משמרות בטווח שנבחר.', W(doc) - M - 2, y + 6); y += 10; }
+    for (const it of items) drawItem(it);
   }
 
   const sum = [

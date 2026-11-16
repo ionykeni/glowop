@@ -82,20 +82,23 @@ export default async function(req) {
 
     if (action === 'report') return Response.json({ report });
 
-    const includeDrafts = body.include_drafts === true;
+    // layout 'weekly' = the multi-week personal document shared with the worker: always published shifts only.
+    const weekly = body.kind === 'worker' && body.layout === 'weekly';
+    const includeDrafts = !weekly && body.include_drafts === true;
     const fonts = await loadFonts();
     let doc, filename;
     if (body.kind === 'worker') {
       const worker = report.workers[0];
+      const name = worker?.worker_name || profiles.find((p) => p.id === workerId)?.full_name;
       if (!worker) {
-        const name = profiles.find((p) => p.id === workerId)?.full_name;
         if (!name) return Response.json({ error: 'העובד לא נמצא' }, { status: 404 });
         report = { ...report, workers: [] };
-        doc = buildWorkerPdf(jsPDF, fonts, report, { worker_name: name, items: [], published: { planned_minutes: 0, shift_count: 0, on_call_count: 0, overlap_minutes: 0 }, draft: { planned_minutes: 0, shift_count: 0, on_call_count: 0 } }, { includeDrafts });
+        doc = buildWorkerPdf(jsPDF, fonts, report, { worker_name: name, items: [], published: { planned_minutes: 0, shift_count: 0, on_call_count: 0, overlap_minutes: 0 }, draft: { planned_minutes: 0, shift_count: 0, on_call_count: 0 } }, { includeDrafts, weekly });
       } else {
-        doc = buildWorkerPdf(jsPDF, fonts, report, worker, { includeDrafts });
+        doc = buildWorkerPdf(jsPDF, fonts, report, worker, { includeDrafts, weekly });
       }
-      filename = `schedule-worker-${start}-${end}.pdf`;
+      const safeName = String(name || '').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+      filename = weekly ? `סידור עבודה - ${safeName} - ${start} עד ${end}.pdf` : `schedule-worker-${start}-${end}.pdf`;
     } else {
       doc = buildTeamPdf(jsPDF, fonts, report, { includeDrafts });
       filename = `schedule-team-${start}-${end}.pdf`;
