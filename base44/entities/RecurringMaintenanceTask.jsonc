@@ -1,0 +1,146 @@
+{
+  "name": "RecurringMaintenanceTask",
+  "type": "object",
+  "properties": {
+    "task_key": {
+      "type": "string",
+      "description": "Stable unique identifier of the definition (seeded keys are fixed; custom tasks get a generated key)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Hebrew task title"
+    },
+    "recurrence_type": {
+      "type": "string",
+      "enum": [
+        "WEEKLY",
+        "MONTHLY",
+        "EVERY_N_DAYS"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "green"
+      ],
+      "description": "WEEKLY = Sunday-Saturday Israel week; MONTHLY = calendar month; EVERY_N_DAYS = rolling interval per unit. Immutable after creation."
+    },
+    "category": {
+      "type": "string"
+    },
+    "area_label": {
+      "type": "string",
+      "description": "Operational area shown to workers"
+    },
+    "site_location_id": {
+      "type": "string",
+      "description": "Optional FK to SiteLocation"
+    },
+    "responsibility_type": {
+      "type": "string",
+      "enum": [
+        "OPERATIONS_TEAM",
+        "WORKER"
+      ],
+      "enumColors": [
+        "blue",
+        "yellow"
+      ],
+      "default": "OPERATIONS_TEAM"
+    },
+    "responsible_worker_id": {
+      "type": "string",
+      "description": "FK to WorkerProfile when responsibility_type = WORKER"
+    },
+    "responsible_name_snapshot": {
+      "type": "string"
+    },
+    "interval_days": {
+      "type": "number",
+      "description": "EVERY_N_DAYS: maximum days between completions per unit"
+    },
+    "warning_days": {
+      "type": "number",
+      "description": "EVERY_N_DAYS: days from which a unit is shown as approaching"
+    },
+    "units": {
+      "type": "array",
+      "description": "EVERY_N_DAYS: independently tracked units (e.g. neighborhoods)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "neighborhood_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "display_order": {
+      "type": "number",
+      "default": 100
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    },
+    "tracking_start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Israel-local date from which calendar occurrences are generated (no occurrences before it)"
+    },
+    "seed_source": {
+      "type": "string",
+      "description": "PM_INITIAL_V1 for the initial activation definitions; empty for admin-created tasks"
+    },
+    "created_by_email": {
+      "type": "string"
+    },
+    "updated_by_email": {
+      "type": "string"
+    },
+    "deactivated_at": {
+      "type": "string"
+    },
+    "deactivated_by_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_key",
+    "title",
+    "recurrence_type",
+    "responsibility_type",
+    "is_active"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

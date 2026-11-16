@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "5 0,6 * * *",
+      "one_time_date": null,
+      "timezone": "Asia/Jerusalem",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Preventive Maintenance Occurrences",
+  "description": "Creates the current Israel-local weekly/monthly preventive-maintenance occurrences (\u05ea\u05d7\u05d6\u05d5\u05e7\u05d4 \u05e9\u05d5\u05d8\u05e4\u05ea). Idempotent; runs twice daily so a missed run is recovered.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "preventive_maintenance_occurrences",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "generate_occurrences": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "generateMaintenanceOccurrences",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "\u05d9\u05e6\u05d9\u05e8\u05ea \u05de\u05e9\u05d9\u05de\u05d5\u05ea \u05dc\u05ea\u05e7\u05d5\u05e4\u05d4 \u05d4\u05e0\u05d5\u05db\u05d7\u05d9\u05ea",
+            "description": "\u05e9\u05d1\u05d5\u05e2\u05d9 + \u05d7\u05d5\u05d3\u05e9\u05d9, \u05dc\u05dc\u05d0 \u05db\u05e4\u05d9\u05dc\u05d5\u05d9\u05d5\u05ea"
+          }
+        }
+      }
+    ]
+  }
+}

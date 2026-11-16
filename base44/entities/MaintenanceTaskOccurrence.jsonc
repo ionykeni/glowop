@@ -1,0 +1,134 @@
+{
+  "name": "MaintenanceTaskOccurrence",
+  "type": "object",
+  "properties": {
+    "occurrence_key": {
+      "type": "string",
+      "description": "Deterministic idempotency key: <task_id>|<period_start>"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "FK to RecurringMaintenanceTask"
+    },
+    "task_key": {
+      "type": "string"
+    },
+    "task_version": {
+      "type": "number"
+    },
+    "recurrence_type": {
+      "type": "string",
+      "enum": [
+        "WEEKLY",
+        "MONTHLY"
+      ],
+      "enumColors": [
+        "blue",
+        "purple"
+      ]
+    },
+    "title_snapshot": {
+      "type": "string"
+    },
+    "area_snapshot": {
+      "type": "string"
+    },
+    "responsibility_type": {
+      "type": "string",
+      "enum": [
+        "OPERATIONS_TEAM",
+        "WORKER"
+      ],
+      "enumColors": [
+        "blue",
+        "yellow"
+      ]
+    },
+    "responsible_worker_id": {
+      "type": "string"
+    },
+    "responsible_name_snapshot": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "COMPLETED"
+      ],
+      "enumColors": [
+        "yellow",
+        "green"
+      ],
+      "default": "PENDING",
+      "description": "Overdue is derived: PENDING and today (Israel) > period_end"
+    },
+    "completion_event_id": {
+      "type": "string",
+      "description": "Current VALID MaintenanceCompletionEvent"
+    },
+    "completed_at": {
+      "type": "string"
+    },
+    "completed_local_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "completed_by_internal_user_id": {
+      "type": "string"
+    },
+    "completed_by_worker_id": {
+      "type": "string"
+    },
+    "completed_by_name": {
+      "type": "string"
+    },
+    "completed_late": {
+      "type": "boolean"
+    },
+    "correction_count": {
+      "type": "number",
+      "default": 0
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "SCHEDULED | ACTIVATION | ADMIN_SAVE"
+    }
+  },
+  "required": [
+    "occurrence_key",
+    "task_id",
+    "period_start",
+    "period_end",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": false
+  }
+}

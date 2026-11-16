@@ -29,10 +29,10 @@ export const ROLE_LABELS = {
 // Navigation links each role can see
 // Format: { to, label, icon_name }
 export const ROLE_NAV_LINKS = {
-  SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
-  ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
+  SUPER_ADMIN:          ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "preventive-maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
+  ADMIN:                ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "maintenance", "preventive-maintenance", "admin", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "cleaning-hours", "operational-procedures"],
   QUOTES_MANAGER:       ["dashboard", "groups", "calendar", "quotes"],
-  OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-spaces", "mechina-sleeping-report"],
+  OPERATIONS:           ["dashboard", "calendar", "common-spaces", "maintenance", "preventive-maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-spaces", "mechina-sleeping-report"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "maintenance", "my-shifts", "cleaning-hours", "operational-procedures"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts", "operational-procedures"],
   KITCHEN:              ["dashboard", "calendar", "kitchen", "operational-procedures"],
@@ -44,9 +44,9 @@ export const ROLE_NAV_LINKS = {
 // Pages (route prefixes) each role can access
 export const ROLE_ALLOWED_ROUTES = {
   SUPER_ADMIN: "*", // all
-  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures", "activity-day-templates"],
+  ADMIN:       ["dashboard", "approved-groups", "calendar", "allocation", "common-spaces", "housekeeping", "kitchen", "kitchen-report", "maintenance", "preventive-maintenance", "admin", "groups", "quotes", "inventory", "cleaning-hours", "mechina-spaces", "mechina-sleeping-report", "meeting-summaries", "work-schedule", "my-shifts", "operational-procedures", "activity-day-templates"],
   QUOTES_MANAGER: ["dashboard", "groups", "calendar", "quotes"],
-  OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-spaces", "mechina-sleeping-report"],
+  OPERATIONS:  ["dashboard", "calendar", "common-spaces", "maintenance", "preventive-maintenance", "work-schedule", "my-shifts", "operational-procedures", "mechina-spaces", "mechina-sleeping-report"],
   HOUSEKEEPING_MANAGER: ["dashboard", "calendar", "allocation", "housekeeping", "approved-groups", "cleaning-hours", "maintenance", "my-shifts", "operational-procedures"],
   HOUSEKEEPING_STAFF:   ["dashboard", "calendar", "housekeeping", "my-shifts", "operational-procedures"],
   KITCHEN:              ["dashboard", "calendar", "kitchen", "kitchen-report", "operational-procedures"],
@@ -126,7 +126,8 @@ export function hasPermission(role, permission) {
 
 // Individual read-only extras on top of the user's role (by email)
 export const USER_EXTRA_ROUTES = {
-  "omrielbm@gmail.com": ["dashboard"],
+  // preventive-maintenance: UI entry only; the server verifies Omri's linked WorkerProfile independently.
+  "omrielbm@gmail.com": ["dashboard", "preventive-maintenance"],
 };
 
 export function getUserExtraRoutes(email) {

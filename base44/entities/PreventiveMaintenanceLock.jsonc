@@ -1,0 +1,46 @@
+{
+  "name": "PreventiveMaintenanceLock",
+  "type": "object",
+  "properties": {
+    "lock_key": {
+      "type": "string",
+      "description": "Single key serializing preventive-maintenance writers"
+    },
+    "holder_key": {
+      "type": "string",
+      "description": "Current holder; empty when free"
+    },
+    "acquired_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "Lease expiry (ISO); an expired lease may be taken over"
+    }
+  },
+  "required": [
+    "lock_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

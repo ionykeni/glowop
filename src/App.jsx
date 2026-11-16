@@ -43,6 +43,7 @@ import ActivityDayTemplates from "./pages/ActivityDayTemplates.jsx";
 import ActivityDayPlanner from "./pages/ActivityDayPlanner.jsx";
 import ActivityDayExecutions from "./pages/ActivityDayExecutions.jsx";
 import ActivityDayExecutionDetail from "./pages/ActivityDayExecutionDetail.jsx";
+import PreventiveMaintenance from "./pages/PreventiveMaintenance.jsx";
 
 const AuthenticatedApp = () => {
   const { isLoadingPublicSettings } = useAuth(); // Auth loading handled by RouteGuard
@@ -96,6 +97,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity-day-templates/plan" element={<RouteGuard><ActivityDayPlanner /></RouteGuard>} />
         <Route path="/activity-day-templates/executions" element={<RouteGuard><ActivityDayExecutions /></RouteGuard>} />
         <Route path="/activity-day-templates/executions/:id" element={<RouteGuard><ActivityDayExecutionDetail /></RouteGuard>} />
+        <Route path="/preventive-maintenance" element={<RouteGuard><PreventiveMaintenance /></RouteGuard>} />
         {/* Add your page Route elements here */}
         <Route path="*" element={<PageNotFound />} />
       </Routes>

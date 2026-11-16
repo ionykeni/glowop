@@ -1,0 +1,132 @@
+{
+  "name": "MaintenanceCompletionEvent",
+  "type": "object",
+  "properties": {
+    "event_key": {
+      "type": "string",
+      "description": "Client request UUID (idempotency key)"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "task_key": {
+      "type": "string"
+    },
+    "task_title_snapshot": {
+      "type": "string"
+    },
+    "recurrence_type": {
+      "type": "string",
+      "enum": [
+        "WEEKLY",
+        "MONTHLY",
+        "EVERY_N_DAYS"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "green"
+      ]
+    },
+    "occurrence_id": {
+      "type": "string",
+      "description": "Calendar tasks: FK to MaintenanceTaskOccurrence"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "unit_key": {
+      "type": "string",
+      "description": "EVERY_N_DAYS tasks: tracked unit (e.g. N1)"
+    },
+    "unit_label": {
+      "type": "string"
+    },
+    "neighborhood_id": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": "string",
+      "description": "Server timestamp (UTC ISO)"
+    },
+    "completed_local_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Israel-local date of completed_at"
+    },
+    "completed_by_internal_user_id": {
+      "type": "string"
+    },
+    "completed_by_worker_id": {
+      "type": "string"
+    },
+    "completed_by_name": {
+      "type": "string",
+      "description": "Server-resolved name snapshot"
+    },
+    "completed_by_role": {
+      "type": "string"
+    },
+    "on_behalf_of_worker_id": {
+      "type": "string",
+      "description": "Set when a manager completed a task assigned to a specific worker"
+    },
+    "completed_late": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "VALID",
+        "VOIDED"
+      ],
+      "enumColors": [
+        "green",
+        "red"
+      ],
+      "default": "VALID"
+    },
+    "voided_at": {
+      "type": "string"
+    },
+    "voided_by_internal_user_id": {
+      "type": "string"
+    },
+    "voided_by_name": {
+      "type": "string"
+    },
+    "void_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_key",
+    "task_id",
+    "completed_at",
+    "completed_by_internal_user_id",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": false
+  }
+}

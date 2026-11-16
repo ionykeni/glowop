@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, CalendarDays, BedDouble,
   UtensilsCrossed, Wrench, ShieldAlert, Layers, Lock,
   Menu, X, Users, Search, ChevronDown, Settings, BookMarked, LogOut, NotebookPen,
-  CalendarClock, Clock, BarChart3, FileText, Sparkles, BookOpen
+  CalendarClock, Clock, BarChart3, FileText, Sparkles, BookOpen, ClipboardCheck
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
 import { useRoleContext } from "@/lib/RoleContext";
@@ -46,6 +46,7 @@ const ALL_LINKS = [
   { key: "housekeeping",    to: "/housekeeping",    label: "משק בית",          icon: BedDouble,       group: "ops" },
   { key: "kitchen",         to: "/kitchen",         label: "מטבח",             icon: UtensilsCrossed, group: "ops" },
   { key: "maintenance",     to: "/maintenance",     label: "תחזוקה",           icon: Wrench,          group: "ops" },
+  { key: "preventive-maintenance", to: "/preventive-maintenance", label: "תחזוקה שוטפת", icon: ClipboardCheck, group: "ops" },
   { key: "operational-procedures", to: "/operational-procedures", label: "נהלי תפעול", icon: BookOpen,       group: "ops" },
   { key: "mechina-spaces",        to: "/mechina-spaces",        label: "בקשות מרחבים",   icon: Layers,    group: "mechina" },
   { key: "mechina-sleeping-report", to: "/mechina-sleeping-report", label: "דיווח לינה",     icon: BedDouble, group: "mechina" },
@@ -223,7 +224,7 @@ export default function AppNav() {
       : 0);
 
   // Ops dropdown: housekeeping, kitchen, maintenance, work schedule
-  const OPS_KEYS = ["housekeeping", "kitchen", "maintenance", "operational-procedures", "work-schedule", "cleaning-hours"];
+  const OPS_KEYS = ["housekeeping", "kitchen", "maintenance", "preventive-maintenance", "operational-procedures", "work-schedule", "cleaning-hours"];
   const opsLinks = ALL_LINKS.filter(l => OPS_KEYS.includes(l.key) && allowedKeys.includes(l.key));
 
   // Mechina dropdown: space requests + sleeping report
