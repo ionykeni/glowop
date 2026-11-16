@@ -194,7 +194,8 @@ export default function MechinaSpaces() {
 
   useEffect(() => {
     if (!isMechinaUser || !internalUser?.email) return;
-    base44.entities.MechinaGroupAssignment.filter({ user_email: internalUser.email, is_active: true }).then(setAssignments);
+    // Own assignments resolved on the server from the signed-in identity (email matched case-insensitively)
+    base44.functions.invoke("getMyMechinaAssignments", {}).then((res) => setAssignments(res.data.assignments || []));
   }, [isMechinaUser, internalUser?.email]);
 
   useEffect(() => {

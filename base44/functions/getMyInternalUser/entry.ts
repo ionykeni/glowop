@@ -1,5 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// Resolves the signed-in user's InternalUser row (role used by the UI).
+// Security: there is NO testing-agent bypass. The former `is_test_agent_user` → ADMIN shortcut was removed
+// because that flag lives on the User record (users can edit their own custom fields) and must never grant a role.
+// Testing Agent accounts need an explicit InternalUser row with the role under test.
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -11,13 +15,6 @@ Deno.serve(async (req) => {
 
     const normalizedEmail = user.email.trim().toLowerCase();
 
-    // Base44 Testing Agent — its temporary test user is not in the InternalUser
-    // whitelist. Grant it ADMIN access automatically so automated tests can run.
-    if (user.is_test_agent_user === true) {
-      console.log('[TEST AGENT] granting ADMIN access to test user:', normalizedEmail);
-      return Response.json({ found: true, email: normalizedEmail, role: 'ADMIN', active: true, name: 'Testing Agent' });
-    }
-
     // Use service role to bypass row-level security
     const escaped = normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const candidates = await base44.asServiceRole.entities.InternalUser.filter(
@@ -27,16 +24,6 @@ Deno.serve(async (req) => {
     const match = rows.find(u => u.active !== false) || rows[0];
 
     if (!match) {
-      // Fallback test-agent detection (in case the flag is not present on auth.me())
-      try {
-        const authUsers = await base44.asServiceRole.entities.User.filter({ email: user.email });
-        if (authUsers.some(u => u.is_test_agent_user === true)) {
-          console.log('[TEST AGENT] granting ADMIN access to test user:', normalizedEmail);
-          return Response.json({ found: true, email: normalizedEmail, role: 'ADMIN', active: true, name: 'Testing Agent' });
-        }
-      } catch (e) {
-        console.log('[TEST AGENT] fallback check failed:', e.message);
-      }
       console.log('[ACCESS DENIED] email not in InternalUser whitelist:', normalizedEmail);
       return Response.json({ found: false, email: normalizedEmail });
     }

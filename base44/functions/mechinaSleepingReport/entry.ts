@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { buildSnapshot, compareSnapshots } from '../../shared/mechinaSleepingReportCore.js';
+import { resolveActiveInternalUser, assignmentsForEmail, reportAccess } from '../../shared/mechinaAccess.js';
 
 // Informational module only — reads operational data, writes ONLY to
 // MechinaSleepingReportDraft / MechinaSleepingReportVersion.
@@ -7,15 +8,13 @@ const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS'];
 const ok = (data) => Response.json({ success: true, ...data });
 const fail = (error, status = 200) => Response.json({ success: false, error }, { status });
 
+// Emails are compared normalized (legacy rows may keep their typed casing); see shared/mechinaAccess.js.
 async function authorize(sr, user, groupId) {
-  const internal = (await sr.entities.InternalUser.filter({ email: user.email }))[0];
-  const role = internal?.active === true ? internal.role : null;
-  const isAdmin = ADMIN_ROLES.includes(role) && internal?.active !== false;
-  if (!groupId) return { isAdmin, internal, allowed: isAdmin };
-  if (isAdmin) return { isAdmin, internal, allowed: true };
-  if (role !== 'MECHINA_USER') return { isAdmin, internal, allowed: false };
-  const a = await sr.entities.MechinaGroupAssignment.filter({ user_email: user.email, group_id: groupId, is_active: true });
-  return { isAdmin, internal, allowed: a.length > 0 };
+  const internal = resolveActiveInternalUser(await sr.entities.InternalUser.list('-created_date', 1000), user.email);
+  const assignments = groupId && internal?.role === 'MECHINA_USER'
+    ? await sr.entities.MechinaGroupAssignment.filter({ group_id: groupId, is_active: true })
+    : [];
+  return { internal, ...reportAccess({ internal, assignments, email: user.email, groupId }) };
 }
 
 async function loadPeriods(sr, group) {
@@ -86,7 +85,7 @@ export default async function(req) {
     if (action === 'my_groups') {
       const auth = await authorize(sr, user, null);
       if (auth.internal?.role !== 'MECHINA_USER' || auth.internal?.active !== true) return fail('אין הרשאה', 403);
-      const assignments = await sr.entities.MechinaGroupAssignment.filter({ user_email: user.email, is_active: true });
+      const assignments = assignmentsForEmail(await sr.entities.MechinaGroupAssignment.filter({ is_active: true }, '-created_date', 1000), user.email);
       const ids = [...new Set(assignments.map(a => a.group_id))];
       const groups = ids.length ? await sr.entities.Group.filter({ id: { $in: ids } }) : [];
       return ok({ groups: groups.map(g => ({ id: g.id, group_name: g.group_name })) });

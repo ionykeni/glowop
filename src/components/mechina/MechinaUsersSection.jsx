@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { invokeWorkforce } from "@/lib/workforceApi";
 import { Button } from "@/components/ui/button";
 import { Users, Plus, UserX, UserCheck } from "lucide-react";
 import { toast } from "sonner";
-
-const PROTECTED_ROLES = ["SUPER_ADMIN", "ADMIN", "OPERATIONS"];
 
 export default function MechinaUsersSection({ groupId, groupName }) {
   const [assignments, setAssignments] = useState([]);
@@ -15,8 +13,9 @@ export default function MechinaUsersSection({ groupId, groupName }) {
   const [form, setForm] = useState({ email: "", name: "", notes: "" });
 
   const loadAssignments = () => {
-    base44.entities.MechinaGroupAssignment.filter({ group_id: groupId })
-      .then(res => setAssignments(res.sort((a, b) => (b.created_date || "").localeCompare(a.created_date || ""))))
+    invokeWorkforce("manageMechinaUsers", { action: "list_assignments", group_id: groupId })
+      .then(res => setAssignments(res.assignments))
+      .catch(err => toast.error(err.message))
       .finally(() => setLoading(false));
   };
 
@@ -31,57 +30,11 @@ export default function MechinaUsersSection({ groupId, groupName }) {
 
     setSaving(true);
     try {
-      // Check if InternalUser already exists
-      const existing = await base44.entities.InternalUser.filter({ email: form.email.trim() });
-      const existingUser = existing[0];
-
-      // Safety: do not downgrade admin/operations
-      if (existingUser && PROTECTED_ROLES.includes(existingUser.role)) {
-        setError("לא ניתן לשנות משתמש מנהל למשתמש מכינה");
-        setSaving(false);
-        return;
-      }
-
-      // Create or update InternalUser
-      if (existingUser) {
-        await base44.entities.InternalUser.update(existingUser.id, {
-          name: form.name.trim() || existingUser.name,
-          role: "MECHINA_USER",
-          active: true,
-        });
-      } else {
-        await base44.entities.InternalUser.create({
-          email: form.email.trim(),
-          name: form.name.trim(),
-          role: "MECHINA_USER",
-          active: true,
-        });
-      }
-
-      // Check for existing assignment for this email + group
-      const existingAssignments = await base44.entities.MechinaGroupAssignment.filter({
-        user_email: form.email.trim(),
-        group_id: groupId,
+      // Server validates the caller, creates/reactivates only a MECHINA_USER and upserts the assignment
+      await invokeWorkforce("manageMechinaUsers", {
+        action: "assign", group_id: groupId,
+        email: form.email.trim(), name: form.name.trim(), notes: form.notes,
       });
-      const existingAssignment = existingAssignments[0];
-
-      if (existingAssignment) {
-        await base44.entities.MechinaGroupAssignment.update(existingAssignment.id, {
-          user_name: form.name.trim() || existingAssignment.user_name,
-          is_active: true,
-          notes: form.notes,
-        });
-      } else {
-        await base44.entities.MechinaGroupAssignment.create({
-          user_email: form.email.trim(),
-          user_name: form.name.trim(),
-          group_id: groupId,
-          group_name: groupName,
-          is_active: true,
-          notes: form.notes,
-        });
-      }
-
       toast.success("המשתמש שויך למכינה בהצלחה");
       setForm({ email: "", name: "", notes: "" });
       setShowForm(false);
@@ -93,17 +46,17 @@ export default function MechinaUsersSection({ groupId, groupName }) {
     }
   };
 
-  const handleDeactivate = async (assignment) => {
-    await base44.entities.MechinaGroupAssignment.update(assignment.id, { is_active: false });
-    toast.success("השיוך בוטל");
-    loadAssignments();
+  const setAssignmentActive = async (assignment, isActive) => {
+    try {
+      await invokeWorkforce("manageMechinaUsers", { action: "set_assignment_active", assignment_id: assignment.id, is_active: isActive });
+      toast.success(isActive ? "השיוך הופעל מחדש" : "השיוך בוטל");
+      loadAssignments();
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
-
-  const handleReactivate = async (assignment) => {
-    await base44.entities.MechinaGroupAssignment.update(assignment.id, { is_active: true });
-    toast.success("השיוך הופעל מחדש");
-    loadAssignments();
-  };
+  const handleDeactivate = (assignment) => setAssignmentActive(assignment, false);
+  const handleReactivate = (assignment) => setAssignmentActive(assignment, true);
 
   return (
     <section className="space-y-3">

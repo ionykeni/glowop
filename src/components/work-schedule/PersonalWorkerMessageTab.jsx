@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateWorkerPersonalMessage, groupShiftsByWorker } from "@/lib/weeklyScheduleReport";
+import { addDays } from "@/lib/scheduleReportClient";
+import SharePeriodSelector from "@/components/work-schedule/share/SharePeriodSelector";
+import MultiWeekWorkerShare from "@/components/work-schedule/share/MultiWeekWorkerShare";
 
 export default function PersonalWorkerMessageTab({ schedule, shifts, weekStart, workers = [], onCopy }) {
   const reportWorkers = useMemo(() => groupShiftsByWorker(schedule, shifts), [schedule, shifts]);
@@ -14,13 +17,21 @@ export default function PersonalWorkerMessageTab({ schedule, shifts, weekStart, 
   const selectedWorker = reportWorkers.find((worker) => worker.key === selectedKey) || null;
   const workerProfile = selectedWorker ? workers.find((worker) => worker.id === selectedWorker.key || worker.full_name === selectedWorker.name) : null;
   const message = selectedWorker ? generateWorkerPersonalMessage(selectedWorker, schedule, weekStart) : "";
+  // "1" keeps the original one-week text flow below exactly as it was; 2+ weeks / custom use the consolidated PDF flow.
+  const [period, setPeriod] = useState({ mode: "1", startWeek: weekStart, customStart: weekStart, customEnd: addDays(weekStart, 13) });
+  const selector = <SharePeriodSelector value={period} onChange={setPeriod} />;
+
+  if (period.mode !== "1") {
+    return <div className="space-y-4" dir="rtl">{selector}<MultiWeekWorkerShare period={period} workers={workers} onCopy={onCopy} /></div>;
+  }
 
   if (reportWorkers.length === 0) {
-    return <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-sm text-slate-500">אין עובדים עם משמרות אישיות בשבוע זה</div>;
+    return <div className="space-y-4" dir="rtl">{selector}<div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-sm text-slate-500">אין עובדים עם משמרות אישיות בשבוע זה</div></div>;
   }
 
   return (
     <div className="space-y-4" dir="rtl">
+      {selector}
       {schedule?.status !== "PUBLISHED" && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-2 text-sm">שים לב: הסידור עדיין טיוטה</div>
       )}

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
+import { checkWorkerIdentityChange, isWorkerLinkedTo, WORKER_TEAMS } from '../../shared/workforcePolicy.js';
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
@@ -44,6 +45,11 @@ Deno.serve(async (req) => {
         linkedUser = users.find((item) => item.id === data.internal_user_id && item.active !== false);
         if (!linkedUser) return Response.json({ error: 'משתמש המערכת אינו פעיל או לא קיים' }, { status: 400 });
       }
+      const existingWorker = workerId ? workers.find((item) => item.id === workerId) : null;
+      if (workerId && !existingWorker) return Response.json({ error: 'העובד לא נמצא' }, { status: 404 });
+      const identityError = checkWorkerIdentityChange({ caller, existingWorker, linkedUser });
+      if (identityError) return Response.json({ error: identityError.error }, { status: identityError.status });
+      if (data.default_team && !WORKER_TEAMS.includes(data.default_team)) return Response.json({ error: 'צוות לא תקין' }, { status: 400 });
       const linkedEmail = linkedUser ? normalizeEmail(linkedUser.email) : '';
       if (data.is_active !== false && linkedUser) {
         const duplicate = workers.find((item) => item.id !== workerId && item.is_active !== false && (item.internal_user_id === linkedUser.id || normalizeEmail(item.internal_user_email) === linkedEmail));
@@ -64,6 +70,7 @@ Deno.serve(async (req) => {
     if (action === 'toggle') {
       const worker = workers.find((item) => item.id === body.worker_id);
       if (!worker) return Response.json({ error: 'העובד לא נמצא' }, { status: 404 });
+      if (isWorkerLinkedTo(worker, caller)) return Response.json({ error: 'לא ניתן לשנות את סטטוס פרופיל העובד של עצמך' }, { status: 403 });
       const isActive = body.is_active === true;
       if (isActive && worker.internal_user_id) {
         const duplicate = workers.find((item) => item.id !== worker.id && item.is_active !== false && (item.internal_user_id === worker.internal_user_id || normalizeEmail(item.internal_user_email) === normalizeEmail(worker.internal_user_email)));

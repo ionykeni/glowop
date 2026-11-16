@@ -1,5 +1,6 @@
-import { Copy, Moon } from "lucide-react";
+import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import WorkerReportDays from "@/components/work-schedule/WorkerReportDays";
 import { generateWorkerPersonalMessage, groupCleaningContractorByDay, groupShiftsByWorker } from "@/lib/weeklyScheduleReport";
 
 export default function WeeklyScheduleReportWorkers({ schedule, shifts, weekStart, onCopyWorker }) {
@@ -21,20 +22,7 @@ export default function WeeklyScheduleReportWorkers({ schedule, shifts, weekStar
                 העתק הודעה לעובד
               </Button>
             </div>
-            <div className="space-y-3">
-              {worker.days.map((day) => (
-                <div key={day.date} className="border-r-4 border-primary/30 pr-3">
-                  <div className="text-sm font-bold text-slate-700">{day.dayName} <span className="text-slate-400 font-normal">{day.dateLabel}</span></div>
-                  {day.shifts.map((shift) => shift.isNight ? (
-                    <div key={shift.id} className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-950 text-white px-2 py-0.5 text-xs font-semibold">
-                      <Moon className="w-3 h-3" /> כונן לילה
-                    </div>
-                  ) : (
-                    <div key={shift.id} className="text-sm text-slate-700 mt-1">{shift.label}{shift.time && ` · ${shift.time}`}{shift.notes && <span className="text-slate-500"> · {shift.notes}</span>}</div>
-                  ))}
-                </div>
-              ))}
-            </div>
+            <WorkerReportDays days={worker.days} />
           </section>
         ))}
       </div>
