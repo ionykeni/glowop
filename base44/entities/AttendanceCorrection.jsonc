@@ -86,7 +86,19 @@
         "green",
         "red"
       ],
-      "default": "PENDING"
+      "default": "PENDING",
+      "description": "Write state of this applied change (not an approval state)"
+    },
+    "source_request_id": {
+      "type": "string",
+      "description": "AttendanceCorrectionRequest this change was approved from; empty for direct manager corrections"
+    },
+    "requested_by_name": {
+      "type": "string",
+      "description": "Employee who requested the approved change"
+    },
+    "requested_at": {
+      "type": "string"
     }
   },
   "required": [

@@ -5,12 +5,14 @@ import ClockPanel from "@/components/attendance/ClockPanel";
 import MyAttendanceHistory from "@/components/attendance/MyAttendanceHistory";
 import ManagerDayView from "@/components/attendance/ManagerDayView";
 import AttendanceReport from "@/components/attendance/AttendanceReport";
+import ManagerRequests from "@/components/attendance/ManagerRequests";
 import { useAttendanceStatus } from "@/hooks/useAttendance";
 
 const TABS = [
   { id: "clock", label: "שעון", clock: true },
   { id: "history", label: "השעות שלי", clock: true },
   { id: "manage", label: "ניהול", manager: true },
+  { id: "requests", label: "בקשות תיקון שעות", manager: true },
   { id: "report", label: "דוחות", manager: true },
 ];
 
@@ -18,7 +20,8 @@ export default function Attendance() {
   const [tab, setTab] = useState(null);
   const { data, isLoading, error } = useAttendanceStatus();
   const caller = data?.caller;
-  const tabs = caller ? TABS.filter((t) => (t.clock && caller.can_clock) || (t.manager && caller.is_manager)) : [];
+  const tabs = caller ? TABS.filter((t) => (t.clock && caller.can_clock) || (t.manager && caller.is_manager))
+    .map((t) => (t.id === "requests" ? { ...t, count: data.pending_requests || 0 } : t)) : [];
   const current = tabs.find((t) => t.id === tab)?.id || tabs[0]?.id;
 
   return (
@@ -35,6 +38,7 @@ export default function Attendance() {
       {data && current === "history" && <MyAttendanceHistory />}
       {data && current === "manage" && <ManagerDayView />}
       {data && current === "report" && <AttendanceReport />}
+      {data && current === "requests" && <ManagerRequests />}
     </div>
   );
 }

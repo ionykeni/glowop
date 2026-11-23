@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
 import { resolveAttendanceCaller } from '../../shared/attendanceAuth.js';
 import { pmJson as json, pmError } from '../../shared/preventiveMaintenanceAuth.js';
 import { myMonth, recordAudit, managerDay, attendanceReport } from '../../shared/attendanceRead.js';
+import { myRequests, managerRequests } from '../../shared/attendanceRequests.js';
 
 // Attendance reads: the employee's own month and audit trail; manager-only day view and actual-hours reports.
 export default async function(req) {
@@ -16,6 +17,8 @@ export default async function(req) {
     else if (body.action === 'record_audit') out = await recordAudit(db, caller, body.record_id);
     else if (body.action === 'manager_day') out = await managerDay(db, caller, body.filters || {});
     else if (body.action === 'report') out = await attendanceReport(db, caller, body.filters || {});
+    else if (body.action === 'my_requests') out = await myRequests(db, caller);
+    else if (body.action === 'manager_requests') out = await managerRequests(db, caller);
     else return json({ error: 'פעולה לא מוכרת' }, 400);
     return out?.error ? json({ error: out.error }, out.status || 400) : json(out);
   } catch (error) {

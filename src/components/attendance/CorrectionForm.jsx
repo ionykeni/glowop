@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCorrection } from "@/hooks/useAttendance";
+import { useCorrection, useAttendanceStatus } from "@/hooks/useAttendance";
 import { fmtTime, israelToday } from "@/lib/attendanceFormat";
 
 // Simple correction: date, start, end, optional note. No reason is required.
@@ -17,6 +17,8 @@ export default function CorrectionForm({ record, workerId, onDone }) {
   const [error, setError] = useState("");
   const [confirmVoid, setConfirmVoid] = useState(false);
   const m = useCorrection();
+  // Managers correct directly; everyone else submits a request (the server decides — this only sets the labels).
+  const isManager = !!useAttendanceStatus().data?.caller?.is_manager;
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const send = (payload) => { setError(""); m.mutate(payload, { onSuccess: onDone, onError: (e) => setError(e.message) }); };
   const save = () => send({ action: "save", record_id: record?.id, worker_profile_id: workerId, ...form, end_time: active ? "" : form.end_time });
@@ -30,14 +32,15 @@ export default function CorrectionForm({ record, workerId, onDone }) {
       </div>
       <Input placeholder="הערה (לא חובה)" value={form.note} onChange={set("note")} maxLength={300} />
       <p className="text-[11px] text-muted-foreground">{active ? "העבודה עדיין פעילה — אפשר לתקן את שעת ההתחלה בלבד." : "שעת סיום מוקדמת משעת ההתחלה נחשבת לסיום למחרת."}</p>
+      {!isManager && <p className="text-[11px] font-semibold text-amber-700">השינוי ייכנס לתוקף רק לאחר אישור מנהל.</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={save} disabled={m.isPending}>{m.isPending && <Loader2 className="w-4 h-4 animate-spin" />}שמירה</Button>
+        <Button size="sm" onClick={save} disabled={m.isPending}>{m.isPending && <Loader2 className="w-4 h-4 animate-spin" />}{isManager ? "שמירה" : "שליחה לאישור"}</Button>
         <Button size="sm" variant="ghost" onClick={onDone} disabled={m.isPending}>ביטול</Button>
         {record && (confirmVoid ? (
-          <Button size="sm" variant="destructive" className="ms-auto" disabled={m.isPending} onClick={() => send({ action: "void", record_id: record.id, note: form.note })}>לאשר ביטול הרשומה?</Button>
+          <Button size="sm" variant="destructive" className="ms-auto" disabled={m.isPending} onClick={() => send({ action: "void", record_id: record.id, note: form.note })}>{isManager ? "לאשר ביטול הרשומה?" : "לשלוח בקשת ביטול?"}</Button>
         ) : (
-          <Button size="sm" variant="ghost" className="ms-auto text-destructive" onClick={() => setConfirmVoid(true)}>הרשומה נוצרה בטעות</Button>
+          <Button size="sm" variant="ghost" className="ms-auto text-destructive" onClick={() => setConfirmVoid(true)}>{isManager ? "הרשומה נוצרה בטעות" : "בקשה לביטול הרשומה"}</Button>
         ))}
       </div>
     </div>

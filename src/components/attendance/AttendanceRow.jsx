@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import StatusBadge from "./StatusBadge";
 import CorrectionForm from "./CorrectionForm";
 import AuditTrail from "./AuditTrail";
+import PendingRequestNote from "./PendingRequestNote";
 import { fmtDay, fmtTime, fmtMinutes, localDate } from "@/lib/attendanceFormat";
 
 export default function AttendanceRow({ record, showWorker = false }) {
@@ -27,8 +28,9 @@ export default function AttendanceRow({ record, showWorker = false }) {
         </div>
         <StatusBadge status={record.display_status} />
       </div>
+      {record.pending_request && <PendingRequestNote request={record.pending_request} />}
       <div className="flex gap-1.5">
-        {record.status !== "VOIDED" && (
+        {record.status !== "VOIDED" && !record.pending_request && (
           <Button size="sm" variant={mode === "edit" ? "secondary" : "outline"} className="h-8" onClick={() => toggle("edit")}>
             <Pencil className="w-3.5 h-3.5" />תיקון שעות
           </Button>

@@ -29,7 +29,20 @@ export function useCorrection() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: (payload) => invokeWorkforce("correctAttendance", { ...payload, request_id: crypto.randomUUID() }),
-    onSuccess: () => toast({ title: "השעות נשמרו" }),
+    onSuccess: (res) => toast({ title: res?.pending ? "הבקשה נשלחה לאישור מנהל" : "השעות נשמרו" }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
+  });
+}
+
+// cancel_request (employee) / approve_request / reject_request (manager). One click = one idempotency key.
+export function useRequestAction() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const done = { cancel_request: "הבקשה בוטלה", approve_request: "הבקשה אושרה והשעות עודכנו", reject_request: "הבקשה נדחתה" };
+  return useMutation({
+    mutationFn: ({ action, id, note }) => invokeWorkforce("correctAttendance", { action, correction_request_id: id, note, request_id: crypto.randomUUID() }),
+    onSuccess: (_res, v) => toast({ title: done[v.action] }),
+    onError: (e) => toast({ title: e.message, variant: "destructive" }),
     onSettled: () => qc.invalidateQueries({ queryKey: ["attendance"] }),
   });
 }
@@ -46,6 +59,14 @@ export function useRecordAudit(recordId) {
 
 export function useManagerDay(filters) {
   return useQuery({ queryKey: ["attendance", "day", filters], queryFn: () => read("manager_day", { filters }), placeholderData: keepPreviousData, refetchInterval: 60_000 });
+}
+
+export function useMyRequests() {
+  return useQuery({ queryKey: ["attendance", "my-requests"], queryFn: () => read("my_requests") });
+}
+
+export function useManagerRequests() {
+  return useQuery({ queryKey: ["attendance", "manager-requests"], queryFn: () => read("manager_requests"), refetchInterval: 60_000 });
 }
 
 export function useAttendanceReport(filters) {

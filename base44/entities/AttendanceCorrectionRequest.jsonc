@@ -1,0 +1,153 @@
+{
+  "name": "AttendanceCorrectionRequest",
+  "type": "object",
+  "properties": {
+    "request_key": {
+      "type": "string",
+      "description": "Client request UUID of the submission (idempotency key)"
+    },
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "EDIT",
+        "ADD",
+        "VOID"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "gray"
+      ],
+      "description": "EDIT = change start/end of a record; ADD = forgotten session; VOID = cancel a mistaken record"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "APPROVING",
+        "APPROVED",
+        "REJECTED",
+        "CANCELLED"
+      ],
+      "enumColors": [
+        "yellow",
+        "blue",
+        "green",
+        "red",
+        "gray"
+      ],
+      "default": "PENDING",
+      "description": "Nothing changes in AttendanceRecord until APPROVED. APPROVING = claimed by a manager, being applied."
+    },
+    "attendance_record_id": {
+      "type": "string",
+      "description": "Target record for EDIT / VOID; empty for ADD"
+    },
+    "worker_profile_id": {
+      "type": "string"
+    },
+    "worker_name_snapshot": {
+      "type": "string"
+    },
+    "local_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Asia/Jerusalem attendance date"
+    },
+    "original_start_at": {
+      "type": "string",
+      "description": "Record values at submission; approval is blocked if the record changed since"
+    },
+    "original_end_at": {
+      "type": "string"
+    },
+    "original_status": {
+      "type": "string"
+    },
+    "requested_start_at": {
+      "type": "string"
+    },
+    "requested_end_at": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional employee explanation"
+    },
+    "requested_by_internal_user_id": {
+      "type": "string"
+    },
+    "requested_by_worker_id": {
+      "type": "string"
+    },
+    "requested_by_name": {
+      "type": "string"
+    },
+    "requested_at": {
+      "type": "string",
+      "description": "Server timestamp (UTC ISO)"
+    },
+    "cancelled_at": {
+      "type": "string"
+    },
+    "decision_key": {
+      "type": "string",
+      "description": "Request UUID of the manager decision (idempotency key)"
+    },
+    "decided_by_internal_user_id": {
+      "type": "string"
+    },
+    "decided_by_name": {
+      "type": "string"
+    },
+    "decided_at": {
+      "type": "string"
+    },
+    "decision_note": {
+      "type": "string",
+      "description": "Optional manager explanation"
+    },
+    "decision_error": {
+      "type": "string",
+      "description": "Last reason an approval could not be applied"
+    },
+    "applied_correction_id": {
+      "type": "string",
+      "description": "AttendanceCorrection audit row written on approval"
+    },
+    "applied_record_id": {
+      "type": "string",
+      "description": "AttendanceRecord changed or created on approval"
+    }
+  },
+  "required": [
+    "request_key",
+    "request_type",
+    "status",
+    "worker_profile_id",
+    "requested_by_internal_user_id",
+    "requested_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    }
+  }
+}

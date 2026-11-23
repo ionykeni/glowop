@@ -44,6 +44,16 @@ export const STATUS_META = {
   VOIDED: { label: "בוטל", cls: "bg-muted text-muted-foreground" },
 };
 
+export const REQUEST_STATUS_META = {
+  PENDING: { label: "ממתין לאישור", cls: "bg-amber-100 text-amber-800" },
+  APPROVING: { label: "ממתין לאישור", cls: "bg-amber-100 text-amber-800" },
+  APPROVED: { label: "אושר", cls: "bg-emerald-50 text-emerald-700" },
+  REJECTED: { label: "נדחה", cls: "bg-red-100 text-red-700" },
+  CANCELLED: { label: "בוטל ע״י העובד", cls: "bg-muted text-muted-foreground" },
+};
+
+export const REQUEST_TYPE_LABELS = { EDIT: "תיקון שעות", ADD: "הוספת שעות שנשכחו", VOID: "ביטול רשומה" };
+
 export const CHANGE_LABELS = {
   CREATE_MANUAL: "הוספת שעות ידנית",
   EDIT_START: "תיקון שעת התחלה",

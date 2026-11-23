@@ -8,11 +8,12 @@ export default function AttendanceHeader({ tabs, tab, onTab }) {
         <h1 className="text-xl font-bold">שעון נוכחות</h1>
       </div>
       {tabs.length > 1 && (
-        <div className="flex gap-1 bg-muted rounded-xl p-1">
+        <div className="flex flex-wrap gap-1 bg-muted rounded-xl p-1">
           {tabs.map((t) => (
             <button key={t.id} onClick={() => onTab(t.id)}
               className={`flex-1 h-9 rounded-lg text-sm font-semibold transition-colors ${tab === t.id ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
               {t.label}
+              {t.count > 0 && <span className="ms-1 inline-flex min-w-5 h-5 px-1 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[11px]">{t.count}</span>}
             </button>
           ))}
         </div>

@@ -5,6 +5,7 @@ import PeriodNav from "./PeriodNav";
 import TotalsChips from "./TotalsChips";
 import AttendanceRow from "./AttendanceRow";
 import CorrectionForm from "./CorrectionForm";
+import MyRequestsList from "./MyRequestsList";
 import { useMyMonth } from "@/hooks/useAttendance";
 import { israelToday, monthOf, shiftMonth, monthTitle } from "@/lib/attendanceFormat";
 
@@ -21,6 +22,7 @@ export default function MyAttendanceHistory() {
       <TotalsChips totals={data?.totals} />
       <Button variant="outline" className="w-full h-11" onClick={() => setAdding((v) => !v)}><Plus className="w-4 h-4" />הוספת שעות שנשכחו</Button>
       {adding && <CorrectionForm onDone={() => setAdding(false)} />}
+      <MyRequestsList />
       {error && <p className="text-sm text-destructive">{error.message}</p>}
       {isLoading ? (
         <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>

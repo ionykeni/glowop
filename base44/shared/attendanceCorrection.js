@@ -1,12 +1,12 @@
-// Attendance corrections. Every change to an existing record writes an audit row FIRST (PENDING), then applies the
+// Applied attendance corrections. Every change to an existing record writes an audit row FIRST (PENDING), then applies the
 // change with a compare-and-set on the values the audit row saw, then marks the audit APPLIED (or CONFLICT).
-// Retrying with the same request_id resumes a PENDING correction, so no change is ever applied without its audit row.
+// Retrying with the same key resumes a PENDING correction, so no change is ever applied without its audit row.
+// Direct corrections are ADMIN / SUPER_ADMIN only; employees go through attendanceRequests.js (manager approval).
 import { localDateOf } from './workScheduleReport.js';
 import { parseTimesInput, checkInterval, findOverlap, overlapError, changeType, presentRecord, autoCloseDue, minutesBetween } from './attendancePolicy.js';
 
 const bad = (status, error) => ({ status, error });
 const DAY = 86400000;
-const canTouch = (caller, workerId) => caller.access.isManager || (!!caller.profile?.id && caller.profile.id === workerId);
 
 const actor = (caller, workerId, now) => ({
   corrected_by_internal_user_id: caller.internalUser.id, corrected_by_worker_id: caller.profile?.id || null,
@@ -19,6 +19,21 @@ const neighbours = (db, workerId, startIso) => db.AttendanceRecord.filter({
   worker_profile_id: workerId,
   effective_start_at: { $gte: new Date(Date.parse(startIso) - 2 * DAY).toISOString(), $lte: new Date(Date.parse(startIso) + 2 * DAY).toISOString() },
 }, 'effective_start_at', 300);
+
+export async function overlapCheck(db, workerId, startIso, endIso, excludeId) {
+  const clash = findOverlap(await neighbours(db, workerId, startIso), startIso, endIso, excludeId);
+  return clash ? overlapError(clash) : null;
+}
+
+// Simple form (date, start, end, optional note) for an existing record (rec) or a new session (rec = null).
+export function validateTimes(input, rec, now) {
+  const active = rec?.status === 'ACTIVE';
+  const p = parseTimesInput(input, { requireEnd: !active });
+  if (p.error) return p;
+  if (active && p.data.end_at) return bad(400, 'לסיום עבודה פעילה לחצו על "סיום עבודה"');
+  return checkInterval(p.data.start_at, p.data.end_at, now.getTime()) || p;
+}
+export const intervalEnd = (data) => data.end_at || autoCloseDue(data.start_at);
 
 function buildSet(rec, corr) {
   if (corr.change_type === 'VOID') return { status: 'VOIDED', needs_review: false, voided_at: corr.corrected_at, voided_by_name: corr.corrected_by_name };
@@ -42,9 +57,9 @@ async function commit(db, rec, corr) {
   return ok ? null : bad(409, 'הרשומה עודכנה בינתיים — רעננו ונסו שוב');
 }
 
-async function auditAndCommit(db, caller, rec, change, requestId, now) {
+async function auditAndCommit(db, caller, rec, change, key, now) {
   const corr = await db.AttendanceCorrection.create({
-    attendance_record_id: rec.id, worker_profile_id: rec.worker_profile_id, request_id: requestId, state: 'PENDING',
+    attendance_record_id: rec.id, worker_profile_id: rec.worker_profile_id, request_id: key, state: 'PENDING',
     original_start_at: rec.effective_start_at, original_end_at: rec.effective_end_at || null, original_status: rec.status,
     ...change, ...actor(caller, rec.worker_profile_id, now),
   });
@@ -52,8 +67,10 @@ async function auditAndCommit(db, caller, rec, change, requestId, now) {
   return conflict || { record: presentRecord(await db.AttendanceRecord.get(rec.id), now.getTime()), correction_id: corr.id };
 }
 
-async function resume(db, caller, corr, now) {
-  if (corr.corrected_by_internal_user_id !== caller.internalUser.id) return bad(409, 'מזהה בקשה כבר בשימוש');
+export const findCorrection = async (db, key) => (await db.AttendanceCorrection.filter({ request_id: key }, 'created_date', 1))[0];
+
+// Completes a correction whose audit row already exists (crash recovery). Applies at most once.
+export async function finishCorrection(db, corr, now) {
   if (corr.state === 'CONFLICT') return bad(409, 'הרשומה עודכנה בינתיים — רעננו ונסו שוב');
   let rec = await db.AttendanceRecord.get(corr.attendance_record_id);
   if (corr.state === 'PENDING') {
@@ -64,68 +81,82 @@ async function resume(db, caller, corr, now) {
   return { record: presentRecord(rec, now.getTime()), correction_id: corr.id, replay: true };
 }
 
-async function addManual(db, caller, { worker, input, requestId, now }) {
-  if (!canTouch(caller, worker.id)) return bad(403, 'אין הרשאה לרשום שעות לעובד אחר');
-  const p = parseTimesInput(input, { requireEnd: true });
-  if (p.error) return p;
-  const invalid = checkInterval(p.data.start_at, p.data.end_at, now.getTime());
-  if (invalid) return invalid;
-  let rec = (await db.AttendanceRecord.filter({ manual_request_id: requestId }, 'created_date', 1))[0];
+// Appliers (validation and overlap checks are the caller's job). `extra` links an approved request to its audit row.
+export function applyEdit(db, caller, rec, data, key, now, extra = {}) {
+  const active = rec.status === 'ACTIVE';
+  return auditAndCommit(db, caller, rec, {
+    change_type: changeType(rec, data), note: data.note || '', ...extra,
+    corrected_start_at: data.start_at, corrected_end_at: active ? null : data.end_at, corrected_status: active ? 'ACTIVE' : 'CLOSED',
+  }, key, now);
+}
+
+export function applyVoid(db, caller, rec, note, key, now, extra = {}) {
+  return auditAndCommit(db, caller, rec, {
+    change_type: 'VOID', note, corrected_status: 'VOIDED', ...extra,
+    corrected_start_at: rec.effective_start_at, corrected_end_at: rec.effective_end_at || null,
+  }, key, now);
+}
+
+export const findManualRecord = async (db, key) => (await db.AttendanceRecord.filter({ manual_request_id: key }, 'created_date', 1))[0];
+
+export async function applyAdd(db, caller, worker, data, key, now, extra = {}) {
+  let rec = await findManualRecord(db, key);
   if (!rec) {
-    const clash = findOverlap(await neighbours(db, worker.id, p.data.start_at), p.data.start_at, p.data.end_at);
-    if (clash) return overlapError(clash);
     rec = await db.AttendanceRecord.create({
       worker_profile_id: worker.id, internal_user_id: caller.internalUser.id, worker_name_snapshot: worker.full_name || '',
-      source: 'MANUAL', status: 'CLOSED', effective_start_at: p.data.start_at, effective_end_at: p.data.end_at,
-      local_date: localDateOf(Date.parse(p.data.start_at)), worked_minutes: minutesBetween(p.data.start_at, p.data.end_at),
+      source: 'MANUAL', status: 'CLOSED', effective_start_at: data.start_at, effective_end_at: data.end_at,
+      local_date: localDateOf(Date.parse(data.start_at)), worked_minutes: minutesBetween(data.start_at, data.end_at),
       needs_review: false, was_auto_closed: false, is_corrected: true, correction_count: 1,
-      last_corrected_at: now.toISOString(), last_corrected_by_name: caller.actorName, manual_request_id: requestId,
+      last_corrected_at: now.toISOString(), last_corrected_by_name: caller.actorName, manual_request_id: key,
     });
   }
-  const corr = await db.AttendanceCorrection.create({
-    attendance_record_id: rec.id, worker_profile_id: worker.id, request_id: requestId, state: 'APPLIED', change_type: 'CREATE_MANUAL',
-    corrected_start_at: rec.effective_start_at, corrected_end_at: rec.effective_end_at, corrected_status: 'CLOSED', note: p.data.note,
-    ...actor(caller, worker.id, now),
+  const corr = (await findCorrection(db, key)) || await db.AttendanceCorrection.create({
+    attendance_record_id: rec.id, worker_profile_id: worker.id, request_id: key, state: 'APPLIED', change_type: 'CREATE_MANUAL',
+    corrected_start_at: rec.effective_start_at, corrected_end_at: rec.effective_end_at, corrected_status: 'CLOSED', note: data.note || '',
+    ...extra, ...actor(caller, worker.id, now),
   });
   return { record: presentRecord(rec, now.getTime()), correction_id: corr.id, created: true };
 }
 
-async function editRecord(db, caller, { recordId, input, requestId, now }) {
-  const rec = await db.AttendanceRecord.get(recordId);
-  if (!canTouch(caller, rec.worker_profile_id)) return bad(403, 'אין הרשאה לתקן שעות של עובד אחר');
-  if (rec.status === 'VOIDED') return bad(409, 'הרשומה בוטלה');
-  const active = rec.status === 'ACTIVE';
-  const p = parseTimesInput(input, { requireEnd: !active });
-  if (p.error) return p;
-  if (active && p.data.end_at) return bad(400, 'לסיום עבודה פעילה לחצו על "סיום עבודה"');
-  const invalid = checkInterval(p.data.start_at, p.data.end_at, now.getTime());
-  if (invalid) return invalid;
-  const end = p.data.end_at || autoCloseDue(p.data.start_at);
-  const clash = findOverlap(await neighbours(db, rec.worker_profile_id, p.data.start_at), p.data.start_at, end, rec.id);
-  if (clash) return overlapError(clash);
-  return auditAndCommit(db, caller, rec, {
-    change_type: changeType(rec, p.data), note: p.data.note,
-    corrected_start_at: p.data.start_at, corrected_end_at: active ? null : p.data.end_at, corrected_status: active ? 'ACTIVE' : 'CLOSED',
-  }, requestId, now);
+const managerOnly = (caller) => (caller.access.isManager ? null : bad(403, 'תיקון ישיר זמין למנהלים בלבד — יש להגיש בקשת תיקון לאישור'));
+
+async function replayPrior(db, caller, requestId, now) {
+  const prior = await findCorrection(db, requestId);
+  if (!prior) return null;
+  return prior.corrected_by_internal_user_id === caller.internalUser.id ? finishCorrection(db, prior, now) : bad(409, 'מזהה בקשה כבר בשימוש');
 }
 
-// Add a forgotten session (no recordId) or correct an existing one. A note is optional.
+// Manager direct correction: add a forgotten session (no recordId) or correct an existing one. A note is optional.
 export async function saveCorrection(db, caller, { recordId, worker, input, requestId, now = new Date() }) {
-  const prior = (await db.AttendanceCorrection.filter({ request_id: requestId }, 'created_date', 1))[0];
-  if (prior) return resume(db, caller, prior, now);
-  return recordId ? editRecord(db, caller, { recordId, input, requestId, now }) : addManual(db, caller, { worker, input, requestId, now });
+  const denied = managerOnly(caller);
+  if (denied) return denied;
+  const prior = await replayPrior(db, caller, requestId, now);
+  if (prior) return prior;
+  if (!recordId) {
+    const v = validateTimes(input, null, now);
+    if (v.error) return v;
+    if (!(await findManualRecord(db, requestId))) {
+      const clash = await overlapCheck(db, worker.id, v.data.start_at, v.data.end_at);
+      if (clash) return clash;
+    }
+    return applyAdd(db, caller, worker, v.data, requestId, now);
+  }
+  const rec = await db.AttendanceRecord.get(recordId);
+  if (rec.status === 'VOIDED') return bad(409, 'הרשומה בוטלה');
+  const v = validateTimes(input, rec, now);
+  if (v.error) return v;
+  const clash = await overlapCheck(db, rec.worker_profile_id, v.data.start_at, intervalEnd(v.data), rec.id);
+  return clash || applyEdit(db, caller, rec, v.data, requestId, now);
 }
 
-// Cancels a mistaken record. Nothing is deleted: the record becomes VOIDED and the audit keeps its original values.
+// Manager direct cancel of a mistaken record. Nothing is deleted: the record becomes VOIDED and the audit keeps its values.
 export async function voidRecord(db, caller, { recordId, note = '', requestId, now = new Date() }) {
-  const prior = (await db.AttendanceCorrection.filter({ request_id: requestId }, 'created_date', 1))[0];
-  if (prior) return resume(db, caller, prior, now);
+  const denied = managerOnly(caller);
+  if (denied) return denied;
+  const prior = await replayPrior(db, caller, requestId, now);
+  if (prior) return prior;
   const rec = await db.AttendanceRecord.get(recordId);
-  if (!canTouch(caller, rec.worker_profile_id)) return bad(403, 'אין הרשאה לבטל שעות של עובד אחר');
   if (rec.status === 'VOIDED') return { record: presentRecord(rec, now.getTime()), already: true };
   if (String(note).length > 300) return bad(400, 'ההערה ארוכה מדי (עד 300 תווים)');
-  return auditAndCommit(db, caller, rec, {
-    change_type: 'VOID', note: String(note).trim(), corrected_status: 'VOIDED',
-    corrected_start_at: rec.effective_start_at, corrected_end_at: rec.effective_end_at || null,
-  }, requestId, now);
+  return applyVoid(db, caller, rec, String(note).trim(), requestId, now);
 }

@@ -3,6 +3,10 @@ import { localToUtcMs, localDateOf, localTimeOf, addDays, weekStartOf, isDate } 
 import { presentRecord, isId } from './attendancePolicy.js';
 import { buildAttendanceTotals } from './attendanceReport.js';
 import { closeIfExpired } from './attendanceSession.js';
+import { openRequestsByRecord, pendingCount, presentRequest } from './attendanceRequests.js';
+
+// Employee views mark records that have a correction request awaiting manager approval.
+const withPending = (list, open) => list.map((r) => ({ ...r, pending_request: open[r.id] || null }));
 
 const DAY = 86400000;
 const bad = (status, error) => ({ status, error });
@@ -33,17 +37,17 @@ async function plannedShifts(db, date, workerId) {
 const callerView = (caller) => ({ name: caller.actorName, is_manager: caller.access.isManager, can_clock: caller.access.canClock });
 
 export async function myStatus(db, caller, now = new Date()) {
-  const base = { server_now: now.toISOString(), caller: callerView(caller) };
+  const base = { server_now: now.toISOString(), caller: callerView(caller), pending_requests: caller.access.isManager ? await pendingCount(db) : 0 };
   if (!caller.access.canClock) return base;
   const workerId = caller.profile.id;
   let active = await db.AttendanceRecord.filter({ worker_profile_id: workerId, status: 'ACTIVE' }, 'effective_start_at', 5);
   const closed = await Promise.all(active.map((r) => closeIfExpired(db, r, now)));
   if (closed.some(Boolean)) active = await db.AttendanceRecord.filter({ worker_profile_id: workerId, status: 'ACTIVE' }, 'effective_start_at', 5);
   const today = localDateOf(now.getTime());
-  const [{ rows }, planned] = await Promise.all([recordsInRange(db, today, today, { worker_profile_id: workerId }, now.getTime()), plannedShifts(db, today, workerId)]);
+  const [{ rows }, planned, open] = await Promise.all([recordsInRange(db, today, today, { worker_profile_id: workerId }, now.getTime()), plannedShifts(db, today, workerId), openRequestsByRecord(db, workerId)]);
   return {
     ...base, today, active: active[0] ? presentRecord(active[0], now.getTime()) : null,
-    today_records: rows.filter((r) => r.status !== 'VOIDED' && r.status !== 'ACTIVE').map((r) => presentRecord(r, now.getTime())).reverse(),
+    today_records: withPending(rows.filter((r) => r.status !== 'VOIDED' && r.status !== 'ACTIVE').map((r) => presentRecord(r, now.getTime())).reverse(), open),
     planned_today: planned,
   };
 }
@@ -58,9 +62,10 @@ export async function myMonth(db, caller, month, now = new Date()) {
   if (!caller.access.canClock) return bad(403, 'אין פרופיל עובד פעיל');
   const range = monthRange(month);
   if (!range) return bad(400, 'חודש לא תקין');
-  const { rows, limited } = await recordsInRange(db, range.start, range.end, { worker_profile_id: caller.profile.id }, now.getTime());
+  const [{ rows, limited }, open] = await Promise.all([recordsInRange(db, range.start, range.end, { worker_profile_id: caller.profile.id }, now.getTime()), openRequestsByRecord(db, caller.profile.id)]);
+  // Totals come from attendance records only: pending requests never change them.
   const totals = buildAttendanceTotals(rows, range.start, range.end, now.getTime());
-  return { month, ...range, records: rows.map((r) => presentRecord(r, now.getTime())).reverse(), totals: totals.workers[0] || null, limited };
+  return { month, ...range, records: withPending(rows.map((r) => presentRecord(r, now.getTime())).reverse(), open), totals: totals.workers[0] || null, limited };
 }
 
 export async function recordAudit(db, caller, recordId, now = new Date()) {
@@ -68,14 +73,20 @@ export async function recordAudit(db, caller, recordId, now = new Date()) {
   const rec = await db.AttendanceRecord.get(recordId).catch((e) => (e?.status === 404 ? null : Promise.reject(e)));
   if (!rec) return bad(404, 'הרשומה לא נמצאה');
   if (!caller.access.isManager && rec.worker_profile_id !== caller.profile?.id) return bad(403, 'אין הרשאה');
-  const rows = await db.AttendanceCorrection.filter({ attendance_record_id: rec.id }, 'corrected_at', 200);
+  const [rows, reqTarget, reqCreated] = await Promise.all([
+    db.AttendanceCorrection.filter({ attendance_record_id: rec.id }, 'corrected_at', 200),
+    db.AttendanceCorrectionRequest.filter({ attendance_record_id: rec.id }, 'requested_at', 100),
+    db.AttendanceCorrectionRequest.filter({ applied_record_id: rec.id, request_type: 'ADD' }, 'requested_at', 5),
+  ]);
   return {
+    requests: [...reqCreated, ...reqTarget].map((r) => presentRequest(r)),
     record: presentRecord(rec, now.getTime()),
     original: { clock_in_at: rec.clock_in_at || null, clock_out_at: rec.clock_out_at || null, auto_closed_at: rec.auto_closed_at || null, source: rec.source || 'CLOCK' },
     corrections: rows.filter((c) => caller.access.isManager || c.state === 'APPLIED').map((c) => ({
       id: c.id, change_type: c.change_type, state: c.state, corrected_at: c.corrected_at, corrected_by_name: c.corrected_by_name, by_manager: !!c.by_manager,
       original_start_at: c.original_start_at || null, original_end_at: c.original_end_at || null, original_status: c.original_status || null,
       corrected_start_at: c.corrected_start_at || null, corrected_end_at: c.corrected_end_at || null, corrected_status: c.corrected_status || null, note: c.note || '',
+      requested_by_name: c.requested_by_name || null, from_request: !!c.source_request_id,
     })),
   };
 }

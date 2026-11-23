@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useRecordAudit } from "@/hooks/useAttendance";
-import { fmtDateTime, fmtTime, CHANGE_LABELS } from "@/lib/attendanceFormat";
+import { fmtDateTime, fmtTime, CHANGE_LABELS, REQUEST_STATUS_META } from "@/lib/attendanceFormat";
 
 const span = (s, e) => (s ? `${fmtTime(s)} – ${e ? fmtTime(e) : "…"}` : "—");
 
@@ -21,12 +21,19 @@ export default function AuditTrail({ recordId }) {
             {CHANGE_LABELS[c.change_type] || c.change_type}
             {c.state !== "APPLIED" && <span className="text-destructive"> ({c.state === "PENDING" ? "לא הושלם" : "לא נשמר — התנגשות"})</span>}
           </p>
-          <p className="text-muted-foreground">{c.corrected_by_name}{c.by_manager ? " (מנהל)" : ""} · {fmtDateTime(c.corrected_at)}</p>
+          <p className="text-muted-foreground">
+            {c.from_request ? `לפי בקשת ${c.requested_by_name} · אושר ע״י ${c.corrected_by_name}` : `${c.corrected_by_name}${c.by_manager ? " (מנהל)" : ""}`} · {fmtDateTime(c.corrected_at)}
+          </p>
           {c.change_type !== "CREATE_MANUAL" && c.change_type !== "VOID" && (
             <p dir="ltr" className="text-end tabular-nums">{span(c.original_start_at, c.original_end_at)} ← {span(c.corrected_start_at, c.corrected_end_at)}</p>
           )}
           {c.change_type === "CREATE_MANUAL" && <p dir="ltr" className="text-end tabular-nums">{span(c.corrected_start_at, c.corrected_end_at)}</p>}
           {c.note && <p>הערה: {c.note}</p>}
+        </div>
+      ))}
+      {(data.requests || []).filter((q) => q.status === "REJECTED" || q.status === "CANCELLED").map((q) => (
+        <div key={q.id} className="border-t border-border pt-2 text-muted-foreground">
+          <p>בקשת תיקון מ-{fmtDateTime(q.requested_at)} — {REQUEST_STATUS_META[q.status].label}{q.decided_by_name && ` ע״י ${q.decided_by_name}`}{q.decision_note && `: ${q.decision_note}`}</p>
         </div>
       ))}
     </div>

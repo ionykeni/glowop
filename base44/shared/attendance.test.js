@@ -6,48 +6,11 @@ import { saveCorrection, voidRecord } from "./attendanceCorrection.js";
 import { buildAttendanceTotals } from "./attendanceReport.js";
 import { myStatus, myMonth, managerDay, attendanceReport, recordAudit } from "./attendanceRead.js";
 import { withLeaseLock } from "./leaseLock.js";
+import { makeDb, callerOf, W1, W2, rid, at, T0 } from "./attendanceTestDb.js";
 
-// ── In-memory datastore (isolated, SIMULATED identities; no real records) ──
-const tick = () => new Promise((r) => setImmediate(r));
-let stamp = 0;
-function entity(rows = [], { readOnly = false, name = "" } = {}) {
-  let seq = 0;
-  const cond = (val, c) => {
-    if (c && typeof c === "object" && !Array.isArray(c)) {
-      return Object.entries(c).every(([op, v]) => ({ $in: () => v.includes(val), $gte: () => val >= v, $gt: () => val > v, $lte: () => val <= v, $lt: () => val < v })[op]());
-    }
-    return (val ?? null) === c;
-  };
-  const match = (r, q) => Object.entries(q).every(([k, c]) => cond(r[k], c));
-  const guard = () => { if (readOnly) throw new Error(`write attempted on ${name}`); };
-  return {
-    rows,
-    get: async (id) => { await tick(); const r = rows.find((x) => x.id === id); if (!r) throw Object.assign(new Error("nf"), { status: 404 }); return { ...r }; },
-    filter: async (q, sort, limit = 1000) => {
-      await tick();
-      const desc = sort?.startsWith("-"), key = sort?.replace(/^-/, "");
-      return rows.filter((r) => match(r, q)).sort((a, b) => (key ? String(a[key] ?? "").localeCompare(String(b[key] ?? "")) * (desc ? -1 : 1) : 0)).slice(0, limit).map((r) => ({ ...r }));
-    },
-    create: async (d) => { guard(); await tick(); const r = { id: `${name}${++seq}`, created_date: String(++stamp).padStart(8, "0"), ...d }; rows.push(r); return { ...r }; },
-    update: async (id, d) => { guard(); await tick(); const r = rows.find((x) => x.id === id); Object.assign(r, d); return { ...r }; },
-    updateMany: async (q, { $set }) => { guard(); await tick(); const hits = rows.filter((r) => match(r, q)); hits.forEach((r) => Object.assign(r, $set)); return { updated: hits.length }; },
-  };
-}
-const W1 = { id: "worker1", full_name: "עובד בדיקה א", is_active: true };
-const W2 = { id: "worker2", full_name: "עובד בדיקה ב", is_active: true };
-const makeDb = (extra = {}) => ({
-  AttendanceRecord: entity([], { name: "rec" }), AttendanceCorrection: entity([], { name: "cor" }), AttendanceLock: entity([], { name: "lock" }),
-  WorkerProfile: entity([W1, W2], { readOnly: true, name: "WorkerProfile" }),
-  WorkShift: entity(extra.shifts || [], { readOnly: true, name: "WorkShift" }),
-  WorkSchedule: entity(extra.schedules || [], { readOnly: true, name: "WorkSchedule" }),
-});
-const callerOf = (role, profile, id) => ({ role, profile, access: attendanceAccess(role, profile), internalUser: { id }, actorName: profile?.full_name || "מנהל" });
 const emp1 = callerOf("HOUSEKEEPING_STAFF", W1, "u1");
 const emp2 = callerOf("OPERATIONS", W2, "u2");
 const admin = callerOf("ADMIN", null, "uA");
-const rid = () => crypto.randomUUID();
-const at = (iso) => new Date(iso);
-const T0 = "2026-11-23T06:00:00.000Z"; // 08:00 Israel (UTC+2)
 
 test("access: active linked WorkerProfile required to clock; only ADMIN/SUPER_ADMIN manage", () => {
   assert.equal(attendanceAccess("HOUSEKEEPING_STAFF", W1).canClock, true);
@@ -148,12 +111,12 @@ test("6b. clock-out after 13h and clock-out racing the scheduler close once, as 
   assert.equal(s.today_records[0].display_status, "NEEDS_REVIEW");
 });
 
-test("9+11. employee corrects own times without a note; originals and actor preserved", async () => {
+test("9+11. manager direct correction without a note; originals and actor preserved", async () => {
   const db = makeDb();
   await clockIn(db, emp1, { requestId: rid(), now: at(T0) });
   await closeExpiredSessions(db, at("2026-11-23T19:05:00.000Z"));
   const rec = db.AttendanceRecord.rows[0];
-  const res = await saveCorrection(db, emp1, { recordId: rec.id, input: { date: "2026-11-23", start_time: "08:00", end_time: "16:30" }, requestId: rid(), now: at("2026-11-24T08:00:00Z") });
+  const res = await saveCorrection(db, admin, { recordId: rec.id, input: { date: "2026-11-23", start_time: "08:00", end_time: "16:30" }, requestId: rid(), now: at("2026-11-24T08:00:00Z") });
   assert.equal(res.record.display_status, "CORRECTED");
   assert.equal(res.record.worked_minutes, 510);
   assert.equal(rec.clock_in_at, T0); // original clock-in untouched
@@ -164,20 +127,20 @@ test("9+11. employee corrects own times without a note; originals and actor pres
   assert.equal(c.original_end_at, "2026-11-23T19:00:00.000Z");
   assert.equal(c.original_status, "AUTO_CLOSED");
   assert.equal(c.corrected_end_at, "2026-11-23T14:30:00.000Z");
-  assert.equal(c.corrected_by_internal_user_id, "u1");
-  assert.equal(c.corrected_by_worker_id, "worker1");
-  assert.equal(c.by_manager, false);
+  assert.equal(c.corrected_by_internal_user_id, "uA");
+  assert.equal(c.corrected_by_worker_id, null);
+  assert.equal(c.by_manager, true);
   assert.equal(c.state, "APPLIED");
   assert.equal(c.note, "");
   // Forgotten session added manually, again without a note
-  const add = await saveCorrection(db, emp1, { worker: W1, input: { date: "2026-11-22", start_time: "09:00", end_time: "13:00" }, requestId: rid(), now: at("2026-11-24T08:00:00Z") });
+  const add = await saveCorrection(db, admin, { worker: W1, input: { date: "2026-11-22", start_time: "09:00", end_time: "13:00" }, requestId: rid(), now: at("2026-11-24T08:00:00Z") });
   assert.equal(add.record.source, "MANUAL");
   assert.equal(add.record.worked_minutes, 240);
   assert.equal(db.AttendanceCorrection.rows[1].change_type, "CREATE_MANUAL");
   // Start of a running session can be corrected; its 13h cutoff follows the corrected start
   await clockIn(db, emp1, { requestId: rid(), now: at("2026-11-24T06:30:00Z") });
   const act = db.AttendanceRecord.rows.find((r) => r.status === "ACTIVE");
-  await saveCorrection(db, emp1, { recordId: act.id, input: { date: "2026-11-24", start_time: "08:00" }, requestId: rid(), now: at("2026-11-24T07:00:00Z") });
+  await saveCorrection(db, admin, { recordId: act.id, input: { date: "2026-11-24", start_time: "08:00" }, requestId: rid(), now: at("2026-11-24T07:00:00Z") });
   assert.equal(act.effective_start_at, "2026-11-24T06:00:00.000Z");
   assert.equal(act.auto_close_due_at, "2026-11-24T19:00:00.000Z");
   assert.equal(act.clock_in_at, "2026-11-24T06:30:00.000Z");
@@ -208,8 +171,8 @@ test("10+12. employees cannot touch another worker's attendance; managers can, f
 test("impossible durations, future times, overlaps and duplicates are rejected", async () => {
   const db = makeDb();
   const now = at("2026-11-23T12:00:00Z");
-  await saveCorrection(db, emp1, { worker: W1, input: { date: "2026-11-22", start_time: "08:00", end_time: "16:00" }, requestId: rid(), now });
-  const try_ = (input) => saveCorrection(db, emp1, { worker: W1, input, requestId: rid(), now });
+  await saveCorrection(db, admin, { worker: W1, input: { date: "2026-11-22", start_time: "08:00", end_time: "16:00" }, requestId: rid(), now });
+  const try_ = (input) => saveCorrection(db, admin, { worker: W1, input, requestId: rid(), now });
   assert.equal((await try_({ date: "2026-11-22", start_time: "10:00", end_time: "12:00" })).status, 409); // overlap
   assert.equal((await try_({ date: "2026-11-22", start_time: "08:00", end_time: "16:00" })).status, 409); // duplicate
   assert.equal((await try_({ date: "2026-11-24", start_time: "08:00", end_time: "09:00" })).status, 400); // future
@@ -218,8 +181,8 @@ test("impossible durations, future times, overlaps and duplicates are rejected",
   assert.equal((await try_({ date: "2026-11-21", start_time: "16:00", end_time: "07:59" })).status, undefined); // overnight OK
   assert.equal(db.AttendanceRecord.rows.length, 2);
   const keyed = rid();
-  await saveCorrection(db, emp1, { worker: W1, input: { date: "2026-11-20", start_time: "08:00", end_time: "09:00" }, requestId: keyed, now });
-  await saveCorrection(db, emp1, { worker: W1, input: { date: "2026-11-20", start_time: "08:00", end_time: "09:00" }, requestId: keyed, now });
+  await saveCorrection(db, admin, { worker: W1, input: { date: "2026-11-20", start_time: "08:00", end_time: "09:00" }, requestId: keyed, now });
+  await saveCorrection(db, admin, { worker: W1, input: { date: "2026-11-20", start_time: "08:00", end_time: "09:00" }, requestId: keyed, now });
   assert.equal(db.AttendanceRecord.rows.length, 3); // same request twice → one record
   // Clock-in cannot overlap a running session
   await clockIn(db, emp1, { requestId: rid(), now: at("2026-11-23T06:00:00Z") });
@@ -275,9 +238,9 @@ test("16. attendance never writes WorkShift/WorkSchedule (planned shifts shown a
 
 test("void keeps the record and audit; pending correction resumes on retry", async () => {
   const db = makeDb();
-  await saveCorrection(db, emp1, { worker: W1, input: { date: "2026-11-22", start_time: "08:00", end_time: "10:00" }, requestId: rid(), now: at("2026-11-23T08:00:00Z") });
+  await saveCorrection(db, admin, { worker: W1, input: { date: "2026-11-22", start_time: "08:00", end_time: "10:00" }, requestId: rid(), now: at("2026-11-23T08:00:00Z") });
   const rec = db.AttendanceRecord.rows[0];
-  const v = await voidRecord(db, emp1, { recordId: rec.id, requestId: rid(), now: at("2026-11-23T08:00:00Z") });
+  const v = await voidRecord(db, admin, { recordId: rec.id, requestId: rid(), now: at("2026-11-23T08:00:00Z") });
   assert.equal(v.record.display_status, "VOIDED");
   assert.equal(db.AttendanceRecord.rows.length, 1);
   assert.equal(db.AttendanceCorrection.rows.at(-1).original_status, "CLOSED");
@@ -292,8 +255,8 @@ test("void keeps the record and audit; pending correction resumes on retry", asy
   const key = rid();
   db2.AttendanceCorrection.rows.push({ id: "pend", attendance_record_id: r2.id, worker_profile_id: "worker1", request_id: key, state: "PENDING", change_type: "EDIT_END",
     original_start_at: r2.effective_start_at, original_end_at: r2.effective_end_at, original_status: "CLOSED",
-    corrected_start_at: r2.effective_start_at, corrected_end_at: "2026-11-23T15:00:00.000Z", corrected_status: "CLOSED", corrected_by_internal_user_id: "u1", corrected_by_name: "עובד בדיקה א", corrected_at: "2026-11-23T16:00:00Z", created_date: "0" });
-  const res = await saveCorrection(db2, emp1, { recordId: r2.id, input: {}, requestId: key, now: at("2026-11-23T16:00:00Z") });
+    corrected_start_at: r2.effective_start_at, corrected_end_at: "2026-11-23T15:00:00.000Z", corrected_status: "CLOSED", corrected_by_internal_user_id: "uA", corrected_by_name: "מנהל", corrected_at: "2026-11-23T16:00:00Z", created_date: "0" });
+  const res = await saveCorrection(db2, admin, { recordId: r2.id, input: {}, requestId: key, now: at("2026-11-23T16:00:00Z") });
   assert.equal(res.replay, true);
   assert.equal(r2.effective_end_at, "2026-11-23T15:00:00.000Z");
   assert.equal(db2.AttendanceCorrection.rows[0].state, "APPLIED");
