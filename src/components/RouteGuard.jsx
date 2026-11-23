@@ -16,7 +16,8 @@ export default function RouteGuard({ children }) {
   const { role, internalUser, isLoadingRole, roleError } = useRoleContext();
   const { isAuthenticated, isLoadingAuth, user } = useAuth();
   const { pathname } = useLocation();
-  const isMyShiftsRoute = pathname === "/my-shifts" || pathname.startsWith("/my-shifts/");
+  // Worker self-service pages: open to any active linked worker; the server re-checks identity on every call.
+  const isMyShiftsRoute = ["/my-shifts", "/attendance"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const needsWorkerCheck = isMyShiftsRoute && !!role && !canAccessRoute(role, pathname, internalUser?.email);
   const { isActiveWorker, isLoading: loadingWorker } = useMyWorkerProfile(needsWorkerCheck);
 

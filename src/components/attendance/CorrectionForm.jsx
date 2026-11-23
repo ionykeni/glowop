@@ -35,7 +35,7 @@ export default function CorrectionForm({ record, workerId, onDone }) {
         <Button size="sm" onClick={save} disabled={m.isPending}>{m.isPending && <Loader2 className="w-4 h-4 animate-spin" />}שמירה</Button>
         <Button size="sm" variant="ghost" onClick={onDone} disabled={m.isPending}>ביטול</Button>
         {record && (confirmVoid ? (
-          <Button size="sm" variant="destructive" className="ms-auto" disabled={m.isPending} onClick={() => send({ action: "void", record_id: record.id, note: form.note })}>לאשר מחיקת הרשומה?</Button>
+          <Button size="sm" variant="destructive" className="ms-auto" disabled={m.isPending} onClick={() => send({ action: "void", record_id: record.id, note: form.note })}>לאשר ביטול הרשומה?</Button>
         ) : (
           <Button size="sm" variant="ghost" className="ms-auto text-destructive" onClick={() => setConfirmVoid(true)}>הרשומה נוצרה בטעות</Button>
         ))}

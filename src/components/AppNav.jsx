@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, CalendarDays, BedDouble,
   UtensilsCrossed, Wrench, ShieldAlert, Layers, Lock,
   Menu, X, Users, Search, ChevronDown, Settings, BookMarked, LogOut, NotebookPen,
-  CalendarClock, Clock, BarChart3, FileText, Sparkles, BookOpen, ClipboardCheck
+  CalendarClock, Clock, BarChart3, FileText, Sparkles, BookOpen, ClipboardCheck, Timer
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
 import { useRoleContext } from "@/lib/RoleContext";
@@ -54,6 +54,7 @@ const ALL_LINKS = [
   { key: "work-schedule",   to: "/work-schedule",   label: "סידור עבודה",      icon: CalendarClock,   group: "ops" },
   { key: "cleaning-hours",  to: "/cleaning-hours",  label: "שעות עובדות ניקיון", icon: Clock,          group: "ops" },
   { key: "my-shifts",       to: "/my-shifts",       label: "המשמרות שלי",      icon: Clock,           group: "primary" },
+  { key: "attendance",      to: "/attendance",      label: "שעון נוכחות",      icon: Timer,           group: "primary" },
   { key: "logistics-assistant", to: "/logistics-assistant", label: "עוזר לוגיסטיקה", icon: Sparkles,      group: "primary" },
 ];
 
@@ -209,14 +210,15 @@ export default function AppNav() {
 
   const { isActiveWorker } = useMyWorkerProfile(!!role);
   const baseKeys = role ? [...(ROLE_NAV_LINKS[role] || []), ...getUserExtraRoutes(internalUser?.email)] : [];
-  const allowedKeys = isActiveWorker && !baseKeys.includes("my-shifts") ? [...baseKeys, "my-shifts"] : baseKeys;
+  const workerKeys = isActiveWorker ? ["my-shifts", ...(role !== "MECHINA_USER" ? ["attendance"] : [])] : [];
+  const allowedKeys = [...new Set([...baseKeys, ...workerKeys])];
   const showLogisticsAssistant = isLogisticsManager(internalUser?.email);
   const showAdmin = allowedKeys.includes("admin");
   const showUserManagement = role === "SUPER_ADMIN";
   const isAdminRole = ADMIN_ROLES_SET.has(role);
 
   // Primary links: main daily-use modules kept in the top bar
-  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "meeting-summaries", "my-shifts", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
+  const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "meeting-summaries", "my-shifts", "attendance", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
     .filter(l => PRIMARY_KEYS.includes(l.key) && (allowedKeys.includes(l.key) || (l.key === "logistics-assistant" && showLogisticsAssistant)))
     .sort((a, b) => role === "QUOTES_MANAGER"
