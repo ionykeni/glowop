@@ -27,7 +27,7 @@ export function recipientResolver(users, internals) {
     const { user } = pickActiveInternalUser(internals, email);
     if (user?.active !== true || (linked && linked.role !== user.role)) return null;
     const id = byEmail(email);
-    return id ? { id, canClock: attendanceAccess(user.role, profile).canClock } : null;
+    return id && attendanceAccess(user.role, profile).canClock ? id : null;
   } };
 }
 
@@ -119,7 +119,7 @@ export function buildAttendanceAlerts({ now, attendance, shifts, schedules, prof
       if (due(ms, now)) emitShift(s, recipient, 'NIGHT_ON_CALL_21', ms);
     } else {
       const window = reminderWindow(s);
-      if (window && recipient.canClock) group(timed, s.worker_id, { s, recipient, ...window });
+      if (window) group(timed, s.worker_id, { s, recipient, ...window });
     }
   }
   for (const [workerId, windows] of timed) {
@@ -139,7 +139,7 @@ export function buildAttendanceAlerts({ now, attendance, shifts, schedules, prof
 
   function emitShift(s, recipient, type, ms) {
     const [title, body] = COPY[type];
-    emit(type, [s.id], recipient.id, ms, {
+    emit(type, [s.id], recipient, ms, {
       title, body, link: type === 'NIGHT_ON_CALL_21' ? '/my-shifts' : '/attendance',
       folder: 'general', worker_id: s.worker_id, shift_id: s.id, local_date: s.date,
     });

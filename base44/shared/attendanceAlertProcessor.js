@@ -22,16 +22,15 @@ async function appUsers(User) {
   const rows = [];
   const limit = 200;
   for (let offset = 0; ; offset += limit) {
-    const page = await User.list('id', limit, offset);
+    const page = await User.list('id', limit, offset, ['id', 'email']);
     if (offset && page.length && page[0].id === rows[0].id) throw new Error('App user pagination did not advance');
     rows.push(...page);
     if (page.length < limit) return rows;
   }
 }
 
-export async function processAttendanceAlerts(db, nowFn = Date.now) {
-  return withLeaseLock(db, 'AttendanceNotificationLock', 'ATTENDANCE_ALERTS', async () => {
-    const now = nowFn(), today = localDateOf(now);
+export async function scanAttendanceAlerts(db, now) {
+    const today = localDateOf(now);
     const firstDate = addDays(localDateOf(now - GRACE), -1);
     const [attendance, shifts] = await Promise.all([
       all(db.AttendanceRecord, { status: { $in: ['ACTIVE', 'CLOSED', 'AUTO_CLOSED'] }, effective_start_at: { $gte: iso(now - 72 * HOUR), $lte: iso(now) } }),
@@ -48,6 +47,13 @@ export async function processAttendanceAlerts(db, nowFn = Date.now) {
     const events = workerIds.length ? buildAttendanceAlerts({ now, attendance, shifts, schedules, profiles, users, internals,
       warn: (email) => console.warn('[attendance notifications] management account missing or ambiguous:', email),
     }) : [];
+    return events;
+}
+
+export async function processAttendanceAlerts(db, nowFn = Date.now) {
+  return withLeaseLock(db, 'AttendanceNotificationLock', 'ATTENDANCE_ALERTS', async () => {
+    const now = nowFn();
+    const events = await scanAttendanceAlerts(db, now);
     return { candidates: events.length, ...await dispatchInApp(db, events, iso(now)) };
   }, { leaseMs: 6 * 60 * 1000, attempts: 1 });
 }

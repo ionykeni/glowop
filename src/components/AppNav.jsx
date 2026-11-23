@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
 import { useRoleContext } from "@/lib/RoleContext";
+import { useAuth } from "@/lib/AuthContext";
 import useMyWorkerProfile from "@/lib/useMyWorkerProfile";
 import { ROLE_NAV_LINKS, ROLE_LABELS, getUserExtraRoutes } from "@/lib/roles";
 import { useAlertCounts } from "@/hooks/useAlertCounts";
@@ -186,6 +187,8 @@ export default function AppNav() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { role, internalUser } = useRoleContext();
+  const { user, isAuthenticated } = useAuth();
+  const notificationIdentity = role && isAuthenticated ? user?.id : null;
   const canUseGlobalSearch = role !== "OPERATIONS";
   const alertCounts = useAlertCounts();
   const pendingWorkRequests = usePendingWorkScheduleRequests(role);
@@ -336,7 +339,7 @@ export default function AppNav() {
 
           {/* Right side: search + user */}
           <div className="flex items-center gap-2 shrink-0">
-            {internalUser?.id && <NotificationCenter key={internalUser.id} identity={internalUser.id} />}
+            {notificationIdentity && <NotificationCenter key={notificationIdentity} identity={notificationIdentity} />}
             {/* Quick search pill */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -404,7 +407,7 @@ export default function AppNav() {
             <Search className="w-3.5 h-3.5 shrink-0" />
             <span>חיפוש מהיר...</span>
           </button>
-          {internalUser?.id && <NotificationCenter key={internalUser.id} identity={internalUser.id} />}
+          {notificationIdentity && <NotificationCenter key={notificationIdentity} identity={notificationIdentity} />}
           <button
             onClick={() => { revokeAccess(); window.location.reload(); }}
             className="flex items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"

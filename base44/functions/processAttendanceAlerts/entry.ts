@@ -1,5 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.54';
-import { processAttendanceAlerts } from '../../shared/attendanceAlertProcessor.js';
+import { processAttendanceAlerts, scanAttendanceAlerts } from '../../shared/attendanceAlertProcessor.js';
 
 export default async function(req: Request): Promise<Response> {
   try {
@@ -8,8 +8,11 @@ export default async function(req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
     const input = await req.json().catch(() => ({}));
-    // Deliberately no write path for validation from the testing branch.
-    if (input?.mode === 'validate') return Response.json({ ready: true, writes: false });
+    // Validation exercises the real data queries without creating a lock, events or attempts.
+    if (input?.mode === 'validate') {
+      const events = await scanAttendanceAlerts(base44.asServiceRole.entities, Date.now());
+      return Response.json({ ready: true, candidates: events.length, writes: false });
+    }
     if (input?.mode !== 'scheduled') return Response.json({ error: 'Scheduled invocation required' }, { status: 400 });
     const result = await processAttendanceAlerts(base44.asServiceRole.entities);
     return Response.json(result.value || result, { status: result.value?.failed ? 503 : 200 });

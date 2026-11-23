@@ -1,5 +1,4 @@
-import { isId } from './attendancePolicy.js';
-
+const isNotificationId = (id) => typeof id === 'string' && /^[a-f\d]{24}$/i.test(id);
 const FOLDERS = ['inbox', 'general', 'archived'];
 const bad = (status, error) => ({ status, error });
 const card = ({ id, title, body, subject_name, event_type, link, status, created_at }) => ({ id, title, body, subject_name, event_type, link, status, created_at });
@@ -36,7 +35,7 @@ export async function attendanceNotificationInbox(entity, userId, input, now = n
     } while (true);
     return { ok: true };
   }
-  if (!['read', 'archive', 'restore'].includes(action) || !isId(id)) return bad(400, 'פעולת התראות לא תקינה');
+  if (!['read', 'archive', 'restore'].includes(action) || !isNotificationId(id)) return bad(400, 'פעולת התראות לא תקינה');
   const [row] = await entity.filter({ ...owner, id }, 'created_at', 1);
   if (!row) return bad(404, 'ההתראה לא נמצאה');
   const update = action === 'read'

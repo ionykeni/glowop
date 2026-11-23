@@ -83,6 +83,10 @@ test('overnight and DST use elapsed Jerusalem time: spring 4h, fall 6h; attendan
 function adapter(rows, name, readOnly = false) {
   const store = entity(rows, { name, readOnly });
   const legacy = store.filter;
+  if (name === 'AttendanceNotification') {
+    const create = store.create;
+    store.create = (data) => create({ ...data, id: String(store.rows.length + 1).padStart(24, '0') });
+  }
   store.filter = async (filter, sort, limit) => {
     if (!sort || typeof sort === 'string') return legacy(filter, sort, limit);
     const data = await legacy(filter, sort.sort, 1000);
