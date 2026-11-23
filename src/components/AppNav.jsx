@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, CheckSquare, CalendarDays, BedDouble,
   UtensilsCrossed, Wrench, ShieldAlert, Layers, Lock,
-  Menu, X, Users, Search, ChevronDown, Settings, BookMarked, LogOut, NotebookPen,
+  Menu, X, Users, Search, ChevronDown, BookMarked, LogOut, NotebookPen,
   CalendarClock, Clock, BarChart3, FileText, Sparkles, BookOpen, ClipboardCheck, Timer
 } from "lucide-react";
 import { revokeAccess } from "@/components/PilotAccessGate";
