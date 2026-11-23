@@ -1,0 +1,47 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "Asia/Jerusalem",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "\u05e9\u05e2\u05d5\u05df \u05e0\u05d5\u05db\u05d7\u05d5\u05ea: every 5 minutes, creates in-app attendance alerts (9-hour threshold for management, shift start/end and night on-call reminders for workers). Uses its own AttendanceNotificationLock; never changes AttendanceRecord or WorkShift. No external push.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "attendance_alerts",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "process_attendance_alerts": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processAttendanceAlerts",
+            "args": {
+              "mode": "scheduled"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05e0\u05d5\u05db\u05d7\u05d5\u05ea \u05d5\u05de\u05e9\u05de\u05e8\u05d5\u05ea",
+            "description": "\u05d4\u05ea\u05e8\u05d0\u05d5\u05ea \u05d1\u05ea\u05d5\u05da \u05d4\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Attendance Alerts"
+}
