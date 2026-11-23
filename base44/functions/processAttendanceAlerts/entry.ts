@@ -11,7 +11,9 @@ export default async function(req: Request): Promise<Response> {
     // Validation exercises the real data queries without creating a lock, events or attempts.
     if (input?.mode === 'validate') {
       const events = await scanAttendanceAlerts(base44.asServiceRole.entities, Date.now());
-      return Response.json({ ready: true, candidates: events.length, writes: false });
+      const summary = events.map(({ event_type, recipient_user_id, worker_id, shift_id, local_date, due_at }) =>
+        ({ event_type, recipient_user_id, worker_id, shift_id, local_date, due_at }));
+      return Response.json({ ready: true, candidates: events.length, events: summary, writes: false });
     }
     if (input?.mode !== 'scheduled') return Response.json({ error: 'Scheduled invocation required' }, { status: 400 });
     const result = await processAttendanceAlerts(base44.asServiceRole.entities);
