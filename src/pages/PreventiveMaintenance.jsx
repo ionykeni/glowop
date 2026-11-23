@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import PmHeader from "@/components/preventive-maintenance/PmHeader";
 import PmTasksView from "@/components/preventive-maintenance/PmTasksView";
-import MaintenanceHistory from "@/components/preventive-maintenance/MaintenanceHistory";
+import HistoryTab from "@/components/preventive-maintenance/HistoryTab";
 import TaskDefinitionsPanel from "@/components/preventive-maintenance/TaskDefinitionsPanel";
 import VoidCompletionDialog from "@/components/preventive-maintenance/VoidCompletionDialog";
 import { usePmOverview } from "@/hooks/usePreventiveMaintenance";
@@ -26,7 +26,7 @@ export default function PreventiveMaintenance() {
           </div>
         )}
         {data && tab === "tasks" && <PmTasksView data={data} onVoid={setVoidTarget} />}
-        {data && tab === "history" && <MaintenanceHistory onVoid={setVoidTarget} />}
+        {data && tab === "history" && <HistoryTab isManager={isManager} onVoid={setVoidTarget} />}
         {data && tab === "settings" && isManager && <TaskDefinitionsPanel />}
       </div>
       <VoidCompletionDialog target={voidTarget} onClose={() => setVoidTarget(null)} />

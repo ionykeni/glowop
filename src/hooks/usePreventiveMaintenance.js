@@ -23,6 +23,16 @@ export function usePmHistory(filters) {
   });
 }
 
+// Manager-only: previous weekly occurrences, including weeks that were not completed.
+export function usePmWeeklyHistory(filters) {
+  return useQuery({
+    queryKey: ["pm-history", "weeks", filters],
+    queryFn: () => invokeWorkforce("getPreventiveMaintenance", { action: "weekly_history", filters }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
 // One click = one request id; the server dedupes retries and repeated clicks.
 export function usePmCompleteAction() {
   const qc = useQueryClient();

@@ -66,10 +66,34 @@ export async function buildOverview(db, caller, now = new Date()) {
   return {
     today, week, month,
     caller: { name: caller.actorName, role: caller.role, is_manager: caller.access.isManager, is_team: caller.access.isTeam, is_assigned_worker: !!caller.access.assignedWorkerId },
-    weekly: sortRows(rows.filter((r) => r.recurrence_type === 'WEEKLY')),
+    // Weekly checklist = current week only. Earlier weeks stay in the database and appear in the weekly history.
+    weekly: sortRows(rows.filter((r) => r.recurrence_type === 'WEEKLY' && r.period_start === week.start)),
     monthly: sortRows(rows.filter((r) => r.recurrence_type === 'MONTHLY')),
     intervals: await buildIntervals(db, tasks, caller, today),
     missing_current: caller.access.isManager ? missing : [],
+  };
+}
+
+// Manager-only: previous weekly occurrences (not completion events), so missed weeks stay visible.
+export async function buildWeeklyHistory(db, caller, f = {}, now = new Date()) {
+  if (!caller.access.isManager) return { status: 403, error: 'היסטוריית שבועות זמינה למנהלים בלבד' };
+  const week = weekPeriod(israelDate(now));
+  const q = { recurrence_type: 'WEEKLY', period_start: { $lt: week.start } };
+  if (isId(f.task_id)) q.task_id = f.task_id;
+  if (f.result === 'COMPLETED' || f.result === 'MISSED') q.status = f.result === 'COMPLETED' ? 'COMPLETED' : 'PENDING';
+  const [occs, tasks] = await Promise.all([
+    db.MaintenanceTaskOccurrence.filter(q, '-period_start', 300),
+    db.RecurringMaintenanceTask.filter({ recurrence_type: 'WEEKLY' }, 'display_order', 200),
+  ]);
+  return {
+    weeks: occs.map((o) => ({
+      id: o.id, task_id: o.task_id, title: o.title_snapshot, responsible_label: responsibleLabel(o),
+      period_start: o.period_start, period_end: o.period_end, result: o.status === 'COMPLETED' ? 'COMPLETED' : 'MISSED',
+      completed_at: o.completed_at || null, completed_by_name: o.completed_by_name || null,
+      completed_late: !!o.completed_late, correction_count: o.correction_count || 0,
+    })),
+    limited: occs.length >= 300,
+    tasks: tasks.map((t) => ({ id: t.id, title: t.title })),
   };
 }
 

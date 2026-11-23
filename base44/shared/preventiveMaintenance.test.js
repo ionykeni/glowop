@@ -4,6 +4,7 @@ import { israelDate, weekPeriod, monthPeriod, periodsBetween, daysBetween } from
 import { pmAccess, canCompleteTask, occurrenceState, intervalState, sortUnits, validateTaskInput } from "./preventiveMaintenancePolicy.js";
 import { plannedPeriods, occurrenceKey } from "./preventiveMaintenanceGenerate.js";
 import { completeOccurrence, completeUnit, voidEvent } from "./preventiveMaintenanceCompletion.js";
+import { buildOverview, buildWeeklyHistory } from "./preventiveMaintenanceRead.js";
 
 const OMRI = "6a5603940bb18427ed7ef90c";
 
@@ -104,7 +105,11 @@ test("task validation", () => {
 // ── In-memory datastore for the completion core ─────────────────────────────
 function entity(rows) {
   let seq = 0;
-  const match = (r, q) => Object.entries(q).every(([k, v]) => (v && typeof v === "object" && "$in" in v ? v.$in.includes(r[k]) : r[k] === v));
+  const match = (r, q) => Object.entries(q).every(([k, v]) => {
+    if (v && typeof v === "object" && "$in" in v) return v.$in.includes(r[k]);
+    if (v && typeof v === "object" && "$lt" in v) return r[k] < v.$lt;
+    return r[k] === v;
+  });
   return {
     rows,
     get: async (id) => { const r = rows.find((x) => x.id === id); if (!r) throw Object.assign(new Error("nf"), { status: 404 }); return { ...r }; },
@@ -208,4 +213,72 @@ test("neighborhood cleanings: any order, separate events, double-submit guard", 
   assert.equal(db.MaintenanceCompletionEvent.rows.filter((e) => e.unit_key === "N2").length, 2);
   assert.equal((await completeUnit(db, ops, { taskId: "hoods", unitKey: "N9", requestId: rid(), now: NOW })).status, 404);
   assert.equal((await completeUnit(db, omri, { taskId: "hoods", unitKey: "N1", requestId: rid(), now: NOW })).status, 403);
+});
+
+// ── Weekly checklist shows only the current week; earlier weeks stay as history ──
+const MON = new Date("2026-11-23T09:00:00Z"); // Monday, week 2026-11-22..28
+const wk = (start, end, done) => ({
+  id: `w${start}`, occurrence_key: occurrenceKey("vip", start), task_id: "vip", title_snapshot: "ניקוזי VIP", recurrence_type: "WEEKLY",
+  period_start: start, period_end: end, responsibility_type: "OPERATIONS_TEAM",
+  ...(done ? { status: "COMPLETED", completed_at: done, completed_by_name: "דנה", completion_event_id: `ev${start}` } : { status: "PENDING" }),
+});
+const weeklyDb = (occs) => ({
+  RecurringMaintenanceTask: entity([
+    { id: "vip", title: "ניקוזי VIP", recurrence_type: "WEEKLY", responsibility_type: "OPERATIONS_TEAM", is_active: true, tracking_start_date: "2026-11-01" },
+    { id: "gen", title: "גנרטור", recurrence_type: "MONTHLY", responsibility_type: "OPERATIONS_TEAM", is_active: true, tracking_start_date: "2026-10-01" },
+  ]),
+  MaintenanceTaskOccurrence: entity([...occs,
+    { id: "mOct", occurrence_key: occurrenceKey("gen", "2026-10-01"), task_id: "gen", title_snapshot: "גנרטור", recurrence_type: "MONTHLY", period_start: "2026-10-01", period_end: "2026-10-31", status: "PENDING" },
+    { id: "mNov", occurrence_key: occurrenceKey("gen", "2026-11-01"), task_id: "gen", title_snapshot: "גנרטור", recurrence_type: "MONTHLY", period_start: "2026-11-01", period_end: "2026-11-30", status: "PENDING" },
+  ]),
+  MaintenanceCompletionEvent: entity([]),
+});
+const weeklyRows = async (occs, now = MON) => (await buildOverview(weeklyDb(occs), ops, now)).weekly;
+const W1 = ["2026-11-08", "2026-11-14"], W2 = ["2026-11-15", "2026-11-21"], W3 = ["2026-11-22", "2026-11-28"];
+
+test("1. previous week missed + current pending → one pending row", async () => {
+  const rows = await weeklyRows([wk(...W2), wk(...W3)]);
+  assert.deepEqual(rows.map((r) => [r.period_start, r.state]), [["2026-11-22", "PENDING"]]);
+});
+
+test("2. previous week missed + current completed → one green completed row", async () => {
+  const rows = await weeklyRows([wk(...W2), wk(...W3, "2026-11-23T08:00:00Z")]);
+  assert.deepEqual(rows.map((r) => [r.period_start, r.state, r.completed_by_name]), [["2026-11-22", "COMPLETED", "דנה"]]);
+});
+
+test("3. previous week completed + current pending → one pending row", async () => {
+  const rows = await weeklyRows([wk(...W2, "2026-11-17T08:00:00Z"), wk(...W3)]);
+  assert.deepEqual(rows.map((r) => [r.period_start, r.state]), [["2026-11-22", "PENDING"]]);
+});
+
+test("4. two missed previous weeks + current completed → one completed row", async () => {
+  const rows = await weeklyRows([wk(...W1), wk(...W2), wk(...W3, "2026-11-23T08:00:00Z")]);
+  assert.deepEqual(rows.map((r) => [r.period_start, r.state]), [["2026-11-22", "COMPLETED"]]);
+});
+
+test("5+6. missed weeks remain in manager history; reads never modify records; monthly unchanged", async () => {
+  const db = weeklyDb([wk(...W1), wk(...W2, "2026-11-17T08:00:00Z"), wk(...W3, "2026-11-23T08:00:00Z")]);
+  const before = JSON.stringify(db.MaintenanceTaskOccurrence.rows);
+  const ov = await buildOverview(db, admin, MON);
+  assert.deepEqual(ov.monthly.map((r) => [r.period_start, r.state]), [["2026-10-01", "OVERDUE"], ["2026-11-01", "PENDING"]]);
+  const hist = await buildWeeklyHistory(db, admin, {}, MON);
+  assert.deepEqual(hist.weeks.map((w) => [w.period_start, w.result]), [["2026-11-15", "COMPLETED"], ["2026-11-08", "MISSED"]]);
+  assert.deepEqual((await buildWeeklyHistory(db, admin, { result: "MISSED" }, MON)).weeks.map((w) => w.period_start), ["2026-11-08"]);
+  assert.equal((await buildWeeklyHistory(db, ops, {}, MON)).status, 403);
+  assert.equal((await buildWeeklyHistory(db, omri, {}, MON)).status, 403);
+  assert.equal(JSON.stringify(db.MaintenanceTaskOccurrence.rows), before);
+  assert.equal(db.MaintenanceTaskOccurrence.rows.length, 5);
+});
+
+test("7. Sunday rollover: new week becomes the only checklist item; last week moves to history", async () => {
+  const SUN = new Date("2026-11-28T22:30:00Z"); // Sunday 2026-11-29 00:30 Israel
+  assert.deepEqual(plannedPeriods({ id: "vip", recurrence_type: "WEEKLY", is_active: true, tracking_start_date: "2026-11-01" }, "2026-11-29").at(-1), { start: "2026-11-29", end: "2026-12-05" });
+  const occs = [wk(...W2), wk(...W3, "2026-11-23T08:00:00Z"), wk("2026-11-29", "2026-12-05")];
+  assert.deepEqual((await weeklyRows(occs, SUN)).map((r) => [r.period_start, r.state]), [["2026-11-29", "PENDING"]]);
+  const hist = await buildWeeklyHistory(weeklyDb(occs), admin, {}, SUN);
+  assert.deepEqual(hist.weeks.map((w) => [w.period_start, w.result]), [["2026-11-22", "COMPLETED"], ["2026-11-15", "MISSED"]]);
+  // Before the scheduler creates the new week, nothing old resurfaces; managers see it flagged as missing.
+  const early = await buildOverview(weeklyDb(occs.slice(0, 2)), admin, SUN);
+  assert.deepEqual(early.weekly, []);
+  assert.deepEqual(early.missing_current, ["ניקוזי VIP"]);
 });
