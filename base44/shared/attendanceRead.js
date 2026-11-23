@@ -3,7 +3,8 @@ import { localToUtcMs, localDateOf, localTimeOf, addDays, weekStartOf, isDate } 
 import { presentRecord, isId } from './attendancePolicy.js';
 import { buildAttendanceTotals } from './attendanceReport.js';
 import { closeIfExpired } from './attendanceSession.js';
-import { openRequestsByRecord, pendingCount, presentRequest } from './attendanceRequests.js';
+import { openRequestsByRecord, pendingCount, presentRequest, OPEN_STATUSES } from './attendanceRequests.js';
+import { buildComparison } from './attendanceComparison.js';
 
 // Employee views mark records that have a correction request awaiting manager approval.
 const withPending = (list, open) => list.map((r) => ({ ...r, pending_request: open[r.id] || null }));
@@ -25,11 +26,16 @@ async function recordsInRange(db, startDate, endDate, extra, now) {
 }
 
 // Published, PLANNED shifts (context only). Night on-call is not work time in the existing schedule rules.
-async function plannedShifts(db, date, workerId) {
-  const shifts = (await db.WorkShift.filter({ date, status: 'PLANNED', ...(workerId ? { worker_id: workerId } : {}) }, 'start_time', 300)).filter((s) => s.worker_id);
+// Assigned shifts that are PLANNED now and belong to a schedule that is PUBLISHED now (current data, no history).
+async function publishedPlanned(db, date, workerId, sort, limit) {
+  const shifts = (await db.WorkShift.filter({ date, status: 'PLANNED', ...(workerId ? { worker_id: workerId } : {}) }, sort, limit)).filter((s) => s.worker_id);
   const ids = [...new Set(shifts.map((s) => s.work_schedule_id).filter(Boolean))];
   const published = new Set((ids.length ? await db.WorkSchedule.filter({ id: { $in: ids } }) : []).filter((s) => s.status === 'PUBLISHED').map((s) => s.id));
-  return shifts.filter((s) => published.has(s.work_schedule_id)).map((s) => ({
+  return shifts.filter((s) => published.has(s.work_schedule_id));
+}
+
+async function plannedShifts(db, date, workerId) {
+  return (await publishedPlanned(db, date, workerId, 'start_time', 300)).map((s) => ({
     id: s.id, worker_id: s.worker_id, worker_name: s.worker_name || '', row_type: s.row_type, row_label: s.row_label || '', start_time: s.start_time || '', end_time: s.end_time || '',
   }));
 }
@@ -123,7 +129,26 @@ export async function attendanceReport(db, caller, { period, start, worker_id } 
     if (!range || start !== range.start) return bad(400, 'חודש לא תקין');
   } else return bad(400, 'סוג תקופה לא תקין');
   const filter = isId(worker_id) ? { worker_profile_id: worker_id } : {};
-  const [{ rows, limited }, workers] = await Promise.all([recordsInRange(db, range.start, range.end, filter, now.getTime()), activeWorkers(db)]);
+  // Planned side: recomputed from the current published schedule on every request (the day before covers overnight shifts).
+  const [{ rows, limited }, workers, shifts, open] = await Promise.all([
+    recordsInRange(db, range.start, range.end, filter, now.getTime()), activeWorkers(db),
+    publishedPlanned(db, { $gte: addDays(range.start, -1), $lte: range.end }, filter.worker_profile_id, 'date', 5000),
+    db.AttendanceCorrectionRequest.filter({ ...filter, status: { $in: OPEN_STATUSES }, local_date: { $gte: range.start, $lte: range.end } }, 'requested_at', 500),
+  ]);
   const totals = buildAttendanceTotals(rows, range.start, range.end, now.getTime());
-  return { period, ...range, basis: 'ACTUAL_ATTENDANCE', disclaimer: DISCLAIMER, ...totals, workers_list: workers, limited, timezone: 'Asia/Jerusalem' };
+  const cmp = buildComparison({ shifts, records: rows, requests: open, start: range.start, end: range.end, nowMs: now.getTime() });
+  const names = Object.fromEntries(workers.map((w) => [w.id, w.full_name]));
+  const actual = Object.fromEntries(totals.workers.map((w) => [w.worker_id, w]));
+  const empty = { verified_minutes: 0, unverified_minutes: 0, active_minutes: 0, session_count: 0, auto_closed_count: 0, corrected_count: 0, days: [] };
+  const list = Object.entries(cmp).filter(([id, c]) => actual[id] || c.shifts.length)
+    .map(([id, { worker_name, ...comparison }]) => ({ ...(actual[id] || { worker_id: id, worker_name: names[id] || worker_name, ...empty }), comparison }))
+    .sort((a, b) => a.worker_name.localeCompare(b.worker_name, 'he'));
+  const teamCmp = {};
+  for (const k of ['planned_minutes', 'planned_to_date_minutes', 'planned_shift_count', 'recorded_count', 'no_record_count', 'review_count', 'pending_count', 'extra_verified_minutes']) {
+    teamCmp[k] = list.reduce((t, w) => t + w.comparison[k], 0);
+  }
+  return {
+    period, ...range, basis: 'ACTUAL_ATTENDANCE', disclaimer: DISCLAIMER, workers: list, team: { ...totals.team, comparison: teamCmp },
+    planned_basis: 'CURRENT_PUBLISHED_SCHEDULE', generated_at: now.toISOString(), workers_list: workers, limited, timezone: 'Asia/Jerusalem',
+  };
 }

@@ -17,6 +17,11 @@ export function fmtMinutes(minutes) {
   return `${Math.floor(v / 60)}:${pad(v % 60)}`;
 }
 
+export function fmtSigned(minutes) {
+  const v = Math.round(minutes || 0);
+  return `${v > 0 ? "+" : v < 0 ? "−" : ""}${fmtMinutes(Math.abs(v))}`;
+}
+
 export function fmtClock(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;

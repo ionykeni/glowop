@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
+import { shiftInterval, mergeIntervals } from '../../shared/workScheduleReport.js';
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
     for (const shift of shifts) {
       if (!publishedIds.has(shift.work_schedule_id) || !shift.worker_id) continue;
       const worker = workerMap[shift.worker_id];
-      const row = grouped[shift.worker_id] || { worker_id: shift.worker_id, worker_name: worker?.full_name || shift.worker_name || "ללא שם", team: worker?.default_team || "OTHER", dates: new Set(), night_dates: new Set(), morning_shifts: 0, evening_shifts: 0, estimated_hours: 0, details: [] };
+      const row = grouped[shift.worker_id] || { worker_id: shift.worker_id, worker_name: worker?.full_name || shift.worker_name || "ללא שם", team: worker?.default_team || "OTHER", dates: new Set(), night_dates: new Set(), morning_shifts: 0, evening_shifts: 0, estimated_hours: 0, details: [], intervals: [] };
       const isNight = shift.row_type === "NIGHT_ON_CALL";
       const hours = isNight ? 0 : duration(shift.start_time, shift.end_time);
       const startHour = Number((shift.start_time || "12:00").split(":")[0]);
@@ -52,14 +53,16 @@ Deno.serve(async (req) => {
       if (isNight) row.night_dates.add(shift.date);
       else if (isEvening) row.evening_shifts += 1;
       else row.morning_shifts += 1;
-      row.estimated_hours += hours;
+      // The worker total counts overlapping shifts once (same union rule as the shared schedule report).
+      const iv = isNight ? null : shiftInterval(shift);
+      if (iv?.valid) row.intervals.push([iv.startMs, iv.endMs]);
       row.details.push({ date: shift.date, row_type: shift.row_type, row_label: shift.row_label || shift.row_type, start_time: shift.start_time || "", end_time: shift.end_time || "", estimated_hours: hours, is_night_on_call: isNight });
       grouped[shift.worker_id] = row;
     }
 
-    const report = Object.values(grouped).map((row) => ({ ...row, total_days: row.dates.size, total_shifts: row.details.length, night_on_call_count: row.night_dates.size, dates: [...row.dates].sort(), night_dates: [...row.night_dates].sort(), estimated_hours: Math.round(row.estimated_hours * 100) / 100, details: row.details.sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time)) })).sort((a, b) => a.worker_name.localeCompare(b.worker_name, "he"));
+    const report = Object.values(grouped).map(({ intervals, ...row }) => ({ ...row, total_days: row.dates.size, total_shifts: row.details.length, night_on_call_count: row.night_dates.size, dates: [...row.dates].sort(), night_dates: [...row.night_dates].sort(), estimated_hours: Math.round(mergeIntervals(intervals).reduce((t, [a, b]) => t + b - a, 0) / 36000) / 100, details: row.details.sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time)) })).sort((a, b) => a.worker_name.localeCompare(b.worker_name, "he"));
     return Response.json({ period: { year, month, start, end }, workers: report, disclaimer: "הנתונים הם הערכה לפי סידור העבודה שפורסם ואינם תחליף לדוח הנוכחות הרשמי ב-Connecteam." });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

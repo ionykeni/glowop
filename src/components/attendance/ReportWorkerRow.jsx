@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { fmtMinutes, fmtDay } from "@/lib/attendanceFormat";
+import WorkerComparison from "./WorkerComparison";
+import { fmtMinutes, fmtSigned, fmtDay } from "@/lib/attendanceFormat";
 
 export default function ReportWorkerRow({ worker: w }) {
   const [open, setOpen] = useState(false);
+  const c = w.comparison;
   return (
     <div>
       <button onClick={() => setOpen((v) => !v)} className="w-full px-4 py-3 flex items-center justify-between gap-2 text-start hover:bg-muted/30">
@@ -14,25 +16,39 @@ export default function ReportWorkerRow({ worker: w }) {
             {w.corrected_count > 0 && <span className="text-amber-700"> · {w.corrected_count} תוקנו</span>}
             {w.auto_closed_count > 0 && <span className="text-red-600"> · {w.auto_closed_count} נסגרו אוטומטית</span>}
           </p>
+          {c && (
+            <p className="text-xs text-muted-foreground">
+              {c.recorded_count}/{c.planned_shift_count} משמרות עם רישום
+              {c.review_count > 0 && <span className="text-amber-700"> · {c.review_count} לבדיקה</span>}
+              {c.extra_verified_minutes > 0 && <span> · {fmtMinutes(c.extra_verified_minutes)} מחוץ למשמרת</span>}
+            </p>
+          )}
         </div>
         <div className="text-end shrink-0">
           <p className="text-lg font-bold tabular-nums">{fmtMinutes(w.verified_minutes)}</p>
+          {c && <p className="text-[11px] text-muted-foreground tabular-nums">מתוכנן {fmtMinutes(c.planned_minutes)} · הפרש עד כה <span dir="ltr">{fmtSigned(w.verified_minutes - c.planned_to_date_minutes)}</span></p>}
           {w.unverified_minutes > 0 && <p className="text-[11px] text-red-600 tabular-nums">+{fmtMinutes(w.unverified_minutes)} לא מאושר</p>}
           {w.active_minutes > 0 && <p className="text-[11px] text-primary tabular-nums">+{fmtMinutes(w.active_minutes)} בעבודה כעת</p>}
         </div>
         <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="px-4 pb-3 space-y-1">
-          {w.days.map((d) => (
-            <div key={d.date} className="flex justify-between text-xs border-b border-border/60 py-1">
-              <span>{fmtDay(d.date)}</span>
-              <span className="tabular-nums">
-                {fmtMinutes(d.verified_minutes + d.active_minutes)}
-                {d.unverified_minutes > 0 && <span className="text-red-600"> · {fmtMinutes(d.unverified_minutes)} לא מאושר</span>}
-              </span>
+        <div className="px-4 pb-3 space-y-3">
+          {c && <WorkerComparison comparison={c} />}
+          {w.days.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-muted-foreground">נוכחות לפי יום</p>
+              {w.days.map((d) => (
+                <div key={d.date} className="flex justify-between text-xs border-b border-border/60 py-1">
+                  <span>{fmtDay(d.date)}</span>
+                  <span className="tabular-nums">
+                    {fmtMinutes(d.verified_minutes + d.active_minutes)}
+                    {d.unverified_minutes > 0 && <span className="text-red-600"> · {fmtMinutes(d.unverified_minutes)} לא מאושר</span>}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

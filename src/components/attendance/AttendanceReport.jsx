@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import ComparisonChips from "./ComparisonChips";
 import PeriodNav from "./PeriodNav";
 import TotalsChips from "./TotalsChips";
 import ReportWorkerRow from "./ReportWorkerRow";
 import { WorkerSelect } from "./ManagerFilters";
 import { useAttendanceReport } from "@/hooks/useAttendance";
-import { israelToday, addDays, weekStartOf, monthOf, shiftMonth, monthTitle, fmtDay } from "@/lib/attendanceFormat";
+import { israelToday, addDays, weekStartOf, monthOf, shiftMonth, monthTitle, fmtDay, fmtTime } from "@/lib/attendanceFormat";
 
 const startFor = (period) => (period === "week" ? weekStartOf(israelToday()) : `${monthOf(israelToday())}-01`);
 
@@ -13,7 +15,7 @@ export default function AttendanceReport() {
   const [period, setPeriod] = useState("month");
   const [start, setStart] = useState(() => startFor("month"));
   const [workerId, setWorkerId] = useState("");
-  const { data, isLoading, isFetching, error } = useAttendanceReport({ period, start, worker_id: workerId || undefined });
+  const { data, isLoading, isFetching, error, refetch } = useAttendanceReport({ period, start, worker_id: workerId || undefined });
   const choose = (p) => { setPeriod(p); setStart(startFor(p)); };
   const move = (n) => setStart(period === "week" ? addDays(start, 7 * n) : `${shiftMonth(monthOf(start), n)}-01`);
   const label = period === "week" ? `שבוע ${fmtDay(start)} – ${fmtDay(addDays(start, 6))}` : monthTitle(monthOf(start));
@@ -33,7 +35,16 @@ export default function AttendanceReport() {
       ) : data && (
         <div className={`space-y-3 ${isFetching ? "opacity-60" : ""}`}>
           <TotalsChips totals={data.team} />
-          <p className="text-[11px] text-muted-foreground">{data.disclaimer}</p>
+          <ComparisonChips comparison={data.team.comparison} verifiedMinutes={data.team.verified_minutes} />
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[11px] text-muted-foreground">
+              {data.disclaimer} ההשוואה מחושבת מחדש בכל טעינה לפי הסידור המפורסם כפי שהוא כעת, ולכן עשויה להשתנות אם משמרות עבר ייערכו. משמרת ללא רישום שעון מסומנת לבדיקה ואינה היעדרות.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching} className="shrink-0">
+              <RefreshCw className={isFetching ? "animate-spin" : ""} />
+              רענון{data.generated_at ? ` · ${fmtTime(data.generated_at)}` : ""}
+            </Button>
+          </div>
           {data.workers.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">אין נוכחות בתקופה זו</p>
           ) : (

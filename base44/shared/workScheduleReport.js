@@ -61,7 +61,7 @@ export function shiftInterval(shift) {
   return { valid: true, startMs, endMs, minutes: Math.round((endMs - startMs) / MIN), overnight: endDate !== shift.date };
 }
 
-function mergeIntervals(list) {
+export function mergeIntervals(list) {
   const sorted = [...list].sort((a, b) => a[0] - b[0]);
   const out = [];
   for (const [a, b] of sorted) {
