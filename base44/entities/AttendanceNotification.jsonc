@@ -1,0 +1,94 @@
+{
+  "name": "AttendanceNotification",
+  "type": "object",
+  "properties": {
+    "event_key": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "NINE_HOURS",
+        "MISSED_CLOCK_IN",
+        "ACTIVE_AFTER_SHIFT_END",
+        "NIGHT_ON_CALL_21"
+      ]
+    },
+    "recipient_user_id": {
+      "type": "string"
+    },
+    "folder": {
+      "type": "string",
+      "enum": [
+        "inbox",
+        "general"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "subject_name": {
+      "type": "string"
+    },
+    "link": {
+      "type": "string"
+    },
+    "worker_id": {
+      "type": "string"
+    },
+    "shift_id": {
+      "type": "string"
+    },
+    "local_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_at": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "read_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unread",
+        "read",
+        "archived"
+      ]
+    }
+  },
+  "required": [
+    "event_key",
+    "event_type",
+    "recipient_user_id",
+    "folder",
+    "title",
+    "body",
+    "link",
+    "local_date",
+    "due_at",
+    "created_at",
+    "status"
+  ],
+  "rls": {
+    "read": false,
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": false
+  }
+}

@@ -5,7 +5,7 @@ import ClockResultCard from "./ClockResultCard";
 import PlannedShiftsNote from "./PlannedShiftsNote";
 import AttendanceRow from "./AttendanceRow";
 import { useClockAction } from "@/hooks/useAttendance";
-import { fmtTime } from "@/lib/attendanceFormat";
+import { fmtDay, fmtTime, localDate } from "@/lib/attendanceFormat";
 
 function BigButton({ onClick, pending, stop, children }) {
   const Icon = pending ? Loader2 : stop ? Square : Play;
@@ -28,6 +28,7 @@ export default function ClockPanel({ status }) {
     <div className="space-y-4">
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 text-center space-y-4">
         <p className="text-sm text-muted-foreground">{status.caller.name}</p>
+        <p className="text-sm font-semibold">היום בישראל: {fmtDay(status.today || localDate(status.server_now))}</p>
         {active ? (
           <>
             <p className="text-sm">התחלת עבודה ב-<span className="font-bold tabular-nums">{fmtTime(active.start_at)}</span></p>

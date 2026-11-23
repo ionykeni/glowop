@@ -1,0 +1,58 @@
+{
+  "name": "AttendanceNotificationDelivery",
+  "type": "object",
+  "properties": {
+    "event_key": {
+      "type": "string"
+    },
+    "notification_id": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "IN_APP",
+        "WEB_PUSH"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ATTEMPTED",
+        "STORED",
+        "SENT",
+        "FAILED",
+        "SKIPPED"
+      ]
+    },
+    "error": {
+      "type": "string"
+    },
+    "attempted_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_key",
+    "channel",
+    "status",
+    "attempted_at"
+  ],
+  "rls": {
+    "read": false,
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": false
+  }
+}

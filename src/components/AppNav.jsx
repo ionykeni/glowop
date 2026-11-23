@@ -14,6 +14,7 @@ import { useAlertCounts } from "@/hooks/useAlertCounts";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import GlobalSearch from "@/components/search/GlobalSearch";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 import MechinaPendingBadge from "@/components/mechina/MechinaPendingBadge";
 import { usePendingWorkScheduleRequests } from "@/hooks/usePendingWorkScheduleRequests";
 import { isLogisticsManager } from "@/lib/logisticsAssistantConfig";
@@ -335,6 +336,7 @@ export default function AppNav() {
 
           {/* Right side: search + user */}
           <div className="flex items-center gap-2 shrink-0">
+            {internalUser?.id && <NotificationCenter key={internalUser.id} identity={internalUser.id} />}
             {/* Quick search pill */}
             <button
               onClick={() => setSearchOpen(true)}
@@ -402,6 +404,7 @@ export default function AppNav() {
             <Search className="w-3.5 h-3.5 shrink-0" />
             <span>חיפוש מהיר...</span>
           </button>
+          {internalUser?.id && <NotificationCenter key={internalUser.id} identity={internalUser.id} />}
           <button
             onClick={() => { revokeAccess(); window.location.reload(); }}
             className="flex items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"

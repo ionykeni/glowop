@@ -1,0 +1,39 @@
+{
+  "name": "AttendanceNotificationLock",
+  "type": "object",
+  "properties": {
+    "lock_key": {
+      "type": "string"
+    },
+    "holder_key": {
+      "type": "string"
+    },
+    "acquired_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "lock_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": false
+  }
+}
