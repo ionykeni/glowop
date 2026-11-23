@@ -1,0 +1,151 @@
+{
+  "name": "AttendanceRecord",
+  "type": "object",
+  "properties": {
+    "worker_profile_id": {
+      "type": "string",
+      "description": "FK to WorkerProfile (server-resolved, never client-supplied for employees)"
+    },
+    "internal_user_id": {
+      "type": "string",
+      "description": "InternalUser that clocked in or created the record"
+    },
+    "worker_name_snapshot": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "CLOCK",
+        "MANUAL"
+      ],
+      "enumColors": [
+        "blue",
+        "purple"
+      ],
+      "default": "CLOCK"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "CLOSED",
+        "AUTO_CLOSED",
+        "VOIDED"
+      ],
+      "enumColors": [
+        "blue",
+        "green",
+        "red",
+        "gray"
+      ],
+      "default": "ACTIVE",
+      "description": "AUTO_CLOSED = system safety cutoff at 13h, not confirmed work"
+    },
+    "clock_in_at": {
+      "type": "string",
+      "description": "Original server timestamp of clock-in (UTC ISO). Never changed by corrections."
+    },
+    "clock_out_at": {
+      "type": "string",
+      "description": "Original server timestamp of the employee's clock-out (UTC ISO). Never changed by corrections."
+    },
+    "effective_start_at": {
+      "type": "string",
+      "description": "Current start used for calculations (UTC ISO)"
+    },
+    "effective_end_at": {
+      "type": "string",
+      "description": "Current end used for calculations (UTC ISO); empty while ACTIVE"
+    },
+    "auto_close_due_at": {
+      "type": "string",
+      "description": "start + 13 hours (UTC ISO)"
+    },
+    "local_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Asia/Jerusalem date of effective_start_at"
+    },
+    "worked_minutes": {
+      "type": "number",
+      "description": "Cached elapsed minutes of the effective interval"
+    },
+    "needs_review": {
+      "type": "boolean",
+      "default": false
+    },
+    "was_auto_closed": {
+      "type": "boolean",
+      "default": false
+    },
+    "auto_closed_at": {
+      "type": "string"
+    },
+    "closed_by": {
+      "type": "string",
+      "enum": [
+        "EMPLOYEE",
+        "SYSTEM"
+      ]
+    },
+    "is_corrected": {
+      "type": "boolean",
+      "default": false
+    },
+    "correction_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_correction_id": {
+      "type": "string"
+    },
+    "last_corrected_at": {
+      "type": "string"
+    },
+    "last_corrected_by_name": {
+      "type": "string"
+    },
+    "voided_at": {
+      "type": "string"
+    },
+    "voided_by_name": {
+      "type": "string"
+    },
+    "clock_in_request_id": {
+      "type": "string",
+      "description": "Idempotency key of the clock-in request"
+    },
+    "manual_request_id": {
+      "type": "string",
+      "description": "Idempotency key of a manually added record"
+    }
+  },
+  "required": [
+    "worker_profile_id",
+    "status",
+    "effective_start_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    }
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "name": "AttendanceCorrection",
+  "type": "object",
+  "properties": {
+    "attendance_record_id": {
+      "type": "string"
+    },
+    "worker_profile_id": {
+      "type": "string"
+    },
+    "change_type": {
+      "type": "string",
+      "enum": [
+        "CREATE_MANUAL",
+        "EDIT_START",
+        "EDIT_END",
+        "EDIT_TIMES",
+        "RESOLVE_AUTO_CLOSE",
+        "CONFIRM",
+        "VOID"
+      ],
+      "enumColors": [
+        "purple",
+        "blue",
+        "blue",
+        "blue",
+        "red",
+        "green",
+        "gray"
+      ]
+    },
+    "original_start_at": {
+      "type": "string"
+    },
+    "original_end_at": {
+      "type": "string"
+    },
+    "original_status": {
+      "type": "string"
+    },
+    "corrected_start_at": {
+      "type": "string"
+    },
+    "corrected_end_at": {
+      "type": "string"
+    },
+    "corrected_status": {
+      "type": "string"
+    },
+    "corrected_by_internal_user_id": {
+      "type": "string"
+    },
+    "corrected_by_worker_id": {
+      "type": "string"
+    },
+    "corrected_by_name": {
+      "type": "string"
+    },
+    "corrected_by_role": {
+      "type": "string"
+    },
+    "by_manager": {
+      "type": "boolean",
+      "description": "True when the actor corrected another worker's record"
+    },
+    "corrected_at": {
+      "type": "string",
+      "description": "Server timestamp (UTC ISO)"
+    },
+    "note": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string",
+      "description": "Idempotency key"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "APPLIED",
+        "CONFLICT"
+      ],
+      "enumColors": [
+        "yellow",
+        "green",
+        "red"
+      ],
+      "default": "PENDING"
+    }
+  },
+  "required": [
+    "attendance_record_id",
+    "change_type",
+    "corrected_by_internal_user_id",
+    "corrected_at",
+    "state"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    }
+  }
+}

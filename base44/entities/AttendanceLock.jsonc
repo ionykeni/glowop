@@ -1,0 +1,45 @@
+{
+  "name": "AttendanceLock",
+  "type": "object",
+  "properties": {
+    "lock_key": {
+      "type": "string",
+      "description": "WORKER|<worker_profile_id> \u2014 serializes one worker's attendance writes"
+    },
+    "holder_key": {
+      "type": "string"
+    },
+    "acquired_at": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string",
+      "description": "Lease expiry (ISO); an expired lease may be taken over"
+    }
+  },
+  "required": [
+    "lock_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "backend_only"
+      }
+    }
+  }
+}
