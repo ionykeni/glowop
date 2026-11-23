@@ -1,0 +1,45 @@
+{
+  "name": "Attendance Auto Close",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "Asia/Jerusalem",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "attendance_auto_close",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "close_expired_sessions": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "closeExpiredAttendance",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "\u05e1\u05d2\u05d9\u05e8\u05d4 \u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9\u05ea \u05d0\u05d7\u05e8\u05d9 13 \u05e9\u05e2\u05d5\u05ea",
+            "description": "\u05d3\u05d5\u05e8\u05e9 \u05d1\u05d3\u05d9\u05e7\u05d4"
+          }
+        }
+      }
+    ]
+  },
+  "description": "\u05e9\u05e2\u05d5\u05df \u05e0\u05d5\u05db\u05d7\u05d5\u05ea: every 5 minutes, closes attendance sessions that reached 13 hours (end = start + 13h, AUTO_CLOSED, needs review). Idempotent; recovers any sessions missed by earlier runs."
+}
