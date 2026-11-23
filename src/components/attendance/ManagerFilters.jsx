@@ -18,9 +18,9 @@ export default function ManagerFilters({ date, onDate, workerId, onWorker, worke
   );
 }
 
-export function WorkerSelect({ value, onChange, workers = [], allLabel }) {
+export function WorkerSelect({ value, onChange, workers = [], allLabel, ariaLabel }) {
   return (
-    <select className={select} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className={select} aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{allLabel}</option>
       {workers.map((w) => <option key={w.id} value={w.id}>{w.full_name}</option>)}
     </select>

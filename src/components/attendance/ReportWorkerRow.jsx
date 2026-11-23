@@ -1,56 +1,24 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import WorkerComparison from "./WorkerComparison";
-import { fmtMinutes, fmtSigned, fmtDay } from "@/lib/attendanceFormat";
+import { workerSummary } from "./attendanceReportPresentation";
 
-export default function ReportWorkerRow({ worker: w }) {
+export default function ReportWorkerRow({ worker, generatedAt }) {
   const [open, setOpen] = useState(false);
-  const c = w.comparison;
+  const detailId = useId();
+  const [name, ...numbers] = workerSummary(worker, generatedAt);
   return (
-    <div>
-      <button onClick={() => setOpen((v) => !v)} className="w-full px-4 py-3 flex items-center justify-between gap-2 text-start hover:bg-muted/30">
-        <div className="min-w-0">
-          <p className="text-sm font-bold">{w.worker_name}</p>
-          <p className="text-xs text-muted-foreground">
-            {w.session_count} רשומות · {w.days.length} ימי נוכחות
-            {w.corrected_count > 0 && <span className="text-amber-700"> · {w.corrected_count} תוקנו</span>}
-            {w.auto_closed_count > 0 && <span className="text-red-600"> · {w.auto_closed_count} נסגרו אוטומטית</span>}
-          </p>
-          {c && (
-            <p className="text-xs text-muted-foreground">
-              {c.recorded_count}/{c.planned_shift_count} משמרות עם רישום
-              {c.review_count > 0 && <span className="text-amber-700"> · {c.review_count} לבדיקה</span>}
-              {c.extra_verified_minutes > 0 && <span> · {fmtMinutes(c.extra_verified_minutes)} מחוץ למשמרת</span>}
-            </p>
-          )}
-        </div>
-        <div className="text-end shrink-0">
-          <p className="text-lg font-bold tabular-nums">{fmtMinutes(w.verified_minutes)}</p>
-          {c && <p className="text-[11px] text-muted-foreground tabular-nums">מתוכנן {fmtMinutes(c.planned_minutes)} · הפרש עד כה <span dir="ltr">{fmtSigned(w.verified_minutes - c.planned_to_date_minutes)}</span></p>}
-          {w.unverified_minutes > 0 && <p className="text-[11px] text-red-600 tabular-nums">+{fmtMinutes(w.unverified_minutes)} לא מאושר</p>}
-          {w.active_minutes > 0 && <p className="text-[11px] text-primary tabular-nums">+{fmtMinutes(w.active_minutes)} בעבודה כעת</p>}
-        </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="px-4 pb-3 space-y-3">
-          {c && <WorkerComparison comparison={c} />}
-          {w.days.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-muted-foreground">נוכחות לפי יום</p>
-              {w.days.map((d) => (
-                <div key={d.date} className="flex justify-between text-xs border-b border-border/60 py-1">
-                  <span>{fmtDay(d.date)}</span>
-                  <span className="tabular-nums">
-                    {fmtMinutes(d.verified_minutes + d.active_minutes)}
-                    {d.unverified_minutes > 0 && <span className="text-red-600"> · {fmtMinutes(d.unverified_minutes)} לא מאושר</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <>
+      <tr className="border-t border-border hover:bg-muted/25">
+        <th scope="row" className="p-0 font-semibold">
+          <button type="button" aria-expanded={open} aria-controls={open ? detailId : undefined} onClick={() => setOpen(!open)} className="flex w-full items-center gap-1.5 px-2 py-3 text-start sm:gap-2 sm:px-4">
+            <ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 text-muted-foreground ${open ? "rotate-180" : ""}`} />
+            <span className="break-words">{name}</span>
+          </button>
+        </th>
+        {numbers.map((value, index) => <td key={index} className="px-1 py-3 text-center tabular-nums sm:px-4"><bdi dir="ltr">{value}</bdi></td>)}
+      </tr>
+      {open && <tr id={detailId} className="border-t border-border bg-muted/25"><td colSpan={5} className="px-2 py-4 sm:px-4"><WorkerComparison worker={worker} /></td></tr>}
+    </>
   );
 }
