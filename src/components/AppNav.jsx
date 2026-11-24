@@ -19,6 +19,7 @@ import NotificationCenter from "@/components/notifications/NotificationCenter";
 import MechinaPendingBadge from "@/components/mechina/MechinaPendingBadge";
 import { usePendingWorkScheduleRequests } from "@/hooks/usePendingWorkScheduleRequests";
 import { isLogisticsManager } from "@/lib/logisticsAssistantConfig";
+import { useManagerRequests } from "@/hooks/useAttendance";
 
 // Alert module mapping
 const LINK_ALERT_MODULE = {
@@ -221,6 +222,11 @@ export default function AppNav() {
   const showUserManagement = role === "SUPER_ADMIN";
   const isAdminRole = ADMIN_ROLES_SET.has(role);
 
+  // Attendance attention for managers only: pending correction requests (server-checked; 403 for anyone else).
+  const isAttendanceManager = (role === "SUPER_ADMIN" || role === "ADMIN") && allowedKeys.includes("attendance");
+  const { data: attendanceQueue } = useManagerRequests({ enabled: isAttendanceManager, retry: false, staleTime: 60_000 });
+  const attendancePending = isAttendanceManager ? attendanceQueue?.pending?.length || 0 : 0;
+
   // Primary links: main daily-use modules kept in the top bar
   const PRIMARY_KEYS = ["dashboard", "quotes", "groups", "approved-groups", "calendar", "allocation", "common-spaces", "meeting-summaries", "my-shifts", "attendance", ...(showLogisticsAssistant ? ["logistics-assistant"] : [])];
   const primaryLinks = ALL_LINKS
@@ -247,7 +253,7 @@ export default function AppNav() {
   const roleLabel = ROLE_LABELS[role] || role || "";
 
   // Per-item alert count helper
-  const getCount = (key) => alertCounts[LINK_ALERT_MODULE[key]] || 0;
+  const getCount = (key) => key === "attendance" ? attendancePending : alertCounts[LINK_ALERT_MODULE[key]] || 0;
 
   // Maintenance open issues badge
   const { data: maintenanceIssues = [] } = useQuery({
@@ -395,10 +401,11 @@ export default function AppNav() {
         <div className="flex items-center justify-between px-2 h-14">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="flex items-center justify-center w-12 h-12 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-            aria-label="פתח תפריט"
+            className="relative flex items-center justify-center w-12 h-12 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            aria-label={attendancePending > 0 ? `פתח תפריט, ${attendancePending} בקשות תיקון ממתינות` : "פתח תפריט"}
           >
             <Menu className="w-5 h-5" />
+            {attendancePending > 0 && <span aria-hidden="true" className="absolute top-3 left-3 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />}
           </button>
           <button
             onClick={() => setSearchOpen(true)}

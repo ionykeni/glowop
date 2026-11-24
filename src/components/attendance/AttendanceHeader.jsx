@@ -1,23 +1,17 @@
 import { Timer } from "lucide-react";
+import SegmentedTabs from "./SegmentedTabs";
 
 export default function AttendanceHeader({ tabs, tab, onTab }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Timer className="w-5 h-5 text-primary" /></div>
-        <h1 className="text-xl font-bold">שעון נוכחות</h1>
-      </div>
-      {tabs.length > 1 && (
-        <div className="flex flex-wrap gap-1 bg-muted rounded-xl p-1">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => onTab(t.id)}
-              className={`flex-1 h-9 rounded-lg text-sm font-semibold transition-colors ${tab === t.id ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-              {t.label}
-              {t.count > 0 && <span className="ms-1 inline-flex min-w-5 h-5 px-1 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[11px]">{t.count}</span>}
-            </button>
-          ))}
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sage text-sage-foreground"><Timer className="h-5 w-5" /></div>
+        <div>
+          <h1 className="text-xl font-bold leading-tight">שעון נוכחות</h1>
+          <p className="text-xs text-muted-foreground">נוכחות, תיקונים ודוחות במקום אחד</p>
         </div>
-      )}
+      </div>
+      {tabs.length > 1 && <SegmentedTabs tabs={tabs} value={tab} onChange={onTab} label="אזורי שעון הנוכחות" />}
     </div>
   );
 }

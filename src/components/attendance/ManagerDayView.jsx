@@ -33,10 +33,10 @@ export default function ManagerDayView() {
           <ManagerSection title="בוטלו" records={s.voided} tone="text-muted-foreground" />
           {empty && <p className="text-center text-sm text-muted-foreground py-8">אין נוכחות ביום זה</p>}
           {data.totals.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card divide-y divide-border">
-              <p className="px-4 py-2 text-sm font-bold bg-muted/40">שעות לפי עובד ביום זה</p>
+            <div className="att-card overflow-hidden att-divide">
+              <p className="att-head">שעות לפי עובד ביום זה</p>
               {data.totals.map((w) => (
-                <div key={w.worker_id} className="px-4 py-2 text-sm flex justify-between gap-2">
+                <div key={w.worker_id} className="px-5 py-3 text-sm flex justify-between gap-2 transition-colors hover:bg-cream/60">
                   <span className="font-semibold">{w.worker_name}</span>
                   <span className="tabular-nums">{fmtMinutes(w.verified_minutes + w.active_minutes)}{w.unverified_minutes > 0 && <span className="text-red-600"> · {fmtMinutes(w.unverified_minutes)} לא מאושר</span>}</span>
                 </div>

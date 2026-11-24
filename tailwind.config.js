@@ -22,6 +22,15 @@ module.exports = {
   				orange: 'hsl(var(--brand-orange))',
   				blue:   'hsl(var(--brand-blue))',
   			},
+  			cream: {
+  				DEFAULT: 'hsl(var(--cream))',
+  				deep: 'hsl(var(--cream-deep))',
+  			},
+  			'warm-line': 'hsl(var(--warm-line))',
+  			sage: {
+  				DEFAULT: 'hsl(var(--sage))',
+  				foreground: 'hsl(var(--sage-foreground))',
+  			},
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'

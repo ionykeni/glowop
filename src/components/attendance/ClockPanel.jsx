@@ -10,9 +10,12 @@ import { fmtDay, fmtTime, localDate } from "@/lib/attendanceFormat";
 function BigButton({ onClick, pending, stop, children }) {
   const Icon = pending ? Loader2 : stop ? Square : Play;
   return (
-    <button onClick={onClick} disabled={pending}
-      className={`w-full h-20 rounded-2xl text-xl font-bold flex items-center justify-center gap-3 shadow-sm transition-opacity disabled:opacity-60 ${stop ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
-      <Icon className={`w-6 h-6 ${pending ? "animate-spin" : ""}`} />{children}
+    <button type="button" onClick={onClick} disabled={pending}
+      className={`flex h-[4.5rem] w-full items-center justify-center gap-3 rounded-2xl text-lg font-semibold transition-all duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-4 disabled:translate-y-0 disabled:opacity-60 ${stop
+        ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25 hover:shadow-xl hover:shadow-destructive/30 focus-visible:ring-destructive/25"
+        : "bg-accent text-accent-foreground shadow-lg shadow-accent/25 hover:shadow-xl hover:shadow-accent/30 focus-visible:ring-accent/25"}`}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20"><Icon className={`h-5 w-5 ${pending ? "animate-spin" : ""}`} /></span>
+      {children}
     </button>
   );
 }
@@ -26,29 +29,37 @@ export default function ClockPanel({ status }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 text-center space-y-4">
-        <p className="text-sm text-muted-foreground">{status.caller.name}</p>
-        <p className="text-sm font-semibold">היום בישראל: {fmtDay(status.today || localDate(status.server_now))}</p>
-        {active ? (
-          <>
-            <p className="text-sm">התחלת עבודה ב-<span className="font-bold tabular-nums">{fmtTime(active.start_at)}</span></p>
-            <ElapsedTimer startAt={active.start_at} dueAt={active.auto_close_due_at} offset={offset} />
-            <BigButton stop pending={clock.isPending} onClick={() => press("clock_out")}>סיום עבודה</BigButton>
-            <p className="text-[11px] text-muted-foreground">ללא סיום — הספירה תיעצר אוטומטית ב-{fmtTime(active.auto_close_due_at)} ותסומן לבדיקה</p>
-          </>
-        ) : (
-          <>
-            <p className="text-lg font-semibold">לא בעבודה כרגע</p>
-            <BigButton pending={clock.isPending} onClick={() => press("clock_in")}>התחלת עבודה</BigButton>
-          </>
-        )}
+      <div className="att-card relative overflow-hidden p-6 text-center sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-sage/80 to-transparent" />
+        <div className="relative space-y-5">
+          <div className="space-y-0.5">
+            <p className="text-base font-semibold">{status.caller.name}</p>
+            <p className="text-xs text-muted-foreground">היום בישראל · {fmtDay(status.today || localDate(status.server_now))}</p>
+          </div>
+          {active ? (
+            <>
+              <span className="inline-flex items-center gap-2 rounded-full bg-card/80 px-3 py-1 text-xs font-semibold text-sage-foreground ring-1 ring-sage">
+                <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" /><span className="relative inline-flex h-2 w-2 rounded-full bg-accent" /></span>
+                בעבודה מאז <bdi dir="ltr" className="tabular-nums">{fmtTime(active.start_at)}</bdi>
+              </span>
+              <ElapsedTimer startAt={active.start_at} dueAt={active.auto_close_due_at} offset={offset} />
+              <BigButton stop pending={clock.isPending} onClick={() => press("clock_out")}>סיום עבודה</BigButton>
+              <p className="text-[11px] text-muted-foreground">ללא סיום, הספירה תיעצר אוטומטית ב־{fmtTime(active.auto_close_due_at)} ותסומן לבדיקה</p>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex rounded-full bg-card/80 px-3 py-1 text-xs font-semibold text-muted-foreground ring-1 ring-warm-line/60">לא בעבודה כרגע</span>
+              <BigButton pending={clock.isPending} onClick={() => press("clock_in")}>התחלת עבודה</BigButton>
+            </>
+          )}
+        </div>
       </div>
       {result && <ClockResultCard record={result} onClose={() => setResult(null)} />}
       <PlannedShiftsNote shifts={status.planned_today} />
       {status.today_records?.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card divide-y divide-border overflow-hidden">
-          <p className="px-4 py-2 text-xs font-semibold text-muted-foreground bg-muted/40">היום</p>
-          {status.today_records.map((r) => <AttendanceRow key={r.id} record={r} />)}
+        <div className="att-card overflow-hidden">
+          <p className="att-head">היום</p>
+          <div className="att-divide">{status.today_records.map((r) => <AttendanceRow key={r.id} record={r} />)}</div>
         </div>
       )}
     </div>

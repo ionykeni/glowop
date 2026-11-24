@@ -65,8 +65,9 @@ export function useMyRequests() {
   return useQuery({ queryKey: ["attendance", "my-requests"], queryFn: () => read("my_requests") });
 }
 
-export function useManagerRequests() {
-  return useQuery({ queryKey: ["attendance", "manager-requests"], queryFn: () => read("manager_requests"), refetchInterval: 60_000 });
+// Also used by the top menu for the manager attention indicator (the server returns 403 to non-managers).
+export function useManagerRequests(options = {}) {
+  return useQuery({ queryKey: ["attendance", "manager-requests"], queryFn: () => read("manager_requests"), refetchInterval: 60_000, ...options });
 }
 
 export function useAttendanceReport(filters) {

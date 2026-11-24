@@ -54,6 +54,12 @@
     --brand-yellow: 39 99% 57%;
     --brand-orange: 15 99% 52%;
     --brand-blue: 228 92% 45%;
+    /* soft attendance surfaces */
+    --cream: 40 38% 97%;
+    --cream-deep: 38 32% 93%;
+    --warm-line: 36 22% 86%;
+    --sage: 143 42% 93%;
+    --sage-foreground: 143 62% 25%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -90,6 +96,11 @@
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
+    --cream: 30 6% 8%;
+    --cream-deep: 30 6% 13%;
+    --warm-line: 30 6% 22%;
+    --sage: 143 25% 14%;
+    --sage-foreground: 143 50% 72%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -122,6 +133,12 @@
     font-family: 'Kav16', 'Arial Hebrew', Arial, sans-serif;
     font-weight: 600;
   }
+}
+
+@layer components {
+  .att-card { @apply rounded-3xl border border-warm-line/70 bg-card shadow-sm shadow-warm-line/30; }
+  .att-head { @apply flex items-center justify-between gap-2 border-b border-warm-line/60 bg-cream-deep/50 px-5 py-3 text-sm font-semibold text-foreground; }
+  .att-divide { @apply divide-y divide-warm-line/60; }
 }
 
 /* ============================================================================

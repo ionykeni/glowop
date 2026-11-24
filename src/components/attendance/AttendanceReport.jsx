@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileDown, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PeriodNav from "./PeriodNav";
+import SegmentedTabs from "./SegmentedTabs";
 import { REPORT_NOTE, WORKER_HEADERS } from "./attendanceReportPresentation";
 import { printManagementAttendance } from "./managementAttendancePdf";
 import { useToast } from "@/components/ui/use-toast";
@@ -29,20 +30,16 @@ export default function AttendanceReport() {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-1 bg-muted rounded-xl p-1">
-        {[["week", "שבועי"], ["month", "חודשי"]].map(([id, text]) => (
-          <button key={id} onClick={() => choose(id)} className={`flex-1 h-9 rounded-lg text-sm font-semibold ${period === id ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}>{text}</button>
-        ))}
-      </div>
+      <SegmentedTabs tabs={[{ id: "week", label: "שבועי" }, { id: "month", label: "חודשי" }]} value={period} onChange={choose} label="סוג תקופה" />
       <div className="grid gap-2 sm:grid-cols-2">
         <PeriodNav label={label} onPrev={() => move(-1)} onNext={() => move(1)} nextDisabled={start >= startFor(period)} />
         <div className="flex items-center"><WorkerSelect value={workerId} onChange={setWorkerId} workers={[...filterOptions.values()]} allLabel="כל העובדים" ariaLabel="סינון לפי עובד" /></div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+        <Button size="sm" variant="outline" className="rounded-full border-warm-line bg-card hover:bg-sage hover:text-sage-foreground" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={isFetching ? "animate-spin" : ""} />רענון
         </Button>
-        {period === "month" && <Button size="sm" variant="outline" disabled={!data?.workers.length || data.limited || isFetching || isPlaceholderData || !!error}
+        {period === "month" && <Button size="sm" variant="outline" className="rounded-full border-warm-line bg-card hover:bg-sage hover:text-sage-foreground" disabled={!data?.workers.length || data.limited || isFetching || isPlaceholderData || !!error}
           onClick={() => { if (!printManagementAttendance(data, label)) toast({ title: "יש לאפשר חלונות קופצים כדי לפתוח את הדוח", variant: "destructive" }); }}>
           <FileDown />{workerId ? "PDF ניהולי לעובד" : "PDF ניהולי לכל העובדים"}
         </Button>}
@@ -54,14 +51,14 @@ export default function AttendanceReport() {
       ) : data && (
         <div className="space-y-2">
           {data.workers.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">אין נתוני נוכחות או משמרות לתקופה זו.</p> : (
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="att-card overflow-hidden">
               <table className="w-full table-fixed text-xs sm:text-sm" aria-label="סיכום נוכחות לפי עובד">
-                <thead className="bg-muted/40 text-muted-foreground"><tr>{WORKER_HEADERS.map((h, i) => <th key={h} scope="col" className={i === 0 ? "w-[28%] px-2 py-3 text-start font-medium sm:px-4" : "px-1 py-3 text-center font-medium sm:px-4"}>{h}</th>)}</tr></thead>
+                <thead className="bg-cream-deep/50 text-muted-foreground"><tr>{WORKER_HEADERS.map((h, i) => <th key={h} scope="col" className={i === 0 ? "w-[28%] px-3 py-3 text-start font-medium sm:px-5" : "px-1 py-3 text-center font-medium sm:px-4"}>{h}</th>)}</tr></thead>
                 <tbody>{data.workers.map((w) => <ReportWorkerRow key={`${start}-${w.worker_id}`} worker={w} generatedAt={data.generated_at} />)}</tbody>
               </table>
             </div>
           )}
-          <p className="text-xs leading-relaxed text-muted-foreground">{REPORT_NOTE}</p>
+          <p className="rounded-2xl bg-cream-deep/40 px-4 py-3 text-xs leading-relaxed text-muted-foreground">{REPORT_NOTE}</p>
           {data.limited && <p className="text-xs text-amber-700">הדוח חלקי. כדי לייצא, יש לצמצם את התצוגה לעובד אחד.</p>}
         </div>
       )}

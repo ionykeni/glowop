@@ -25,11 +25,12 @@ export default function Attendance() {
   const current = tabs.find((t) => t.id === tab)?.id || tabs[0]?.id;
 
   return (
-    <div className={`${current === "report" ? "max-w-5xl" : "max-w-2xl"} mx-auto px-4 py-6 space-y-4`} dir="rtl">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-cream" dir="rtl">
+    <div className={`${current === "report" ? "max-w-5xl" : "max-w-2xl"} mx-auto px-4 py-6 sm:py-8 space-y-5`}>
       <AttendanceHeader tabs={tabs} tab={current} onTab={setTab} />
       {isLoading && <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
       {error && (
-        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-2">
+        <div className="rounded-3xl border border-red-200/70 bg-red-50/70 p-6 text-center space-y-2">
           <AlertCircle className="w-8 h-8 text-destructive mx-auto" />
           <p className="text-sm">{error.message}</p>
         </div>
@@ -39,6 +40,7 @@ export default function Attendance() {
       {data && current === "manage" && <ManagerDayView />}
       {data && current === "report" && <AttendanceReport />}
       {data && current === "requests" && <ManagerRequests />}
+    </div>
     </div>
   );
 }

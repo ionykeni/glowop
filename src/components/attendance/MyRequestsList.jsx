@@ -9,11 +9,11 @@ export default function MyRequestsList() {
   const requests = data?.requests || [];
   if (!requests.length) return null;
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <p className="px-4 py-2 text-sm font-bold bg-muted/40 border-b border-border">בקשות התיקון שלי</p>
-      <div className="divide-y divide-border">
+    <div className="att-card overflow-hidden">
+      <p className="att-head">בקשות התיקון שלי</p>
+      <div className="att-divide">
         {requests.map((r) => (
-          <div key={r.id} className="px-4 py-3 space-y-2">
+          <div key={r.id} className="px-5 py-4 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold">{REQUEST_TYPE_LABELS[r.request_type]} · {fmtDay(r.local_date)}</p>

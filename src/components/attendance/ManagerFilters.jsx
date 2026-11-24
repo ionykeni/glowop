@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { addDays } from "@/lib/attendanceFormat";
 
-const select = "h-9 w-full rounded-md border border-input bg-card px-2 text-sm";
+const select = "h-10 w-full rounded-full border border-warm-line/70 bg-card px-4 text-sm shadow-sm shadow-warm-line/30 transition-colors hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40";
 
 export default function ManagerFilters({ date, onDate, workerId, onWorker, workers = [] }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className="att-card p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
       <div className="flex items-center gap-1">
         <Button size="icon" variant="ghost" onClick={() => onDate(addDays(date, -1))} aria-label="יום קודם"><ChevronRight className="w-5 h-5" /></Button>
         <Input type="date" value={date} onChange={(e) => e.target.value && onDate(e.target.value)} />

@@ -10,7 +10,9 @@ function workerPage(worker, generatedAt) {
   const notes = workerNotes(worker);
   const rows = (worker.comparison?.shifts || []).map((shift) => {
     const s = shiftDetails(shift);
-    return `<tr><td>${escape(s.date)}<small>${escape(s.label)}</small></td><td>${s.planned ? bidi(s.planned) : "כוננות לילה"}${s.overnight ? "<small>עד למחרת</small>" : ""}</td><td>${s.sessions.map((x) => `<div>${bidi(x.time)}${x.label ? `<small>${escape(x.label)}</small>` : ""}</div>`).join("") || "—"}</td><td>${s.notes.map((n) => `<div>${escape(n)}</div>`).join("") || "—"}</td></tr>`;
+    const line = (label, d) => `<div><span class="lbl">${label}</span> <b class="${d.tone}">${escape(d.text)}</b></div>`;
+    const edges = s.entry ? line("כניסה", s.entry) + line("יציאה", s.exit) : escape(s.status || "—");
+    return `<tr><td>${escape(s.date)}<small>${escape(s.label)}</small></td><td>${s.planned ? bidi(s.planned) : "כוננות לילה"}${s.overnight ? "<small>עד למחרת</small>" : ""}</td><td>${s.actual ? bidi(s.actual) : "—"}${s.sessions.map((x) => `<small>${bidi(x.time)}${x.label ? ` · ${escape(x.label)}` : ""}</small>`).join("")}</td><td>${edges}${s.notes.map((n) => `<small>${escape(n)}</small>`).join("")}</td><td class="total">${s.total ? `<b class="${s.total.tone}">${bidi(s.total.text)}</b>` : "—"}</td></tr>`;
   }).join("");
   const extra = (worker.comparison?.extra || []).map((x) => {
     const e = extraDetails(x);
@@ -18,7 +20,7 @@ function workerPage(worker, generatedAt) {
   }).join("");
   return `<section class="employee">
     <div class="employee-summary"><h2>${escape(name)}</h2><table class="totals"><thead>${headings(WORKER_HEADERS.slice(1))}</thead><tbody><tr>${totals.map((x) => `<td>${bidi(x)}</td>`).join("")}</tr></tbody></table>${notes.length ? `<ul>${notes.map((n) => `<li>${escape(n)}</li>`).join("")}</ul>` : ""}</div>
-    ${rows ? `<table class="shifts"><colgroup><col class="col-date"><col class="col-planned"><col class="col-actual"><col class="col-note"></colgroup><thead><tr><th colspan="4" class="section-title">פירוט משמרות · ${escape(name)}</th></tr>${headings(SHIFT_HEADERS)}</thead><tbody>${rows}</tbody></table>` : "<p>אין משמרות מתוכננות בתקופה זו.</p>"}
+    ${rows ? `<table class="shifts"><colgroup><col class="col-date"><col class="col-planned"><col class="col-actual"><col class="col-note"><col class="col-total"></colgroup><thead><tr><th colspan="5" class="section-title">פירוט משמרות · ${escape(name)}</th></tr>${headings(SHIFT_HEADERS)}</thead><tbody>${rows}</tbody></table>` : "<p>אין משמרות מתוכננות בתקופה זו.</p>"}
     ${extra ? `<table class="extra"><thead><tr><th colspan="4" class="section-title">נוכחות מחוץ למשמרת מתוכננת · ${escape(name)}</th></tr>${headings(["תאריך", "שעות", "משך", "הערה"])}</thead><tbody>${extra}</tbody></table>` : ""}
   </section>`;
 }
@@ -28,7 +30,7 @@ export function printManagementAttendance(report, monthLabel) {
   if (!view) return false;
   view.opener = null;
   view.document.write(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>דוח נוכחות ניהולי · ${escape(monthLabel)}</title><style>
-    @page{size:A4 portrait;margin:14mm 13mm} *{box-sizing:border-box} body{margin:0;color:#20252d;font:10pt/1.45 Arial,sans-serif} header{border-bottom:1pt solid #354556;padding-bottom:3mm;margin-bottom:4mm} h1{font-size:21pt;margin:0 0 1mm} h2{font-size:15pt;margin:0 0 2mm} header p,.intro{margin:0;color:#4b5563} .intro{margin-bottom:5mm} .employee+.employee{break-before:page} .employee-summary,header{break-inside:avoid;break-after:avoid} table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:4mm} th,td{text-align:right;vertical-align:top;border-bottom:1px solid #d7dde4;padding:1.6mm 2mm;overflow-wrap:anywhere} th{font-weight:600;background:#f1f4f7} small{display:block;color:#4b5563;font-size:8.5pt} thead{display:table-header-group} tr{break-inside:avoid} .section-title{background:none;border-bottom:1pt solid #687888} .col-date{width:20%} .col-planned{width:18%} .col-actual{width:24%} .col-note{width:38%} ul{padding-inline-start:5mm;margin:0 0 3mm;color:#4b5563}
+    @page{size:A4 portrait;margin:14mm 13mm} *{box-sizing:border-box} body{margin:0;color:#20252d;font:10pt/1.45 Arial,sans-serif} header{border-bottom:1pt solid #354556;padding-bottom:3mm;margin-bottom:4mm} h1{font-size:21pt;margin:0 0 1mm} h2{font-size:15pt;margin:0 0 2mm} header p,.intro{margin:0;color:#4b5563} .intro{margin-bottom:5mm} .employee+.employee{break-before:page} .employee-summary,header{break-inside:avoid;break-after:avoid} table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:4mm} th,td{text-align:right;vertical-align:top;border-bottom:1px solid #d7dde4;padding:1.6mm 2mm;overflow-wrap:anywhere} th{font-weight:600;background:#f1f4f7} small{display:block;color:#4b5563;font-size:8.5pt} thead{display:table-header-group} tr{break-inside:avoid} .section-title{background:none;border-bottom:1pt solid #687888} .col-date{width:19%} .col-planned{width:17%} .col-actual{width:20%} .col-note{width:30%} .col-total{width:14%} .total{text-align:left} .lbl{color:#6b7280} .good{color:#047857} .bad{color:#dc2626} .warn{color:#b45309} .neutral{color:#4b5563;font-weight:400} ul{padding-inline-start:5mm;margin:0 0 3mm;color:#4b5563}
     @media screen{body{max-width:184mm;margin:12mm auto;padding:0 4mm}.employee+.employee{margin-top:8mm}.print-button{margin-bottom:5mm}} @media print{.print-button{display:none}th{print-color-adjust:exact}}
     </style></head><body><button class="print-button" type="button">הדפסה / שמירה כ־PDF</button>
     <header><h1>דוח נוכחות ניהולי</h1><p>${escape(monthLabel)}${report.generated_at ? ` · הופק ${escape(fmtDateTime(report.generated_at))}` : ""}</p></header>
