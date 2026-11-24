@@ -68,7 +68,6 @@ export default function TaskDefinitionDialog({ task, workers, onClose }) {
               <UnitsEditor units={form.units} onChange={(u) => set("units", u)} />
             </>
           )}
-          <Row label="סדר תצוגה"><Input type="number" value={form.display_order} onChange={(e) => set("display_order", e.target.value)} /></Row>
           {isEdit && <p className="text-[11px] text-muted-foreground">השינוי חל על תקופות עתידיות. משימות שכבר נוצרו וההיסטוריה אינן משתנות.</p>}
           {mut.error && <p className="text-xs text-red-600">{mut.error.message}</p>}
         </div>

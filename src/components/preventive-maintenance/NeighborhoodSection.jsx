@@ -9,9 +9,9 @@ export default function NeighborhoodSection({ task, onVoid }) {
     <section className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
         <div className="min-w-0">
-          <h2 className="text-base font-bold">ניקוי פילטרים בשכונות</h2>
+          <h2 className="text-base font-bold">{task.title}</h2>
           <p className="text-xs text-muted-foreground">
-            {task.title} · כל יחידה לפחות פעם ב-{task.interval_days} ימים, בכל סדר · אחריות: {task.responsible_label}
+            כל יחידה לפחות פעם ב-{task.interval_days} ימים, בכל סדר · אחריות: {task.responsible_label}
           </p>
         </div>
         {due > 0 && <span className="text-xs font-semibold bg-red-100 text-red-700 rounded-full px-2.5 py-1 shrink-0">{due} דורשות ניקוי</span>}
