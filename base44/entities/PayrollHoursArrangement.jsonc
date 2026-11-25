@@ -1,0 +1,125 @@
+{
+  "name": "PayrollHoursArrangement",
+  "type": "object",
+  "description": "Optional, payroll-reviewed inputs for the read-only payroll hours report. No employee defaults. Each classified Sunday\u2013Saturday week must have a single record covering the whole week.",
+  "properties": {
+    "worker_profile_id": {
+      "type": "string"
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_through": {
+      "type": "string",
+      "format": "date"
+    },
+    "rule": {
+      "type": "string",
+      "enum": [
+        "IL_SECTION_16_SUN_SAT"
+      ]
+    },
+    "review_reference": {
+      "type": "string",
+      "description": "Reference to the reviewed applicable arrangement and supporting records."
+    },
+    "inputs_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Confirm legal applicability, workday/week definition, overtime authorization, applicable holiday/rest coverage, and that official time represents compensable intervals (no missing sessions, relevant absences or undocumented deductions). Do not enable for cases outside the supported rule."
+    },
+    "weekly_regular_minutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2520,
+      "description": "Applicable statutory/arrangement threshold, not a part-time scheduling target."
+    },
+    "daily_limits": {
+      "type": "array",
+      "maxItems": 366,
+      "description": "Reviewed daily overtime thresholds for dates worked, including any shortened days or holiday eves. No fallback threshold.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "regular_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600
+          }
+        },
+        "required": [
+          "date",
+          "regular_minutes"
+        ]
+      }
+    },
+    "special_windows": {
+      "type": "array",
+      "maxItems": 366,
+      "description": "Complete set of verified employee-specific weekly rest and holiday windows covering this arrangement. Use explicit UTC timestamps. An empty list explicitly attests none apply to the covered time.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "weekly_rest",
+              "holiday"
+            ]
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "kind",
+          "start_at",
+          "end_at"
+        ]
+      }
+    }
+  },
+  "required": [
+    "worker_profile_id",
+    "effective_from",
+    "effective_through",
+    "rule",
+    "review_reference",
+    "inputs_verified",
+    "weekly_regular_minutes",
+    "daily_limits",
+    "special_windows"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "collaborator_role": "editor"
+      }
+    }
+  }
+}

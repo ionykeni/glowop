@@ -5,6 +5,7 @@ import ClockPanel from "@/components/attendance/ClockPanel";
 import MyAttendanceHistory from "@/components/attendance/MyAttendanceHistory";
 import ManagerDayView from "@/components/attendance/ManagerDayView";
 import AttendanceReport from "@/components/attendance/AttendanceReport";
+import PayrollHoursReport from "@/components/attendance/PayrollHoursReport";
 import ManagerRequests from "@/components/attendance/ManagerRequests";
 import { useAttendanceStatus } from "@/hooks/useAttendance";
 
@@ -14,6 +15,7 @@ const TABS = [
   { id: "manage", label: "ניהול", manager: true },
   { id: "requests", label: "בקשות תיקון שעות", manager: true },
   { id: "report", label: "דוחות", manager: true },
+  { id: "payroll", label: "דוח שעות לשכר", manager: true },
 ];
 
 export default function Attendance() {
@@ -26,7 +28,7 @@ export default function Attendance() {
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-cream" dir="rtl">
-    <div className={`${current === "report" ? "max-w-5xl" : "max-w-2xl"} mx-auto px-4 py-6 sm:py-8 space-y-5`}>
+    <div className={`${current === "payroll" ? "max-w-6xl" : current === "report" ? "max-w-5xl" : "max-w-2xl"} mx-auto px-4 py-6 sm:py-8 space-y-5`}>
       <AttendanceHeader tabs={tabs} tab={current} onTab={setTab} />
       {isLoading && <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}
       {error && (
@@ -39,6 +41,7 @@ export default function Attendance() {
       {data && current === "history" && <MyAttendanceHistory />}
       {data && current === "manage" && <ManagerDayView />}
       {data && current === "report" && <AttendanceReport />}
+      {data && caller?.is_manager && current === "payroll" && <PayrollHoursReport />}
       {data && current === "requests" && <ManagerRequests />}
     </div>
     </div>
